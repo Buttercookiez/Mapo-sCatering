@@ -1,0 +1,10 @@
+npm init -y 
+
+npm install express cors firebase-admin
+
+get sdk then paste it to serviceAccountkey.json
+
+
+
+
+
