@@ -7,6 +7,7 @@ import {
 import Navbar from '../../components/customer/Navbar';
 import Footer from '../../components/customer/Footer';
 import api from "../../api/api";
+import axios from 'axios';
 
 // --- Minimalist Animation Wrapper ---
 const FadeIn = ({ children, delay = 0, direction = 'up' }) => {

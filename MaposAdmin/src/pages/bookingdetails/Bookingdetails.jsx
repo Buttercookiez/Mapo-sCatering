@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { FadeIn, renderStatusBadge } from './Utils/UIHelpers'; 
 import { 
   Search, Filter, ChevronRight, ArrowLeft, Calendar, 
   Users, MapPin, Mail, Phone, Plus, Trash2, Send, 
@@ -10,48 +11,9 @@ import {
 
 import Sidebar from '../../components/layout/Sidebar';
 import DashboardNavbar from '../../components/layout/Navbar';
-
+import BookingList from './BookingList/BookingList';
+import api from '../../api/api';
 // --- 1. HELPER FUNCTIONS & ANIMATIONS ---
-
-const FadeIn = ({ children, delay = 0 }) => {
-  const [isVisible, setIsVisible] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setIsVisible(true); },
-      { threshold: 0.1 }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => { if (ref.current) observer.unobserve(ref.current); };
-  }, []);
-
-  return (
-    <div ref={ref} className={`transition-all duration-700 ease-out ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: `${delay}ms` }}>
-      {children}
-    </div>
-  );
-};
-
-const renderStatusBadge = (status) => {
-  const badgeBase = "flex items-center gap-1.5 text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-sm font-medium border transition-colors w-fit";
-  
-  switch (status) {
-    case 'Reserved':
-      return <span className={`${badgeBase} text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/10`}><CheckCircle size={10} /> Reserved</span>;
-    case 'Proposal Sent':
-      return <span className={`${badgeBase} text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-500/10 dark:border-amber-500/10`}><Clock size={10} /> Sent</span>;
-    case 'Pending Review':
-    case 'Pending':
-      return <span className={`${badgeBase} text-stone-600 bg-stone-100 border-stone-200 dark:text-stone-400 dark:bg-stone-800 dark:border-stone-700`}><AlertCircle size={10} /> New</span>;
-    case 'Paid':
-    case 'Confirmed':
-      return <span className={`${badgeBase} text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/10`}><CheckCircle size={10} /> Confirmed</span>;
-    case 'Unpaid':
-      return <span className={`${badgeBase} text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/10`}><AlertTriangle size={10} /> Unpaid</span>;
-    default: return null;
-  }
-};
 
 // --- 2. NEW BOOKING MODAL (CUSTOM UI IMPLEMENTATION) ---
 
@@ -417,65 +379,65 @@ const NewBookingModal = ({ isOpen, onClose, onSave, theme }) => {
   );
 };
 
-// --- 3. BOOKING LIST COMPONENT ---
-const BookingList = ({ bookings, onSelectBooking, onOpenNewBooking, theme, darkMode }) => {
-  return (
-    <div className="flex-1 overflow-y-auto p-6 md:p-12 scroll-smooth no-scrollbar">
-      <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
-        <div>
-          <h2 className={`font-serif text-3xl italic ${theme.text}`}>Bookings</h2>
-          <p className={`text-xs mt-1 ${theme.subText}`}>Manage requests and proposals.</p>
-        </div>
-        <div className="flex gap-3">
-          <button className={`flex items-center gap-2 px-4 py-2.5 border ${theme.border} text-[10px] uppercase tracking-widest hover:text-[#C9A25D] hover:border-[#C9A25D] transition-all bg-transparent ${theme.subText}`}>
-            <Filter size={14} /> Filter
-          </button>
-          <button 
-            onClick={onOpenNewBooking}
-            className="flex items-center gap-2 bg-[#1c1c1c] text-white px-6 py-2.5 text-[10px] uppercase tracking-widest hover:bg-[#C9A25D] transition-colors rounded-sm"
-          >
-            <Plus size={14} /> New Booking
-          </button>
-        </div>
-      </div>
+// // --- 3. BOOKING LIST COMPONENT ---
+// const BookingList = ({ bookings, onSelectBooking, onOpenNewBooking, theme, darkMode }) => {
+//   return (
+//     <div className="flex-1 overflow-y-auto p-6 md:p-12 scroll-smooth no-scrollbar">
+//       <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
+//         <div>
+//           <h2 className={`font-serif text-3xl italic ${theme.text}`}>Bookings</h2>
+//           <p className={`text-xs mt-1 ${theme.subText}`}>Manage requests and proposals.</p>
+//         </div>
+//         <div className="flex gap-3">
+//           <button className={`flex items-center gap-2 px-4 py-2.5 border ${theme.border} text-[10px] uppercase tracking-widest hover:text-[#C9A25D] hover:border-[#C9A25D] transition-all bg-transparent ${theme.subText}`}>
+//             <Filter size={14} /> Filter
+//           </button>
+//           <button 
+//             onClick={onOpenNewBooking}
+//             className="flex items-center gap-2 bg-[#1c1c1c] text-white px-6 py-2.5 text-[10px] uppercase tracking-widest hover:bg-[#C9A25D] transition-colors rounded-sm"
+//           >
+//             <Plus size={14} /> New Booking
+//           </button>
+//         </div>
+//       </div>
 
-      <FadeIn>
-        <div className={`border ${theme.border} ${theme.cardBg} rounded-sm min-h-[400px]`}>
-          <div className={`grid grid-cols-12 gap-4 px-8 py-4 border-b ${theme.border} text-[10px] uppercase tracking-[0.2em] font-bold text-stone-400 select-none`}>
-            <div className="col-span-2">Ref ID</div>
-            <div className="col-span-3">Client</div>
-            <div className="col-span-2">Event Date</div>
-            <div className="col-span-2">Type</div>
-            <div className="col-span-3 text-right">Status</div>
-          </div>
-          <div className={`divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
-            {bookings.map((booking) => (
-              <div 
-                key={booking.id} 
-                onClick={() => onSelectBooking(booking)}
-                className={`grid grid-cols-12 gap-4 px-8 py-6 items-center group transition-colors duration-300 cursor-pointer ${theme.cardBg} ${theme.hoverBg}`}
-              >
-                <div className={`col-span-2 text-xs font-mono tracking-wider group-hover:text-[#C9A25D] transition-colors ${theme.subText}`}>{booking.id}</div>
-                <div className="col-span-3">
-                  <span className={`font-serif text-lg block leading-tight group-hover:text-[#C9A25D] transition-colors ${theme.text}`}>{booking.client}</span>
-                  <span className="text-[10px] text-stone-400 block mt-1">{booking.guests} Guests</span>
-                </div>
-                <div className={`col-span-2 text-xs ${theme.subText}`}>{booking.date}</div>
-                <div className="col-span-2">
-                  <span className={`text-[10px] uppercase border ${theme.border} px-2 py-1 rounded-sm text-stone-500 bg-transparent`}>{booking.type}</span>
-                </div>
-                <div className="col-span-3 flex justify-end items-center gap-4">
-                  {renderStatusBadge(booking.status)}
-                  <ChevronRight size={16} className="text-stone-300 group-hover:text-[#C9A25D] transition-colors"/>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </FadeIn>
-    </div>
-  );
-};
+//       <FadeIn>
+//         <div className={`border ${theme.border} ${theme.cardBg} rounded-sm min-h-[400px]`}>
+//           <div className={`grid grid-cols-12 gap-4 px-8 py-4 border-b ${theme.border} text-[10px] uppercase tracking-[0.2em] font-bold text-stone-400 select-none`}>
+//             <div className="col-span-2">Ref ID</div>
+//             <div className="col-span-3">Client</div>
+//             <div className="col-span-2">Event Date</div>
+//             <div className="col-span-2">Type</div>
+//             <div className="col-span-3 text-right">Status</div>
+//           </div>
+//           <div className={`divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
+//             {bookings.map((b) => (
+//               <div 
+//                 key={b.id} 
+//                 onClick={() => onSelectBooking(b)}
+//                 className={`grid grid-cols-12 gap-4 px-8 py-6 items-center group transition-colors duration-300 cursor-pointer ${theme.cardBg} ${theme.hoverBg}`}
+//               >
+//                 <div className={`col-span-2 text-xs font-mono tracking-wider group-hover:text-[#C9A25D] transition-colors ${theme.subText}`}>{b.refId}</div>
+//                 <div className="col-span-3">
+//                   <span className={`font-serif text-lg block leading-tight group-hover:text-[#C9A25D] transition-colors ${theme.text}`}>{b.fullName}</span>
+//                   <span className="text-[10px] text-stone-400 block mt-1">{b.estimatedGuests} Guests</span>
+//                 </div>
+//                 <div className={`col-span-2 text-xs ${theme.subText}`}>{b.dateOfEvent}</div>
+//                 <div className="col-span-2">
+//                   <span className={`text-[10px] uppercase border ${theme.border} px-2 py-1 rounded-sm text-stone-500 bg-transparent`}>{b.eventType}</span>
+//                 </div>
+//                 <div className="col-span-3 flex justify-end items-center gap-4">
+//                   {renderStatusBadge(b.status)}
+//                   <ChevronRight size={16} className="text-stone-300 group-hover:text-[#C9A25D] transition-colors"/>
+//                 </div>
+//               </div>
+//             ))}
+//           </div>
+//         </div>
+//       </FadeIn>
+//     </div>
+//   );
+// };
 
 // --- 4. BOOKING DETAILS COMPONENT ---
 const BookingDetails = ({ booking, onBack, activeDetailTab, setActiveDetailTab, theme, darkMode }) => {
@@ -848,11 +810,12 @@ const Bookings = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
 
-  const [bookings, setBookings] = useState([
-    { id: 'BK-042', client: 'Sofia Alcantara', date: 'Oct 24, 2024', type: 'Wedding', guests: 150, budget: 250000, status: 'Reserved', email: 'sofia@mail.com', phone: '+63 917 123 4567', notes: 'No pork allowed.' },
-    { id: 'BK-045', client: 'TechSolutions Inc.', date: 'Oct 26, 2024', type: 'Corporate', guests: 300, budget: 150000, status: 'Proposal Sent', email: 'hr@techsolutions.com', phone: '(02) 8888 1234', notes: 'Requires projector.' },
-    { id: 'BK-048', client: 'Isabella Gomez', date: 'Oct 28, 2024', type: 'Debut', guests: 80, budget: 80000, status: 'Pending Review', email: 'isa.gomez@mail.com', phone: '+63 918 555 6789', notes: 'Theme: Garden Floral.' },
-  ]);
+  const [bookings, setBookings] = useState([]);
+  useEffect(() => {
+    api.get('/inquiries-summary') // relative to baseURL
+      .then(res => setBookings(res.data))
+      .catch(err => console.error(err));
+  }, []);
 
   const handleSaveBooking = (newBooking) => {
     setBookings(prev => [newBooking, ...prev]);
