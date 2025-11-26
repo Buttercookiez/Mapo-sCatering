@@ -62,7 +62,7 @@ const Booking = () => {
   });
   
   const [eventType, setEventType] = useState("");
-  const [serviceStyle, setServiceStyle] = useState(""); // 'plated', 'buffet', 'family'
+  const [serviceStyle, setServiceStyle] = useState(""); // 'full_service', 'service_only'
   
   // Dropdown Toggles
   const [eventTypeOpen, setEventTypeOpen] = useState(false);
@@ -73,14 +73,20 @@ const Booking = () => {
   // Calendar State
   const [currentDate, setCurrentDate] = useState(new Date());
   const bookedDates = ["2025-11-15", "2025-11-20", "2025-12-01", "2025-12-25"];
-  const eventOptions = ['Wedding', 'Corporate Gala', 'Private Dinner', 'Cocktail Reception', 'Product Launch', 'Birthday', 'Engagement Party', 'Charity Ball'];
+  
+  // Expanded Event Options
+  const eventOptions = [
+    'Wedding', 'Corporate Gala', 'Private Dinner', 'Cocktail Reception', 
+    'Product Launch', 'Birthday', 'Engagement Party', 'Charity Ball',
+    'Anniversary', 'Baby Shower', 'Baptism', 'Graduation', 
+    'Reunion', 'Holiday Party', 'Conference', 'Retirement Party', 
+    'Bridal Shower', 'Debut'
+  ];
 
   // --- AUTOMATIC BUDGET CALCULATION ---
-  // Logic remains, but prices are hidden from UI cards as requested
   const prices = {
-    'plated': 1500,
-    'buffet': 850,
-    'family': 1100
+    'full_service': 1500, 
+    'service_only': 600
   };
 
   useEffect(() => {
@@ -240,6 +246,16 @@ const Booking = () => {
           
           input[type="time"]::-webkit-calendar-picker-indicator { display: none; }
           .no-scrollbar::-webkit-scrollbar { display: none; }
+          
+          /* Remove Number Spinner */
+          input[type=number]::-webkit-inner-spin-button, 
+          input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+          }
+          input[type=number] {
+            -moz-appearance: textfield;
+          }
         `}
       </style>
 
@@ -277,16 +293,15 @@ const Booking = () => {
                   </div>
                 </div>
 
-                {/* 2. Service Style (Moved Up & Price Text Removed) */}
+                {/* 2. Service Style */}
                 <div>
                   <h3 className={`font-serif text-2xl ${theme.text} mb-8 flex items-center gap-3`}>
                     <span className="text-[#C9A25D] text-sm font-sans tracking-widest uppercase">02.</span> Service Style
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[
-                      { id: 'plated', label: 'Plated', desc: 'Formal multi-course service' },
-                      { id: 'buffet', label: 'Buffet', desc: 'Variety and abundance' },
-                      { id: 'family', label: 'Family Style', desc: 'Shared platters at the table' }
+                      { id: 'full_service', label: 'Full-Service Catering', desc: 'with food (includes food, staff, setup, etc.)' },
+                      { id: 'service_only', label: 'Service-Only Catering', desc: 'without food (only staff, setup, serving, equipment, etc.)' }
                     ].map((style) => (
                       <div 
                         key={style.id} 
@@ -305,13 +320,12 @@ const Booking = () => {
                         </div>
                         <h4 className={`font-serif text-lg ${theme.text} mb-1`}>{style.label}</h4>
                         <p className={`text-xs ${theme.subText}`}>{style.desc}</p>
-                        {/* Removed Price Text as requested */}
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* 3. Event Details (Moved Down) */}
+                {/* 3. Event Details */}
                 <div>
                    <h3 className={`font-serif text-2xl ${theme.text} mb-8 flex items-center gap-3`}>
                     <span className="text-[#C9A25D] text-sm font-sans tracking-widest uppercase">03.</span> The Event
@@ -335,7 +349,7 @@ const Booking = () => {
                     <div className="group relative"><div className={`flex items-center border-b ${theme.border}`}><Clock className={`w-4 h-4 ${theme.subText} mr-3`} /><input type="text" name="startTime" placeholder="Start Time (e.g. 4PM)" value={formData.startTime} onChange={handleInputChange} className={`w-full bg-transparent py-3 ${theme.text} placeholder-stone-400 focus:outline-none`}/></div></div>
                     <div className="group relative"><div className={`flex items-center border-b ${theme.border}`}><Clock className={`w-4 h-4 ${theme.subText} mr-3`} /><input type="text" name="endTime" placeholder="End Time (e.g. 10PM)" value={formData.endTime} onChange={handleInputChange} className={`w-full bg-transparent py-3 ${theme.text} placeholder-stone-400 focus:outline-none`}/></div></div>
 
-                    {/* Guest Count */}
+                    {/* Guest Count (Spinner Removed) */}
                     <div className="group">
                       <div className={`flex items-center border-b ${theme.border}`}>
                          <Users className={`w-4 h-4 ${theme.subText} mr-3`} />
@@ -359,7 +373,7 @@ const Booking = () => {
                       <p className="text-[10px] text-stone-400 mt-1 italic">Calculated based on pax & service style.</p>
                     </div>
 
-                    {/* Event Type Dropdown */}
+                    {/* Event Type Dropdown (Expanded List) */}
                     <div className="group relative md:col-span-2">
                       <button type="button" onClick={() => setEventTypeOpen(!eventTypeOpen)} className={`w-full bg-transparent border-b ${theme.border} py-3 pl-0 pr-10 text-left focus:outline-none ${theme.inputFocus} transition-colors flex justify-between items-center cursor-pointer`}><span className={eventType ? theme.text : "text-stone-400"}>{eventType || "Event Type"}</span><ChevronDown className={`w-4 h-4 ${theme.subText} transition-transform duration-300 ${eventTypeOpen ? 'rotate-180' : ''}`} /></button>
                       <div className={`absolute top-full left-0 w-full sm:w-[400px] mt-4 p-5 shadow-2xl rounded-sm z-40 transition-all duration-300 origin-top ${eventTypeOpen ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-0 pointer-events-none'} ${theme.dropdownBg} border ${theme.border}`}><div className="mb-4 border-b border-stone-100 dark:border-stone-800 pb-2"><span className="text-xs font-serif italic text-[#C9A25D]">Select an Occasion</span></div><div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto no-scrollbar">{eventOptions.map((option) => (<div key={option} onClick={() => { setEventType(option); setEventTypeOpen(false); }} className={`px-3 py-2 text-xs uppercase tracking-wider text-center cursor-pointer transition-all border rounded-sm ${eventType === option ? 'bg-[#C9A25D] text-white border-[#C9A25D]' : `${theme.border} ${theme.text} hover:border-[#C9A25D] hover:text-[#C9A25D] hover:bg-transparent`} `}>{option}</div>))}</div></div>
