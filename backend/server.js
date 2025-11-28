@@ -1,16 +1,36 @@
+// Load environment variables
+const dotenv = require("dotenv");
+dotenv.config();
+
+// Core modules
 const express = require("express");
 const cors = require("cors");
-
-
-const inquiryRoute = require("./routes/inquiryRoute");
-const bookingRoute = require("./routes/bookingRoute");
-
 const app = express();
+
+// Middleware - FIXED ORDER
 app.use(cors());
-app.use(express.json());
+
+// Parse JSON for all routes EXCEPT webhook
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/paymongo/webhook') {
+    next();
+  } else {
+    express.json()(req, res, next);
+  }
+});
+
+// Routes
+const inquiryRoute = require("./routes/inquiryRoute");
+const paymongoRoute = require("./routes/paymongoRoute");
 
 // Use routes
 app.use("/api/inquiries", inquiryRoute);
-app.use("/api/inquiries-summary", bookingRoute);
+app.use("/api/paymongo", paymongoRoute);
 
-app.listen(5000, () => console.log("Server running on port 5000"));
+// Start server
+const PORT = 5000;
+app.listen(PORT, () => {
+  console.log(`   Server running on port ${PORT}`);
+  console.log(`   POST http://localhost:${PORT}/api/paymongo/create-checkout-session`);
+  console.log(`   POST http://localhost:${PORT}/api/paymongo/webhook`);
+});

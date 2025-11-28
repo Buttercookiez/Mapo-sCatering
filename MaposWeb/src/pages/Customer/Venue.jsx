@@ -199,30 +199,30 @@ const Venue = () => {
   const venues = [
     {
       id: 1,
-      name: "The Grand Ballroom",
+      name: "Palacios Event Place",
       capacity: "Up to 300 Guests",
       size: "4,500 sq. ft.",
-      img: "https://images.pexels.com/photos/587741/pexels-photo-587741.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-      subImg: "https://images.pexels.com/photos/2954455/pexels-photo-2954455.jpeg?auto=compress&cs=tinysrgb&w=800", 
-      description: "Our signature space features crystal chandeliers, floor-to-ceiling windows, and an open layout perfect for grand receptions and galas."
+      img: "/images/palacios.png",
+      subImg: "/images/palacioslogo.png", 
+      description: "Palacios Events Place offers a clean, elegant, and spacious venue perfect for weddings, parties, and special celebrations."
     },
     {
       id: 2,
-      name: "The Garden Terrace",
+      name: "La Veranda Events Hall",
       capacity: "Up to 150 Guests",
       size: "2,800 sq. ft.",
-      img: "https://images.pexels.com/photos/169198/pexels-photo-169198.jpeg?auto=compress&cs=tinysrgb&w=800",
-      subImg: "https://images.pexels.com/photos/5638268/pexels-photo-5638268.jpeg?auto=compress&cs=tinysrgb&w=800", 
-      description: "An open-air sanctuary surrounded by lush greenery. Ideal for sunset cocktails, intimate wedding ceremonies, and al fresco dining."
+      img: "/images/laverandaa.png",
+      subImg: "/images/laverandalogo.jpg", 
+      description: "A cozy and beautifully curated events space, La Veranda is the ideal spot for small parties and special occasions."
     },
     {
       id: 3,
-      name: "The Executive Lounge",
+      name: "Tenorio's Events Place",
       capacity: "Up to 50 Guests",
       size: "1,200 sq. ft.",
-      img: "https://images.pexels.com/photos/260922/pexels-photo-260922.jpeg?auto=compress&cs=tinysrgb&w=800",
-      subImg: "https://images.pexels.com/photos/3184183/pexels-photo-3184183.jpeg?auto=compress&cs=tinysrgb&w=800", 
-      description: "A sophisticated, private setting for corporate meetings and VIP dinners. Features a private bar and state-of-the-art AV systems."
+      img: "/images/tenorios.png",
+      subImg: "/images/tenorioslogo.jpg", 
+      description: "Your exclusive getaway for family celebrations, team gatherings, and special occasions. Relax, celebrate, and create memories here at Tenorio's!"
     }
   ];
 

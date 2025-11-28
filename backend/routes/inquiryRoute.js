@@ -1,10 +1,14 @@
 const express = require("express");
 const router = express.Router();
 
-const { createInquiry} = require("../controllers/inquiryController");
+// Import the new function
+const { createInquiry, getInquiryDetails, getBooking, sendProposalEmail } = require("../controllers/inquiryController");
 
-// POST /api/inquiries
+// POST /api/inquiries/send-proposal (Must be before /:refId to avoid conflict)
+router.post("/send-proposal", sendProposalEmail);
+
 router.post("/", createInquiry);
+router.get("/", getBooking);
+router.get("/:refId", getInquiryDetails); 
 
 module.exports = router;
-  

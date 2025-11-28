@@ -20,9 +20,6 @@ const Confirmation = () => {
     }
   }, [darkMode]);
 
-  // Generate a fake Reference Number
-  const refNumber = `REF-${Math.floor(100000 + Math.random() * 900000)}`;
-
   const theme = {
     bg: darkMode ? 'bg-[#0c0c0c]' : 'bg-[#FAFAFA]',
     cardBg: darkMode ? 'bg-[#111]' : 'bg-white',
@@ -67,7 +64,7 @@ const Confirmation = () => {
             <div className="flex justify-between items-start mb-6">
                <div>
                  <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Reference Number</p>
-                 <p className="font-mono text-lg tracking-wider">{refNumber}</p>
+                 <p className="font-mono text-lg tracking-wider">{bookingData.refId}</p>
                </div>
                <div className="text-right">
                  <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Status</p>

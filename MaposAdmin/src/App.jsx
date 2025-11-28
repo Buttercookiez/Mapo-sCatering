@@ -6,8 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard/Dashboard';
 import Calendar from './pages/Events/Calendar';
 import Finance from './pages/Finance/Financials';
-// This maps to your Bookingdetails.jsx file
-import BookingsAndProposals from './pages/bookingdetails/Bookingdetails'; 
+import BookingsAndProposals from './pages/bookingdetails/Bookings'; 
 import Inventory from './pages/Inventory/Inventory';
 import Kitchen from './pages/Kitchen/Kitchenprep';
 import ClientRecords from './pages/ClientRecords/ClientRecords'; 

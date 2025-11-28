@@ -26,19 +26,56 @@ export const FadeIn = ({ children, delay = 0 }) => {
 export const renderStatusBadge = (status) => {
   const badgeBase = "flex items-center gap-1.5 text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-sm font-medium border transition-colors w-fit";
   
-  switch (status) {
+  // Normalize status to ensure casing doesn't break it (optional but recommended)
+  const currentStatus = status ? status.trim() : '';
+
+  switch (currentStatus) {
     case 'Reserved':
-      return <span className={`${badgeBase} text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/10`}><CheckCircle size={10} /> Reserved</span>;
+      return (
+        <span className={`${badgeBase} text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/10`}>
+          <CheckCircle size={10} /> Reserved
+        </span>
+      );
+      
     case 'Proposal Sent':
-      return <span className={`${badgeBase} text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-500/10 dark:border-amber-500/10`}><Clock size={10} /> Sent</span>;
+      return (
+        <span className={`${badgeBase} text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-500/10 dark:border-amber-500/10`}>
+          <Clock size={10} /> Sent
+        </span>
+      );
+
+    // --- THIS IS THE PART THAT HANDLES YOUR REQUEST ---
+    case 'Pending': 
     case 'Pending Review':
-    case 'Pending':
-      return <span className={`${badgeBase} text-stone-600 bg-stone-100 border-stone-200 dark:text-stone-400 dark:bg-stone-800 dark:border-stone-700`}><AlertCircle size={10} /> New</span>;
+      return (
+        <span className={`${badgeBase} text-yellow-600 bg-stone-100 border-stone-200 dark:text-stone-400 dark:bg-stone-800 dark:border-stone-700`}>
+          {/* It detects 'Pending', but renders the word 'New' */}
+          <AlertCircle size={10} /> New 
+        </span>
+      );
+    // --------------------------------------------------
+
     case 'Paid':
     case 'Confirmed':
-      return <span className={`${badgeBase} text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/10`}><CheckCircle size={10} /> Confirmed</span>;
+      return (
+        <span className={`${badgeBase} text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/10`}>
+          <CheckCircle size={10} /> Confirmed
+        </span>
+      );
+
     case 'Unpaid':
-      return <span className={`${badgeBase} text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/10`}><AlertTriangle size={10} /> Unpaid</span>;
-    default: return null;
+      return (
+        <span className={`${badgeBase} text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/10`}>
+          <AlertTriangle size={10} /> Unpaid
+        </span>
+      );
+
+    default:
+      // Fallback for unknown statuses
+      return (
+        <span className={`${badgeBase} text-stone-400 bg-stone-50 border-stone-200`}>
+          {status}
+        </span>
+      );
   }
 };
