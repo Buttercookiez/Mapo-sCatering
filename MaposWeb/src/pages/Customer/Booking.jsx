@@ -176,7 +176,7 @@ const Booking = () => {
     setSelectedVenue(venueData);
   };
 
-  // --- Map & Geolocation Logic (IMPROVED) ---
+  // --- Map & Geolocation Logic (FIXED: Fetches Address Name) ---
   const handleOpenMap = () => {
     // 1. Check if browser supports it
     if (!navigator.geolocation) {
@@ -187,13 +187,34 @@ const Booking = () => {
 
     // 2. Fetch with High Accuracy & Options
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        // Success
-        console.log("Location found:", position.coords);
+      async (position) => {
+        // Success: Get coordinates
+        const { latitude, longitude } = position.coords;
+        
+        let addressName = "Current Location";
+        const API_KEY = "pk.3afdd6de186ee932339deec83a4c2882"; // Using the same key as your Modal
+
+        try {
+          // FETCH: Reverse Geocoding to get actual address string
+          const response = await fetch(`https://us1.locationiq.com/v1/reverse?key=${API_KEY}&lat=${latitude}&lon=${longitude}&format=json`);
+          const data = await response.json();
+          if (data && data.display_name) {
+            addressName = data.display_name;
+          }
+        } catch (err) {
+          console.error("Reverse geocoding failed:", err);
+          // Fallback if fetch fails
+          addressName = `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`;
+        }
+
+        console.log("Location found:", latitude, longitude, addressName);
+        
         setCurrentLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
+          lat: latitude,
+          lng: longitude,
+          name: addressName // Now contains the specific address
         });
+        
         setShowMapModal(true);
       },
       (error) => {

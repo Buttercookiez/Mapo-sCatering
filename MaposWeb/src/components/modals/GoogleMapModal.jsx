@@ -64,11 +64,11 @@ const GoogleMapModal = ({ isOpen, onClose, onSelect, darkMode, currentLocation }
         const marker = L.marker([startLat, startLng]).addTo(map);
         markerRef.current = marker;
 
-        // If we started with a current location, set it as selected immediately
+        // ✅ FIX: Use the name passed from Booking.js instead of hardcoded "Current Location"
         if (currentLocation) {
-             setQuery("Current Location");
-             setSelectedLocation({ name: "Current Location", lat: startLat, lon: startLng });
-             // ❌ REMOVED POPUP HERE so only the blue pin shows
+             const locationName = currentLocation.name || "Current Location"; // Use the prop!
+             setQuery(locationName);
+             setSelectedLocation({ name: locationName, lat: startLat, lon: startLng });
         }
 
         // Click Logic
@@ -85,7 +85,7 @@ const GoogleMapModal = ({ isOpen, onClose, onSelect, darkMode, currentLocation }
                 
                 setQuery(name);
                 setSelectedLocation({ name, lat, lon: lng });
-                marker.bindPopup(`<div style="font-family: sans-serif; font-size: 12px;">${name}</div>`).openPopup();
+                // Note: Popup removed as per previous request to keep only blue pin
             } catch (err) {
                 const coordsName = `Pinned (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
                 setQuery(coordsName);
@@ -121,7 +121,7 @@ const GoogleMapModal = ({ isOpen, onClose, onSelect, darkMode, currentLocation }
 
       if (document.head.contains(link)) document.head.removeChild(link);
     };
-  }, [isOpen]); 
+  }, [isOpen]); // Note: We handle currentLocation updates in a separate useEffect below
 
   // --- HANDLE DYNAMIC LOCATION UPDATES ---
   useEffect(() => {
@@ -135,11 +135,12 @@ const GoogleMapModal = ({ isOpen, onClose, onSelect, darkMode, currentLocation }
         // Move Marker
         markerRef.current.setLatLng([lat, lng]);
         
-        // Set State
-        setQuery("Current Location");
-        setSelectedLocation({ name: "Current Location", lat, lon: lng });
+        // ✅ FIX: Use the name passed from Booking.js here as well
+        const locationName = currentLocation.name || "Current Location";
         
-        // ❌ REMOVED POPUP HERE AS WELL
+        // Set State
+        setQuery(locationName);
+        setSelectedLocation({ name: locationName, lat, lon: lng });
     }
   }, [currentLocation, isOpen]);
 
@@ -198,7 +199,7 @@ const GoogleMapModal = ({ isOpen, onClose, onSelect, darkMode, currentLocation }
       mapInstanceRef.current.setView([lat, lon], 16); 
       if (markerRef.current) {
         markerRef.current.setLatLng([lat, lon]);
-        markerRef.current.bindPopup(item.display_name).openPopup();
+        // Popup removed as requested
       }
       mapInstanceRef.current.invalidateSize();
     }
