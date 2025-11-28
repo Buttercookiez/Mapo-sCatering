@@ -1,9 +1,9 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom'; 
 import { 
-  LayoutGrid, Calendar, Users, CheckSquare, MapPin, 
+  LayoutGrid, Calendar, Users, MapPin, 
   Package, DollarSign, TrendingUp, ChefHat, ChevronLeft, ChevronRight,
-  BookOpen // Added Icon for Bookings
+  BookOpen, FileText // Changed CheckSquare to FileText for Records
 } from 'lucide-react';
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen, theme }) => {
@@ -23,17 +23,17 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, theme }) => {
       label: "Management",
       items: [
         { id: 'Overview', icon: LayoutGrid, label: 'Dashboard', path: '/dashboard' },
-        { id: 'Bookings', icon: BookOpen, label: 'Booking Details', path: '/bookings' }, // <--- ADDED HERE
-        { id: 'Calendar', icon: Calendar, label: 'Events Calendar', path: '/events/calendar' },
-        { id: 'Clients', icon: Users, label: 'Client Records', path: '/clients/records' },
-        { id: 'Tasks', icon: CheckSquare, label: 'Task Manager', path: '/tasks' },
+        { id: 'Bookings', icon: BookOpen, label: 'Booking Details', path: '/bookings' },
+        { id: 'Calendar', icon: Calendar, label: 'Events Calendar', path: '/events' },
+        { id: 'Clients', icon: Users, label: 'Client Records', path: '/clients' },
+        { id: 'Transactions', icon: FileText, label: 'Transaction Records', path: '/transactions' }, // <--- UPDATED
       ]
     },
     {
       label: "Operations",
       items: [
         { id: 'Kitchen', icon: ChefHat, label: 'Kitchen & Prep', path: '/kitchen' },
-        { id: 'Inventory', icon: Package, label: 'Inventory', path: '/inventory/inventory' },
+        { id: 'Inventory', icon: Package, label: 'Inventory', path: '/inventory' },
         { id: 'Venue', icon: MapPin, label: 'Venue Status', path: '/venue-status' },
       ]
     },
@@ -41,7 +41,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, theme }) => {
       label: "Finance",
       items: [
         { id: 'Finance', icon: DollarSign, label: 'Financials', path: '/finance' },
-        { id: 'Reports', icon: TrendingUp, label: 'Profit Reports', path: '/finance/reports' },
       ]
     }
   ];

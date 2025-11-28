@@ -10,6 +10,7 @@ import BookingsAndProposals from './pages/bookingdetails/Bookings';
 import Inventory from './pages/Inventory/Inventory';
 import Kitchen from './pages/Kitchen/Kitchenprep';
 import ClientRecords from './pages/ClientRecords/ClientRecords'; 
+import Transaction from './pages/Transactions/transactions';
 
 // Styles
 import './App.css';
@@ -35,20 +36,17 @@ function App() {
 
         {/* --- Admin/Management Routes --- */}
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/events/calendar" element={<Calendar />} />
-        <Route path="/inventory/inventory" element={<Inventory />} />
+        <Route path="/events" element={<Calendar />} />
+        <Route path="/inventory" element={<Inventory />} />
         <Route path="/finance" element={<Finance />} />
         <Route path="/kitchen" element={<Kitchen />} />
-        <Route path="/clients/records" element={<ClientRecords />} />
-        
-        {/* FIXED LINE BELOW: Use the imported name "BookingsAndProposals" */}
+        <Route path="/clients" element={<ClientRecords />} />
         <Route path="/bookings" element={<BookingsAndProposals />} /> 
         
         {/* Placeholders for remaining Sidebar links */}
-        <Route path="/clients" element={<AdminPlaceholder title="Client Records" />} />
-        <Route path="/tasks" element={<AdminPlaceholder title="Task Manager" />} />
+        <Route path="/transactions" element={<Transaction/>} />
         <Route path="/venue-status" element={<AdminPlaceholder title="Venue Status" />} />
-        <Route path="/finance/reports" element={<AdminPlaceholder title="Profit Reports" />} />
+        <Route path="/finance" element={<AdminPlaceholder title="Profit Reports" />} />
 
       </Routes>
     </BrowserRouter>
