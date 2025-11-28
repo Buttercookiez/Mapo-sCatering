@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowUp, Calendar, Users, ChevronDown, Check, Utensils,
-  ChevronLeft, ChevronRight, Clock, Plus, ArrowRight
+  ChevronLeft, ChevronRight, Clock, Plus, ArrowRight,
+  Wine, Flower2, Truck, Star, Camera, Mic, Music, Aperture // Added icons for add-ons
 } from "lucide-react";
 import Navbar from "../../components/customer/Navbar";
 import Footer from "../../components/customer/Footer";
@@ -67,6 +68,8 @@ const Booking = () => {
   const [eventType, setEventType] = useState("");
   const [serviceStyle, setServiceStyle] = useState(""); 
   const [selectedVenue, setSelectedVenue] = useState(null); 
+  const [selectedPackage, setSelectedPackage] = useState(null);
+  const [selectedAddons, setSelectedAddons] = useState([]); // New Add-ons State
 
   // --- Modals State ---
   const [showMapModal, setShowMapModal] = useState(false);
@@ -79,12 +82,29 @@ const Booking = () => {
 
   // Data
   const bookedDates = ["2025-11-15", "2025-11-20", "2025-12-01", "2025-12-25"];
-  const prices = { full_service: 1500, service_only: 600 };
+  const prices = { full_service: 500, service_only: 250 }; 
+  
   const venues = [
     { id: 1, name: "Palacios Event Place", capacity: "300 Pax", img: "/images/palacios.png", type: "predefined" },
     { id: 2, name: "La Veranda Events Hall", capacity: "150 Pax", img: "/images/laverandaa.png", type: "predefined" },
     { id: 3, name: "Tenorio's Events Place", capacity: "50 Pax", img: "/images/tenorios.png", type: "predefined" }
   ];
+
+  const packages = [
+    { id: 1, name: "The Classic", price: 850, tagline: "Essential Elegance", features: { food: "Buffet: 2 Mains, 1 Pasta, Rice, Dessert", decor: "Basic Floral Centerpieces & Mood Lighting", staff: "Uniformed Waiters & Event Coordinator", logistics: "Standard Sound System & Projector" } },
+    { id: 2, name: "The Premium", price: 1200, tagline: "Refined Sophistication", features: { food: "Buffet: 3 Mains, 2 Sides, Soup, 2 Desserts", decor: "Themed Styling, Backdrop & Premium Florals", staff: "Dedicated Butler per Table & Emcee", logistics: "Full Band Equipment & LED Wall" } },
+    { id: 3, name: "The Royal", price: 1800, tagline: "Ultimate Grandeur", features: { food: "Plated Service: 5-Course Fine Dining Menu", decor: "Ceiling Treatments, Grand Entrance & Luxury Styling", staff: "Full Production Team & Concierge", logistics: "Pyrotechnics, Smoke Machine & Live Streaming" } }
+  ];
+
+  // ADD-ONS DATA
+  const addOnsOptions = [
+    { id: "dj", label: "DJ", icon: Music },
+    { id: "band", label: "Live Band", icon: Mic },
+    { id: "photoboth", label: "Photo Booth", icon: Camera },
+    { id: "photographer", label: "Photographer", icon: Aperture },
+    { id: "host", label: "Event Host", icon: Users }
+  ];
+
   const eventOptions = ["Wedding", "Corporate Gala", "Private Dinner", "Cocktail Reception", "Product Launch", "Birthday", "Engagement Party", "Charity Ball", "Anniversary", "Baby Shower", "Baptism", "Graduation", "Reunion"];
 
   // --- SCROLL ENGINE ---
@@ -124,7 +144,6 @@ const Booking = () => {
   useEffect(() => {
     const handleWheel = (e) => {
       if (window.innerWidth < 768) return; 
-      // FIX: Stop scroll if inside a dropdown or modal content
       if (e.target.closest('.stop-scroll-propagation')) return;
       if (showMapModal || showTermsModal) return;
 
@@ -140,7 +159,6 @@ const Booking = () => {
     return () => { if (container) container.removeEventListener('wheel', handleWheel); };
   }, [activeIndex, isScrolling, showMapModal, showTermsModal]);
 
-  // --- Logic ---
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add("dark");
@@ -155,18 +173,26 @@ const Booking = () => {
 
   useEffect(() => {
     const guestCount = parseInt(formData.guests) || 0;
-    const pricePerHead = prices[serviceStyle] || 0;
-    if (guestCount > 0 && pricePerHead > 0) {
-      setFormData((prev) => ({ ...prev, budget: guestCount * pricePerHead }));
+    const serviceFee = prices[serviceStyle] || 0;
+    const packageCost = selectedPackage ? selectedPackage.price : 0;
+    const totalCostPerHead = serviceFee + packageCost;
+
+    if (guestCount > 0 && totalCostPerHead > 0) {
+      setFormData((prev) => ({ ...prev, budget: guestCount * totalCostPerHead }));
     }
-  }, [formData.guests, serviceStyle]);
+  }, [formData.guests, serviceStyle, selectedPackage]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // --- Venue Selection Logic ---
+  const toggleAddon = (id) => {
+    setSelectedAddons((prev) => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
   const handlePredefinedVenueSelect = (venue) => {
     setSelectedVenue(venue);
   };
@@ -175,18 +201,24 @@ const Booking = () => {
     setSelectedVenue(venueData);
   };
 
-  // --- Submission Logic ---
   const handleRequestQuotation = (e) => {
     e.preventDefault();
     if (!selectedVenue) { alert("Please select a venue."); return; }
-    // Open Terms Modal instead of submitting directly
+    if (!selectedPackage) { alert("Please select a package."); return; }
     setShowTermsModal(true);
   };
 
   const handleFinalSubmit = async () => {
     setIsSubmitting(true);
     const bookingData = {
-      ...formData, venue: selectedVenue.name, venueId: selectedVenue.id, venueType: selectedVenue.type, eventType, serviceStyle,
+      ...formData, 
+      venue: selectedVenue.name, 
+      venueId: selectedVenue.id, 
+      venueType: selectedVenue.type, 
+      package: selectedPackage.name, 
+      addons: selectedAddons, // Included Add-ons
+      eventType, 
+      serviceStyle,
     };
     try {
       const response = await api.post("/inquiries", bookingData);
@@ -199,7 +231,6 @@ const Booking = () => {
     }
   };
 
-  // Theme Helpers
   const theme = {
     bg: darkMode ? "bg-[#0c0c0c]" : "bg-[#FAFAFA]",
     text: darkMode ? "text-stone-200" : "text-stone-900",
@@ -208,7 +239,7 @@ const Booking = () => {
     dropdownBg: darkMode ? "bg-[#1c1c1c]" : "bg-white",
   };
 
-  // Calendar Logic
+  // Calendar Logic (Simplified for brevity)
   const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
   const getFirstDayOfMonth = (y, m) => new Date(y, m, 1).getDay();
   const renderCalendarDays = () => {
@@ -237,19 +268,8 @@ const Booking = () => {
       <Navbar darkMode={darkMode} setDarkMode={setDarkMode} isScrolled={activeIndex > 0 || navIsScrolled} />
       
       {/* Modals */}
-      <GoogleMapModal 
-        isOpen={showMapModal} 
-        onClose={() => setShowMapModal(false)} 
-        onSelect={handleCustomVenueSelect}
-        darkMode={darkMode}
-      />
-      <TermsModal 
-        isOpen={showTermsModal}
-        onClose={() => setShowTermsModal(false)}
-        onAccept={handleFinalSubmit}
-        isSubmitting={isSubmitting}
-        darkMode={darkMode}
-      />
+      <GoogleMapModal isOpen={showMapModal} onClose={() => setShowMapModal(false)} onSelect={handleCustomVenueSelect} darkMode={darkMode} />
+      <TermsModal isOpen={showTermsModal} onClose={() => setShowTermsModal(false)} onAccept={handleFinalSubmit} isSubmitting={isSubmitting} darkMode={darkMode} />
 
       {/* --- SLIDE 0: HERO --- */}
       <section ref={addToRefs} className="relative h-screen w-full overflow-hidden bg-stone-900 flex flex-col justify-center items-center">
@@ -332,11 +352,7 @@ const Booking = () => {
                             </div>
                         ))}
 
-                        {/* Custom Venue Card - Triggers Modal */}
-                        <div 
-                            onClick={() => setShowMapModal(true)}
-                            className={`group relative cursor-pointer flex flex-col h-[350px] md:h-[450px] bg-stone-100 dark:bg-stone-900 border ${theme.border} transition-all duration-500 hover:border-[#C9A25D] ${selectedVenue?.type === 'custom' ? 'border-[#C9A25D]' : ''}`}
-                        >
+                        <div onClick={() => setShowMapModal(true)} className={`group relative cursor-pointer flex flex-col h-[350px] md:h-[450px] bg-stone-100 dark:bg-stone-900 border ${theme.border} transition-all duration-500 hover:border-[#C9A25D] ${selectedVenue?.type === 'custom' ? 'border-[#C9A25D]' : ''}`}>
                             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
                                 <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 transition-colors duration-300 ${selectedVenue?.type === 'custom' ? 'bg-[#C9A25D] text-white' : 'bg-stone-200 dark:bg-stone-800 text-stone-500 group-hover:text-[#C9A25D]'}`}>
                                     <Plus className="w-8 h-8" />
@@ -359,7 +375,7 @@ const Booking = () => {
             </div>
         </section>
 
-        {/* --- SLIDE 3: SERVICE STYLE --- */}
+        {/* --- SLIDE 4: SERVICE STYLE --- */}
         <section ref={addToRefs} className={`min-h-screen md:h-screen flex flex-col justify-center py-20 ${theme.bg} border-t ${theme.border}`}>
             <div className="max-w-screen-md mx-auto px-6 w-full text-center">
                 <FadeIn>
@@ -368,36 +384,24 @@ const Booking = () => {
                         <h2 className={`font-serif text-4xl md:text-5xl ${theme.text}`}>Service Style</h2>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         {[
-                            { id: "full_service", label: "Full Service", desc: "Complete catering with food, staff, setup, and styling.", icon: Utensils },
-                            { id: "service_only", label: "Service Only", desc: "Staff, equipment, and setup only. You provide the food.", icon: Users }
-                        ].map((style) => (
-                            <div key={style.id} onClick={() => setServiceStyle(style.id)} 
-                                className={`p-8 border cursor-pointer transition-all duration-500 hover:-translate-y-2
-                                    ${serviceStyle === style.id ? "border-[#C9A25D] bg-[#C9A25D]/5" : `${theme.border} hover:border-[#C9A25D]`}
-                                `}>
-                                {/* FIX: Icon color consistency in Light Mode */}
-                                <div className={`w-12 h-12 mx-auto mb-6 rounded-full flex items-center justify-center transition-colors
-                                    ${serviceStyle === style.id 
-                                        ? 'bg-[#C9A25D] text-white' 
-                                        : 'bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400'}
-                                `}>
-                                    <style.icon className="w-5 h-5" />
-                                </div>
+                         {[ { id: "full_service", label: "Full Service", desc: "Complete management of the event flow.", icon: Star }, { id: "service_only", label: "Assisted Service", desc: "Staff presence with minimal management.", icon: Users } ].map((style) => (
+                            <div key={style.id} onClick={() => setServiceStyle(style.id)} className={`p-8 border cursor-pointer transition-all duration-500 hover:-translate-y-2 ${serviceStyle === style.id ? "border-[#C9A25D] bg-[#C9A25D]/5" : `${theme.border} hover:border-[#C9A25D]`}`}>
+                                <div className={`w-12 h-12 mx-auto mb-6 rounded-full flex items-center justify-center transition-colors ${serviceStyle === style.id ? 'bg-[#C9A25D] text-white' : 'bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400'}`}><style.icon className="w-5 h-5" /></div>
                                 <h3 className={`font-serif text-2xl ${theme.text} mb-3`}>{style.label}</h3>
                                 <p className={`text-xs leading-relaxed ${theme.subText}`}>{style.desc}</p>
+                                <div className="mt-4 text-xs font-mono opacity-50">+ ₱{prices[style.id]} Service Fee</div>
                             </div>
                         ))}
                     </div>
                     <div className="mt-16 flex justify-between items-center">
-                        <button type="button" onClick={() => scrollToSection(2)} className={`text-xs uppercase tracking-widest ${theme.subText} hover:${theme.text}`}>Back</button>
-                        <button type="button" onClick={() => scrollToSection(4)} className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-bold hover:text-[#C9A25D] transition-colors">Next Step <ArrowRight className="w-4 h-4" /></button>
+                        <button type="button" onClick={() => scrollToSection(3)} className={`text-xs uppercase tracking-widest ${theme.subText} hover:${theme.text}`}>Back</button>
+                        <button type="button" onClick={() => scrollToSection(5)} className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-bold hover:text-[#C9A25D] transition-colors">Next Step <ArrowRight className="w-4 h-4" /></button>
                     </div>
                 </FadeIn>
             </div>
         </section>
 
-        {/* --- SLIDE 4: EVENT LOGISTICS --- */}
+        {/* --- SLIDE 5: EVENT LOGISTICS --- */}
         <section ref={addToRefs} className={`min-h-screen md:h-screen flex flex-col justify-center py-20 ${theme.bg} border-t ${theme.border}`}>
              <div className="max-w-screen-lg mx-auto px-6 w-full">
                 <FadeIn>
@@ -405,22 +409,13 @@ const Booking = () => {
                         <span className="text-[#C9A25D] text-xs font-bold tracking-widest uppercase mb-2 block">Step 04</span>
                         <h2 className={`font-serif text-4xl md:text-5xl ${theme.text}`}>Event Logistics</h2>
                     </div>
-                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                        {/* Column 1 */}
                         <div className="space-y-8">
-                            {/* Date Picker - Uses stop-scroll-propagation */}
                             <div className="group relative">
                                 <label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Date</label>
-                                <button type="button" onClick={() => setCalendarOpen(!calendarOpen)} className={`w-full text-left bg-transparent border-b ${theme.border} py-3 text-xl ${theme.text} flex justify-between items-center`}>
-                                    {formData.date || "Select Date"} <Calendar className="w-4 h-4 opacity-50" />
-                                </button>
+                                <button type="button" onClick={() => setCalendarOpen(!calendarOpen)} className={`w-full text-left bg-transparent border-b ${theme.border} py-3 text-xl ${theme.text} flex justify-between items-center`}>{formData.date || "Select Date"} <Calendar className="w-4 h-4 opacity-50" /></button>
                                 <div className={`absolute top-full left-0 mt-4 p-4 shadow-2xl rounded-sm z-50 ${theme.dropdownBg} border ${theme.border} transition-all duration-300 origin-top stop-scroll-propagation ${calendarOpen ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-0 pointer-events-none'}`}>
-                                    <div className="flex justify-between mb-4">
-                                        <button type="button" onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))}><ChevronLeft className="w-4 h-4" /></button>
-                                        <span className="text-sm font-bold">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
-                                        <button type="button" onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))}><ChevronRight className="w-4 h-4" /></button>
-                                    </div>
+                                    <div className="flex justify-between mb-4"><button type="button" onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))}><ChevronLeft className="w-4 h-4" /></button><span className="text-sm font-bold">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span><button type="button" onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))}><ChevronRight className="w-4 h-4" /></button></div>
                                     <div className="grid grid-cols-7 gap-1">{renderCalendarDays()}</div>
                                 </div>
                             </div>
@@ -429,60 +424,74 @@ const Booking = () => {
                                 <div><label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>End</label><input type="text" name="endTime" value={formData.endTime} onChange={handleInputChange} placeholder="00:00 PM" className={`w-full bg-transparent border-b ${theme.border} py-3 text-lg ${theme.text} focus:outline-none focus:border-[#C9A25D]`} /></div>
                             </div>
                         </div>
-
-                        {/* Column 2 */}
                         <div className="space-y-8">
                              <div><label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Guest Count</label><input type="number" name="guests" value={formData.guests} onChange={handleInputChange} placeholder="0" className={`w-full bg-transparent border-b ${theme.border} py-3 text-xl ${theme.text} focus:outline-none focus:border-[#C9A25D]`} /></div>
                              <div className="relative"><label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Est. Budget (PHP)</label><input type="text" value={formData.budget ? formData.budget.toLocaleString() : ""} readOnly className={`w-full bg-transparent border-b ${theme.border} py-3 text-xl ${theme.text} opacity-70`} /></div>
-                            
-                            {/* Occasion Dropdown - FIX: stop-scroll-propagation */}
                             <div className="relative">
                                 <label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Occasion</label>
-                                <button type="button" onClick={() => setEventTypeOpen(!eventTypeOpen)} className={`w-full text-left bg-transparent border-b ${theme.border} py-3 text-xl ${theme.text} flex justify-between items-center`}>
-                                    {eventType || "Select Type"} <ChevronDown className="w-4 h-4 opacity-50" />
-                                </button>
-                                {eventTypeOpen && (
-                                    <div className={`absolute bottom-full left-0 w-full mb-1 max-h-48 overflow-y-auto shadow-xl z-50 ${theme.dropdownBg} border ${theme.border} stop-scroll-propagation`}>
-                                        {eventOptions.map(opt => (
-                                            <div key={opt} onClick={() => { setEventType(opt); setEventTypeOpen(false); }} className="p-3 hover:bg-[#C9A25D] hover:text-white cursor-pointer text-sm">{opt}</div>
-                                        ))}
-                                    </div>
-                                )}
+                                <button type="button" onClick={() => setEventTypeOpen(!eventTypeOpen)} className={`w-full text-left bg-transparent border-b ${theme.border} py-3 text-xl ${theme.text} flex justify-between items-center`}>{eventType || "Select Type"} <ChevronDown className="w-4 h-4 opacity-50" /></button>
+                                {eventTypeOpen && (<div className={`absolute bottom-full left-0 w-full mb-1 max-h-48 overflow-y-auto shadow-xl z-50 ${theme.dropdownBg} border ${theme.border} stop-scroll-propagation`}>{eventOptions.map(opt => (<div key={opt} onClick={() => { setEventType(opt); setEventTypeOpen(false); }} className="p-3 hover:bg-[#C9A25D] hover:text-white cursor-pointer text-sm">{opt}</div>))}</div>)}
                             </div>
                         </div>
                     </div>
-
                     <div className="mt-16 flex justify-between items-center">
-                        <button type="button" onClick={() => scrollToSection(3)} className={`text-xs uppercase tracking-widest ${theme.subText} hover:${theme.text}`}>Back</button>
-                        <button type="button" onClick={() => scrollToSection(5)} className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-bold hover:text-[#C9A25D] transition-colors">Next Step <ArrowRight className="w-4 h-4" /></button>
+                        <button type="button" onClick={() => scrollToSection(4)} className={`text-xs uppercase tracking-widest ${theme.subText} hover:${theme.text}`}>Back</button>
+                        <button type="button" onClick={() => scrollToSection(6)} className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-bold hover:text-[#C9A25D] transition-colors">Next Step <ArrowRight className="w-4 h-4" /></button>
                     </div>
                 </FadeIn>
              </div>
         </section>
 
-        {/* --- SLIDE 5: SUBMIT --- */}
+        {/* --- SLIDE 6: SUBMIT (MODIFIED) --- */}
         <section ref={addToRefs} className={`min-h-screen md:h-screen flex flex-col justify-center py-20 ${theme.bg} border-t ${theme.border}`}>
              <div className="max-w-screen-md mx-auto px-6 w-full">
                 <FadeIn>
                     <div className="mb-12 border-l-2 border-[#C9A25D] pl-6">
                         <span className="text-[#C9A25D] text-xs font-bold tracking-widest uppercase mb-2 block">Step 05</span>
-                        <h2 className={`font-serif text-4xl md:text-5xl ${theme.text}`}>Final Touches</h2>
+                        <h2 className={`font-serif text-4xl md:text-5xl ${theme.text}`}>Additional Notes</h2>
                     </div>
 
-                    <textarea name="notes" rows="5" onChange={handleInputChange} placeholder="Share your vision, themes, dietary restrictions, or any specific requests..." className={`w-full bg-transparent border ${theme.border} p-6 text-lg ${theme.text} placeholder-stone-500 focus:outline-none focus:border-[#C9A25D] mb-12`}></textarea>
+                    {/* --- ADD-ONS CHECKLIST --- */}
+                    <div className="mb-12">
+                        <label className={`text-xs uppercase tracking-widest ${theme.subText} mb-6 block`}>Enhance your experience</label>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                            {addOnsOptions.map((addon) => {
+                                const isSelected = selectedAddons.includes(addon.id);
+                                return (
+                                    <div 
+                                        key={addon.id} 
+                                        onClick={() => toggleAddon(addon.id)}
+                                        className={`cursor-pointer border p-4 flex flex-col items-center justify-center gap-3 transition-all duration-300
+                                            ${isSelected 
+                                                ? "bg-[#C9A25D] border-[#C9A25D] text-white" 
+                                                : `${theme.border} ${theme.text} hover:border-[#C9A25D] hover:text-[#C9A25D]`}
+                                        `}
+                                    >
+                                        <span className="text-[10px] uppercase font-bold tracking-wider">{addon.label}</span>
+                                        {isSelected && <Check className="w-3 h-3 absolute top-2 right-2" />}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    {/* --- END ADD-ONS CHECKLIST --- */}
 
-                    {/* Improved Button */}
-                    <button 
-                        className={`group relative w-full py-6 text-sm tracking-[0.3em] uppercase font-bold overflow-hidden transition-all duration-300 shadow-2xl ${darkMode ? 'bg-white text-black' : 'bg-black text-white'}`}
-                    >
+                    <label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Special Requests</label>
+                    <textarea 
+                        name="notes" 
+                        rows="5" 
+                        onChange={handleInputChange} 
+                        placeholder="Any dietary restrictions, allergies, specific themes, or other details..." 
+                        className={`w-full bg-transparent border ${theme.border} p-6 text-lg ${theme.text} placeholder-stone-500 focus:outline-none focus:border-[#C9A25D] mb-12`}
+                    ></textarea>
+
+                    <button className={`group relative w-full py-6 text-sm tracking-[0.3em] uppercase font-bold overflow-hidden transition-all duration-300 shadow-2xl ${darkMode ? 'bg-white text-black' : 'bg-black text-white'}`}>
                         <span className="absolute inset-0 w-full h-full bg-[#C9A25D] translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out"></span>
-                        <span className="relative z-10 group-hover:text-white transition-colors duration-500">
-                             Request Quotation
-                        </span>
+                        <span className="relative z-10 group-hover:text-white transition-colors duration-500">Request Quotation</span>
                     </button>
                     
                     <div className="mt-8 text-center">
-                         <button type="button" onClick={() => scrollToSection(4)} className={`text-xs uppercase tracking-widest ${theme.subText} hover:${theme.text}`}>Go Back</button>
+                         <button type="button" onClick={() => scrollToSection(5)} className={`text-xs uppercase tracking-widest ${theme.subText} hover:${theme.text}`}>Go Back</button>
                     </div>
                 </FadeIn>
              </div>

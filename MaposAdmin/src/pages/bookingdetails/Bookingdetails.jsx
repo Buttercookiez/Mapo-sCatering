@@ -1,6 +1,6 @@
 // src/pages/bookingdetails/Bookingdetails.jsx
 import React, { useState, useEffect, useRef } from "react";
-// Import the new send service function
+// Import the new send service function - assume updateBookingStatus exists or we mock it
 import { getBookingByRefId, sendProposalEmail } from "../../api/bookingService"; 
 import {
   ArrowLeft,
@@ -25,6 +25,9 @@ import {
   AlertTriangle,
   Wallet,
   Loader2,
+  Check,      // Added
+  XCircle,    // Added
+  Lock,       // Added
 } from "lucide-react";
 
 // --- STATIC DATA ---
@@ -74,7 +77,7 @@ const renderStatusBadge = (status) => {
   const styles = {
     Pending: "bg-amber-100 text-amber-700 border-amber-200",
     Confirmed: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    Cancelled: "bg-red-100 text-red-700 border-red-200",
+    Cancelled: "bg-red-100 text-red-700 border-red-200", // Used for Rejected
     Reviewing: "bg-blue-100 text-blue-700 border-blue-200",
     Paid: "bg-emerald-100 text-emerald-700 border-emerald-200",
     Unpaid: "bg-stone-100 text-stone-600 border-stone-200",
@@ -107,6 +110,10 @@ const BookingDetails = ({
   // Email State
   const [isSending, setIsSending] = useState(false);
   const [emailStatus, setEmailStatus] = useState(null); // 'success', 'error', null
+
+  // Rejection State
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectionSent, setRejectionSent] = useState(false);
 
   // 1. Fetch Data Effect
   useEffect(() => {
@@ -184,7 +191,30 @@ const BookingDetails = ({
     }
   };
 
-  // 4. Early Return (Loading/Empty)
+  // 4. Handle Booking Status Change (Mock Implementation)
+  const handleUpdateStatus = (newStatus) => {
+    // In a real app, this would call an API like updateBookingStatus(id, newStatus)
+    setBookingData(prev => ({
+        ...prev,
+        status: newStatus
+    }));
+
+    // If rejecting, automatically switch to Event Info tab to show the rejection form
+    if (newStatus === 'Cancelled') {
+        setActiveDetailTab("Event Info");
+    }
+  };
+
+  const handleSendRejection = () => {
+    setIsSending(true);
+    // Simulate API call to send rejection email
+    setTimeout(() => {
+        setIsSending(false);
+        setRejectionSent(true);
+    }, 1500);
+  };
+
+  // 5. Early Return (Loading/Empty)
   if (!booking && !bookingData) {
     return (
       <div className={`flex-1 h-full flex items-center justify-center ${theme.bg}`}>
@@ -193,10 +223,9 @@ const BookingDetails = ({
     );
   }
 
-  // 5. Data Merging & Preparation
+  // 6. Data Merging & Preparation
   const currentData = bookingData || {};
   const paymentData = currentData.payment || {};
-  const proposalData = currentData.proposal || {};
   const notesData = currentData.notes || {};
 
    const details = {
@@ -234,6 +263,12 @@ const BookingDetails = ({
         ? notesData.timeline
         : [{ date: "N/A", user: "System", action: "No activity recorded yet." }],
   };
+
+  // Helper to check if tabs should be disabled
+  // Enabled only if status is Confirmed (or Paid, Reviewing - basically accepted statuses)
+  // Disabled if Pending, Cancelled/Rejected, etc.
+  const isBookingConfirmed = details.status === 'Confirmed' || details.status === 'Paid';
+  const isBookingRejected = details.status === 'Cancelled' || details.status === 'Rejected';
 
   return (
     <div className={`flex-1 overflow-y-auto scroll-smooth no-scrollbar h-full flex flex-col ${theme.bg}`}>
@@ -321,10 +356,35 @@ const BookingDetails = ({
               </div>
             </div>
 
+            {/* --- REPLACED SECTION: Accept/Reject Buttons vs Notes --- */}
             <div className={`p-4 rounded-sm border ${theme.border} bg-transparent`}>
-              <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-2">Customer Notes</p>
-              <p className={`text-xs italic ${theme.subText}`}>"{details.notes}"</p>
+              {details.status === 'Pending' ? (
+                 <div className="flex flex-col gap-3">
+                   <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Action Required</p>
+                   <div className="flex gap-2">
+                     <button 
+                        onClick={() => handleUpdateStatus('Confirmed')}
+                        className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-sm text-xs font-bold uppercase transition-colors"
+                     >
+                       <Check size={14} /> Accept
+                     </button>
+                     <button 
+                        onClick={() => handleUpdateStatus('Cancelled')}
+                        className="flex-1 flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white py-2 rounded-sm text-xs font-bold uppercase transition-colors"
+                     >
+                       <XCircle size={14} /> Reject
+                     </button>
+                   </div>
+                 </div>
+              ) : (
+                // If not pending, show the notes (or the outcome)
+                <>
+                  <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-2">Customer Notes</p>
+                  <p className={`text-xs italic ${theme.subText}`}>"{details.notes}"</p>
+                </>
+              )}
             </div>
+            {/* ----------------------------------------------------- */}
           </div>
         </div>
 
@@ -332,19 +392,28 @@ const BookingDetails = ({
         <div className={`flex-1 flex flex-col ${theme.bg}`}>
           {/* TABS HEADER */}
           <div className={`flex items-center border-b ${theme.border} ${theme.cardBg} px-6`}>
-            {detailTabs.map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveDetailTab(tab)}
-                className={`px-6 py-4 text-xs uppercase tracking-[0.2em] border-b-2 transition-colors font-medium ${
-                  activeDetailTab === tab
-                    ? "border-[#C9A25D] text-[#C9A25D]"
-                    : `border-transparent ${theme.subText} hover:text-stone-600 dark:hover:text-stone-300`
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
+            {detailTabs.map((tab) => {
+              // Logic to disable Payments and Proposal
+              const isDisabled = !isBookingConfirmed && (tab === "Payments" || tab === "Proposal");
+              
+              return (
+                <button
+                  key={tab}
+                  onClick={() => !isDisabled && setActiveDetailTab(tab)}
+                  disabled={isDisabled}
+                  className={`px-6 py-4 text-xs uppercase tracking-[0.2em] border-b-2 transition-colors font-medium flex items-center gap-2 ${
+                    activeDetailTab === tab
+                      ? "border-[#C9A25D] text-[#C9A25D]"
+                      : isDisabled
+                        ? "border-transparent text-stone-300 dark:text-stone-700 cursor-not-allowed"
+                        : `border-transparent ${theme.subText} hover:text-stone-600 dark:hover:text-stone-300`
+                  }`}
+                >
+                  {tab}
+                  {isDisabled && <Lock size={10} />}
+                </button>
+              );
+            })}
           </div>
 
           <div className="flex-1 overflow-y-auto p-8 lg:p-12 no-scrollbar">
@@ -352,56 +421,107 @@ const BookingDetails = ({
               {/* EVENT INFO */}
               {activeDetailTab === "Event Info" && (
                 <div className="max-w-4xl mx-auto">
-                  <h3 className={`font-serif text-2xl mb-6 ${theme.text}`}>Event Specifications</h3>
-                  <div className={`grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 p-8 border ${theme.border} ${theme.cardBg} rounded-sm shadow-sm`}>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Event Date</p>
-                      <div className="flex items-center gap-2">
-                        <Calendar size={16} className="text-[#C9A25D]" />
-                        <span className={`text-sm font-medium ${theme.text}`}>{details.date}</span>
+                  {/* --- CONDITIONAL: REJECTION LOGIC --- */}
+                  {isBookingRejected ? (
+                    <div className={`p-8 border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30 rounded-sm`}>
+                      <div className="flex items-center gap-3 mb-4 text-red-600 dark:text-red-400">
+                         <AlertCircle size={24} />
+                         <h3 className="font-serif text-xl">Inquiry Rejected</h3>
                       </div>
+                      
+                      {rejectionSent ? (
+                        <div className="flex flex-col items-center py-8 text-center">
+                            <CheckCircle size={48} className="text-emerald-500 mb-4" />
+                            <h4 className={`text-lg font-bold ${theme.text}`}>Rejection Email Sent</h4>
+                            <p className={`text-sm ${theme.subText} mt-2`}>The client has been notified regarding the rejection of this inquiry.</p>
+                        </div>
+                      ) : (
+                        <>
+                            <p className={`text-sm ${theme.text} mb-6`}>
+                                This inquiry has been rejected. Please provide a reason below to notify the client via email.
+                            </p>
+                            <label className="text-[10px] uppercase tracking-widest text-stone-500 mb-2 block">Reason for Rejection</label>
+                            <textarea 
+                                value={rejectionReason}
+                                onChange={(e) => setRejectionReason(e.target.value)}
+                                className={`w-full p-4 border ${theme.border} bg-white dark:bg-stone-900 rounded-sm focus:outline-none focus:border-red-400 mb-4 text-sm`}
+                                rows={5}
+                                placeholder="e.g., Sorry, the date is fully booked..."
+                            />
+                            <div className="flex justify-end gap-3">
+                                <button 
+                                    onClick={() => handleUpdateStatus('Pending')}
+                                    className={`px-4 py-2 text-xs uppercase font-bold text-stone-500 hover:text-stone-700`}
+                                >
+                                    Cancel & Restore
+                                </button>
+                                <button 
+                                    onClick={handleSendRejection}
+                                    disabled={!rejectionReason || isSending}
+                                    className="flex items-center gap-2 px-6 py-2 bg-red-600 text-white text-xs uppercase font-bold rounded-sm hover:bg-red-700 disabled:opacity-50"
+                                >
+                                    {isSending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                                    Send Rejection Email
+                                </button>
+                            </div>
+                        </>
+                      )}
                     </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Time & Duration</p>
-                      <div className="flex items-center gap-2">
-                        <Clock size={16} className="text-[#C9A25D]" />
-                        <span className={`text-sm font-medium ${theme.text}`}>{details.timeStart} — {details.timeEnd}</span>
+                  ) : (
+                    /* --- STANDARD EVENT INFO --- */
+                    <>
+                      <h3 className={`font-serif text-2xl mb-6 ${theme.text}`}>Event Specifications</h3>
+                      <div className={`grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 p-8 border ${theme.border} ${theme.cardBg} rounded-sm shadow-sm`}>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Event Date</p>
+                          <div className="flex items-center gap-2">
+                            <Calendar size={16} className="text-[#C9A25D]" />
+                            <span className={`text-sm font-medium ${theme.text}`}>{details.date}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Time & Duration</p>
+                          <div className="flex items-center gap-2">
+                            <Clock size={16} className="text-[#C9A25D]" />
+                            <span className={`text-sm font-medium ${theme.text}`}>{details.timeStart} — {details.timeEnd}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Event Type</p>
+                          <div className="flex items-center gap-2">
+                            <FileText size={16} className="text-[#C9A25D]" />
+                            <span className={`text-sm font-medium ${theme.text}`}>{details.type}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Venue Location</p>
+                          <div className="flex items-center gap-2">
+                            <MapPin size={16} className="text-[#C9A25D]" />
+                            <span className={`text-sm font-medium ${theme.text}`}>{details.venue}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Service Style</p>
+                          <div className="flex items-center gap-2">
+                            <Utensils size={16} className="text-[#C9A25D]" />
+                            <span className={`text-sm font-medium ${theme.text}`}>{details.serviceStyle}</span>
+                          </div>
+                        </div>
+                        <div className={`col-span-1 md:col-span-2 border-t border-dashed ${theme.border} my-2`}></div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Primary Contact</p>
+                          <p className={`text-sm font-medium ${theme.text}`}>{details.phone}</p>
+                          <p className={`text-xs ${theme.subText}`}>{details.email}</p>
+                        </div>
+                        <div className="col-span-1 md:col-span-2">
+                          <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-2">Special Requests / Dietary Restrictions</p>
+                          <div className={`p-4 border ${theme.border} rounded-sm bg-transparent`}>
+                            <p className={`text-sm ${theme.text}`}>{details.dietary}</p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Event Type</p>
-                      <div className="flex items-center gap-2">
-                        <FileText size={16} className="text-[#C9A25D]" />
-                        <span className={`text-sm font-medium ${theme.text}`}>{details.type}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Venue Location</p>
-                      <div className="flex items-center gap-2">
-                        <MapPin size={16} className="text-[#C9A25D]" />
-                        <span className={`text-sm font-medium ${theme.text}`}>{details.venue}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Service Style</p>
-                      <div className="flex items-center gap-2">
-                        <Utensils size={16} className="text-[#C9A25D]" />
-                        <span className={`text-sm font-medium ${theme.text}`}>{details.serviceStyle}</span>
-                      </div>
-                    </div>
-                    <div className={`col-span-1 md:col-span-2 border-t border-dashed ${theme.border} my-2`}></div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Primary Contact</p>
-                      <p className={`text-sm font-medium ${theme.text}`}>{details.phone}</p>
-                      <p className={`text-xs ${theme.subText}`}>{details.email}</p>
-                    </div>
-                    <div className="col-span-1 md:col-span-2">
-                      <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-2">Special Requests / Dietary Restrictions</p>
-                      <div className={`p-4 border ${theme.border} rounded-sm bg-transparent`}>
-                        <p className={`text-sm ${theme.text}`}>{details.dietary}</p>
-                      </div>
-                    </div>
-                  </div>
+                    </>
+                  )}
                 </div>
               )}
 

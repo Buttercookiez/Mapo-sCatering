@@ -81,19 +81,6 @@ const Navbar = ({ darkMode, setDarkMode, isScrolled }) => {
             {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
 
-          {/* Desktop Inquire Button */}
-          <Link 
-            to="/booking"
-            onClick={() => window.scrollTo(0, 0)} // Scroll top on desktop click
-            className={`hidden md:block text-xs tracking-[0.2em] uppercase border-b pb-1 transition-colors ${
-              isScrolled 
-                ? (darkMode ? 'border-stone-100 hover:text-[#C9A25D]' : 'border-stone-900 hover:text-[#C9A25D]')
-                : 'border-white hover:text-[#C9A25D] hover:border-[#C9A25D]'
-            }`}
-          >
-            Inquire
-          </Link>
-          
           {/* Mobile Menu Toggle Button */}
           <button 
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)} 
