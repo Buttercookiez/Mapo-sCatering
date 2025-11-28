@@ -13,7 +13,7 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-const GoogleMapModal = ({ isOpen, onClose, onSelect, darkMode }) => {
+const GoogleMapModal = ({ isOpen, onClose, onSelect, darkMode, currentLocation }) => {
   // ✅ YOUR API KEY
   const API_KEY = "pk.3afdd6de186ee932339deec83a4c2882"; 
 
@@ -25,7 +25,7 @@ const GoogleMapModal = ({ isOpen, onClose, onSelect, darkMode }) => {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
-  const observerRef = useRef(null); // ✅ New Ref to track the observer
+  const observerRef = useRef(null);
   const searchRequestId = useRef(0);
 
   const [selectedLocation, setSelectedLocation] = useState(null);
@@ -44,10 +44,15 @@ const GoogleMapModal = ({ isOpen, onClose, onSelect, darkMode }) => {
     const timer = setTimeout(() => {
       if (mapContainerRef.current && !mapInstanceRef.current) {
         
+        // Determine start position: Current Location > Default (Manila)
+        const startLat = currentLocation ? currentLocation.lat : 14.5995;
+        const startLng = currentLocation ? currentLocation.lng : 120.9842;
+        const startZoom = currentLocation ? 16 : 12;
+
         const map = L.map(mapContainerRef.current, { 
             zoomControl: false,
             attributionControl: false 
-        }).setView([14.5995, 120.9842], 12); 
+        }).setView([startLat, startLng], startZoom); 
         
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
@@ -56,8 +61,15 @@ const GoogleMapModal = ({ isOpen, onClose, onSelect, darkMode }) => {
         }).addTo(map);
 
         mapInstanceRef.current = map;
-        const marker = L.marker([14.5995, 120.9842]).addTo(map);
+        const marker = L.marker([startLat, startLng]).addTo(map);
         markerRef.current = marker;
+
+        // If we started with a current location, set it as selected immediately
+        if (currentLocation) {
+             setQuery("Current Location");
+             setSelectedLocation({ name: "Current Location", lat: startLat, lon: startLng });
+             // ❌ REMOVED POPUP HERE so only the blue pin shows
+        }
 
         // Click Logic
         map.on('click', async (e) => {
@@ -82,9 +94,7 @@ const GoogleMapModal = ({ isOpen, onClose, onSelect, darkMode }) => {
         });
 
         // 3. SAFE RESIZE OBSERVER
-        // We assign it to a ref so we can disconnect it in the cleanup function
         observerRef.current = new ResizeObserver(() => {
-            // Only invalidate if map instance AND container still exist
             if (mapInstanceRef.current && mapInstanceRef.current._container) {
                 mapInstanceRef.current.invalidateSize();
             }
@@ -97,33 +107,50 @@ const GoogleMapModal = ({ isOpen, onClose, onSelect, darkMode }) => {
     return () => {
       clearTimeout(timer);
       
-      // A. Kill the observer first
       if (observerRef.current) {
         observerRef.current.disconnect();
         observerRef.current = null;
       }
 
-      // B. Kill the map
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.off(); // Remove all event listeners
-        mapInstanceRef.current.remove(); // Destroy map
+        mapInstanceRef.current.off();
+        mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
         markerRef.current = null;
       }
 
-      // C. Remove CSS
       if (document.head.contains(link)) document.head.removeChild(link);
     };
-  }, [isOpen]);
+  }, [isOpen]); 
+
+  // --- HANDLE DYNAMIC LOCATION UPDATES ---
+  useEffect(() => {
+    if (isOpen && currentLocation && mapInstanceRef.current && markerRef.current) {
+        const { lat, lng } = currentLocation;
+        
+        // Move Map
+        mapInstanceRef.current.setView([lat, lng], 16);
+        mapInstanceRef.current.invalidateSize();
+        
+        // Move Marker
+        markerRef.current.setLatLng([lat, lng]);
+        
+        // Set State
+        setQuery("Current Location");
+        setSelectedLocation({ name: "Current Location", lat, lon: lng });
+        
+        // ❌ REMOVED POPUP HERE AS WELL
+    }
+  }, [currentLocation, isOpen]);
 
   // --- RESET STATE ---
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !currentLocation) {
       setQuery("");
       setResults([]);
       setSelectedLocation(null);
     }
-  }, [isOpen]);
+  }, [isOpen, currentLocation]);
 
   if (!isOpen) return null;
 

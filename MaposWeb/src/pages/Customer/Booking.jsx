@@ -67,6 +67,7 @@ const Booking = () => {
   const [eventType, setEventType] = useState("");
   const [serviceStyle, setServiceStyle] = useState(""); 
   const [selectedVenue, setSelectedVenue] = useState(null); 
+  const [currentLocation, setCurrentLocation] = useState(null); // Added for Geolocation
 
   // --- Modals State ---
   const [showMapModal, setShowMapModal] = useState(false);
@@ -175,6 +176,45 @@ const Booking = () => {
     setSelectedVenue(venueData);
   };
 
+  // --- Map & Geolocation Logic (IMPROVED) ---
+  const handleOpenMap = () => {
+    // 1. Check if browser supports it
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      setShowMapModal(true);
+      return;
+    }
+
+    // 2. Fetch with High Accuracy & Options
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        // Success
+        console.log("Location found:", position.coords);
+        setCurrentLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+        setShowMapModal(true);
+      },
+      (error) => {
+        // Detailed Error Handling
+        console.error("Geolocation Error:", error);
+        let errorMsg = "Unable to retrieve location.";
+        if (error.code === 1) errorMsg = "Location permission denied. Please allow access in browser settings.";
+        else if (error.code === 2) errorMsg = "Location unavailable. Ensure GPS is on.";
+        else if (error.code === 3) errorMsg = "Location request timed out.";
+        
+        alert(errorMsg + " Opening default map.");
+        setShowMapModal(true);
+      },
+      { 
+        enableHighAccuracy: true, // Force GPS if available
+        timeout: 10000,           // Wait up to 10 seconds
+        maximumAge: 0             // Do not use cached position
+      }
+    );
+  };
+
   // --- Submission Logic ---
   const handleRequestQuotation = (e) => {
     e.preventDefault();
@@ -242,6 +282,7 @@ const Booking = () => {
         onClose={() => setShowMapModal(false)} 
         onSelect={handleCustomVenueSelect}
         darkMode={darkMode}
+        currentLocation={currentLocation} // Pass the fetched location to the modal
       />
       <TermsModal 
         isOpen={showTermsModal}
@@ -332,9 +373,9 @@ const Booking = () => {
                             </div>
                         ))}
 
-                        {/* Custom Venue Card - Triggers Modal */}
+                        {/* Custom Venue Card - Triggers Map with Geolocation */}
                         <div 
-                            onClick={() => setShowMapModal(true)}
+                            onClick={handleOpenMap} 
                             className={`group relative cursor-pointer flex flex-col h-[350px] md:h-[450px] bg-stone-100 dark:bg-stone-900 border ${theme.border} transition-all duration-500 hover:border-[#C9A25D] ${selectedVenue?.type === 'custom' ? 'border-[#C9A25D]' : ''}`}
                         >
                             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
@@ -363,7 +404,7 @@ const Booking = () => {
         <section ref={addToRefs} className={`min-h-screen md:h-screen flex flex-col justify-center py-20 ${theme.bg} border-t ${theme.border}`}>
             <div className="max-w-screen-md mx-auto px-6 w-full text-center">
                 <FadeIn>
-                     <div className="mb-12">
+                      <div className="mb-12">
                         <span className="text-[#C9A25D] text-xs font-bold tracking-widest uppercase mb-2 block">Step 03</span>
                         <h2 className={`font-serif text-4xl md:text-5xl ${theme.text}`}>Service Style</h2>
                     </div>
