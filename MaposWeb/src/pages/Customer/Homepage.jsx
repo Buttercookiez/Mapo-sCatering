@@ -399,10 +399,10 @@ const Homepage = () => {
       >
         <div className="flex flex-wrap md:flex-nowrap h-full w-full">
           {[
-            "https://images.pexels.com/photos/3026808/pexels-photo-3026808.jpeg?auto=compress&cs=tinysrgb&w=800",
-            "https://images.pexels.com/photos/3217156/pexels-photo-3217156.jpeg?auto=compress&cs=tinysrgb&w=800",
-            "https://images.pexels.com/photos/4552130/pexels-photo-4552130.jpeg?auto=compress&cs=tinysrgb&w=800",
-            "https://images.pexels.com/photos/4253320/pexels-photo-4253320.jpeg?auto=compress&cs=tinysrgb&w=800"
+            "/images/homepage mapos 1.png",
+            "/images/homepage mapos 2.png",
+            "/images/homepage mapos 3.png",
+            "/images/homepage mapos 4.png"
           ].map((src, i) => (
             <div 
               key={i} 
