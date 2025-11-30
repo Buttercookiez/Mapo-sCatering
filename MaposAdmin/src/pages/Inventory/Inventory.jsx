@@ -1,13 +1,14 @@
-// src/pages/Inventory/Inventory.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Plus, ArrowUpDown, AlertTriangle, 
-  Package, Tag, MoreHorizontal, Download, X, ChevronDown
+  Package, Tag, Download, X, ChevronDown, 
+  Trash2, Pencil, Search
 } from 'lucide-react';
 
 // --- FIXED IMPORTS ---
 import Sidebar from '../../components/layout/Sidebar';
 import DashboardNavbar from '../../components/layout/Navbar';
+import { useInventory } from '../../hooks/useInventory';
 
 // --- 1. ANIMATION COMPONENT ---
 const FadeIn = ({ children, delay = 0 }) => {
@@ -37,113 +38,122 @@ const FadeIn = ({ children, delay = 0 }) => {
   );
 };
 
-// --- 2. NEW ITEM MODAL (Matches Theme & Requirements) ---
-const NewItemModal = ({ isOpen, onClose, onSave, theme, categories }) => {
+// --- 2. REUSABLE ITEM MODAL (ADD & EDIT) ---
+const ItemModal = ({ isOpen, onClose, onSave, theme, categories, initialData }) => {
+  // Flat state for easier handling
   const [formData, setFormData] = useState({
-    name: '', category: '', quantity: '', unit: 'Pcs', threshold: ''
+    name: '', category: '', price: '',
+    quantity: '', unit: 'Pcs', threshold: ''
   });
-  
-  // State for Custom Category Dropdown
   const [categoryOpen, setCategoryOpen] = useState(false);
 
-  const inputBase = `w-full bg-transparent border-b ${theme.border} py-3 pl-0 text-sm ${theme.text} placeholder-stone-400 focus:outline-none focus:border-[#C9A25D] transition-colors`;
-  const dropdownContainer = `absolute top-full left-0 w-full mt-1 p-2 shadow-xl rounded-sm z-50 transition-all duration-300 origin-top border ${theme.border} ${theme.cardBg} max-h-48 overflow-y-auto no-scrollbar`;
+  // Populate Form on Edit
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        name: initialData.name || '',
+        category: initialData.category || '',
+        price: initialData.price || '',
+        quantity: initialData.stock?.quantityTotal || '',
+        unit: initialData.stock?.unit || 'Pcs',
+        threshold: initialData.stock?.threshold || ''
+      });
+    } else {
+      setFormData({ name: '', category: '', price: '', quantity: '', unit: 'Pcs', threshold: '' });
+    }
+  }, [initialData, isOpen]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = () => {
-    if (!formData.name || !formData.quantity) return; 
+    if (!formData.name || !formData.quantity) return;
 
-    const newItem = {
-      id: Date.now(),
+    const payload = {
       name: formData.name,
-      // Auto-generated SKU/Code
-      sku: `SKU-${Math.floor(1000 + Math.random() * 9000)}`, 
       category: formData.category || 'Miscellaneous',
-      quantity: Number(formData.quantity),
-      unit: formData.unit,
-      threshold: Number(formData.threshold),
-      lastUpdated: 'Just Now'
+      price: Number(formData.price) || 0,
+      stock: {
+        quantityTotal: Number(formData.quantity),
+        quantityInUse: initialData?.stock?.quantityInUse || 0,
+        threshold: Number(formData.threshold) || 10,
+        unit: formData.unit
+      }
     };
-    onSave(newItem);
+
+    onSave(payload, initialData?.id);
     onClose();
-    setFormData({ name: '', category: '', quantity: '', unit: 'Pcs', threshold: '' });
   };
 
   if (!isOpen) return null;
 
+  // --- FIX 1: ADD 'relative z-10' TO INPUTS ---
+  // This ensures inputs sit above the card background but below the dropdown
+  const inputBase = `w-full bg-transparent border-b ${theme.border} py-3 pl-0 text-sm ${theme.text} placeholder-stone-400 focus:outline-none focus:border-[#C9A25D] transition-colors relative z-10`;
+
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className={`w-full max-w-xl ${theme.cardBg} rounded-sm shadow-2xl border ${theme.border} flex flex-col`}>
-        
+      {/* Clicking overlay closes modal (Optional UX improvement) */}
+      <div className="absolute inset-0" onClick={onClose}></div>
+
+      <div className={`w-full max-w-xl ${theme.cardBg} rounded-sm shadow-2xl border ${theme.border} flex flex-col relative z-50`}>
         {/* Header */}
         <div className={`p-8 border-b ${theme.border} flex justify-between items-center sticky top-0 ${theme.cardBg} z-20`}>
           <div>
-            <h2 className={`font-serif text-3xl ${theme.text}`}>Add Inventory Item</h2>
-            <p className={`text-xs ${theme.subText} mt-1`}>Register new equipment or supplies.</p>
+            <h2 className={`font-serif text-3xl ${theme.text}`}>{initialData ? 'Edit Asset' : 'Add Item'}</h2>
+            <p className={`text-xs ${theme.subText} mt-1`}>{initialData ? 'Update details below.' : 'Register new inventory.'}</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full transition-colors text-stone-500"><X size={20}/></button>
+          <button onClick={onClose}><X size={20} className="text-stone-500 hover:text-stone-800 dark:hover:text-stone-200"/></button>
         </div>
-        
+
         {/* Body */}
         <div className="p-8 space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             
-            {/* Item Name (Full Width) */}
             <div className="md:col-span-2">
-              <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Item Name" className={inputBase} />
+                <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Item Name" className={inputBase} />
             </div>
             
-            {/* Custom Category Dropdown (Aligned UI) */}
-            <div className="relative md:col-span-2">
-               <button 
-                 type="button" 
-                 onClick={() => setCategoryOpen(!categoryOpen)} 
-                 className={`${inputBase} text-left flex items-center justify-between cursor-pointer`}
-               >
-                  <span className={formData.category ? theme.text : "text-stone-400"}>
-                    {formData.category || "Select Category"}
-                  </span>
-                  <ChevronDown className={`w-4 h-4 text-stone-400 transition-transform duration-300 ${categoryOpen ? 'rotate-180' : ''}`} />
+            {/* --- FIX 2: ADD 'z-20' TO DROPDOWN PARENT --- */}
+            {/* This ensures the dropdown menu floats OVER the inputs below it */}
+            <div className="relative md:col-span-2 z-20">
+               <button type="button" onClick={() => setCategoryOpen(!categoryOpen)} className={`${inputBase} text-left flex items-center justify-between`}>
+                  <span className={formData.category ? theme.text : "text-stone-400"}>{formData.category || "Select Category"}</span>
+                  <ChevronDown className="w-4 h-4 text-stone-400" />
                </button>
                
-               <div className={`${dropdownContainer} ${categoryOpen ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-0 pointer-events-none'}`}>
-                  <div className="flex flex-col gap-1">
-                     {categories.filter(c => c !== 'All').map(cat => (
-                        <div 
-                          key={cat} 
-                          onClick={() => { 
-                            setFormData(prev => ({...prev, category: cat})); 
-                            setCategoryOpen(false); 
-                          }} 
-                          className={`text-xs p-2 hover:bg-[#C9A25D] hover:text-white cursor-pointer transition-colors rounded-sm ${theme.text}`}
-                        >
-                          {cat}
-                        </div>
-                     ))}
-                  </div>
+               {/* Dropdown Menu */}
+               <div className={`
+                 absolute top-full left-0 w-full mt-1 p-2 shadow-xl z-50 border ${theme.border} ${theme.cardBg} max-h-48 overflow-y-auto transition-all duration-200 origin-top
+                 ${categoryOpen ? 'opacity-100 scale-y-100 pointer-events-auto' : 'opacity-0 scale-y-0 pointer-events-none'}
+               `}>
+                  {categories.map(cat => (
+                    <div 
+                      key={cat} 
+                      onClick={() => { setFormData(p => ({...p, category: cat})); setCategoryOpen(false); }} 
+                      className={`text-xs p-2 hover:bg-[#C9A25D] hover:text-white cursor-pointer ${theme.text}`}
+                    >
+                      {cat}
+                    </div>
+                  ))}
                </div>
             </div>
 
-            {/* Quantity (Simple Number Input) */}
-            <input type="number" name="quantity" value={formData.quantity} onChange={handleChange} placeholder="Current Stock" className={inputBase} />
+            <input type="number" name="price" value={formData.price} onChange={handleChange} placeholder="Price" className={inputBase} />
+            <input type="number" name="quantity" value={formData.quantity} onChange={handleChange} placeholder="Stock Quantity" className={inputBase} />
             
-            {/* Unit & Threshold (Simple Number Inputs) */}
             <div className="flex gap-4">
-               <input type="text" name="unit" value={formData.unit} onChange={handleChange} placeholder="Unit (e.g. Pcs)" className={`${inputBase} w-1/3`} />
-               <input type="number" name="threshold" value={formData.threshold} onChange={handleChange} placeholder="Low Stock Threshold" className={`${inputBase} w-2/3`} />
+               <input type="text" name="unit" value={formData.unit} onChange={handleChange} placeholder="Unit" className={`${inputBase} w-1/3`} />
+               <input type="number" name="threshold" value={formData.threshold} onChange={handleChange} placeholder="Alert Threshold" className={`${inputBase} w-2/3`} />
             </div>
-
           </div>
         </div>
 
         {/* Footer */}
         <div className={`p-6 border-t ${theme.border} flex justify-end gap-4`}>
-          <button onClick={onClose} className={`px-6 py-3 text-xs uppercase tracking-widest border ${theme.border} ${theme.text} hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors`}>Cancel</button>
-          <button onClick={handleSubmit} className="px-8 py-3 bg-[#1c1c1c] text-white text-xs uppercase tracking-widest hover:bg-[#C9A25D] transition-colors rounded-sm shadow-lg">Save Item</button>
+          <button onClick={onClose} className={`px-6 py-3 text-xs uppercase border ${theme.border} ${theme.text}`}>Cancel</button>
+          <button onClick={handleSubmit} className="px-8 py-3 bg-[#1c1c1c] text-white text-xs uppercase hover:bg-[#C9A25D] transition-colors">{initialData ? 'Update' : 'Save'}</button>
         </div>
       </div>
     </div>
@@ -152,7 +162,7 @@ const NewItemModal = ({ isOpen, onClose, onSave, theme, categories }) => {
 
 // --- 3. MAIN COMPONENT ---
 const Inventory = () => {
-  // --- Persistence Logic ---
+  // Persistence & Theme State
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const savedState = localStorage.getItem('sidebarState');
@@ -164,9 +174,13 @@ const Inventory = () => {
   const [categoryFilter, setCategoryFilter] = useState("All");
   
   // Modal State
-  const [isNewItemOpen, setIsNewItemOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null); // Stores the full item object when editing
 
-  // --- Effects ---
+  // Custom Hook
+  const { inventoryData, loading, error, addItem, updateItem, deleteItem } = useInventory();
+
+  // Effects
   useEffect(() => {
     localStorage.setItem('sidebarState', JSON.stringify(sidebarOpen));
   }, [sidebarOpen]);
@@ -192,38 +206,58 @@ const Inventory = () => {
     hoverBg: darkMode ? 'hover:bg-stone-900' : 'hover:bg-stone-50',
   };
 
-  // --- Categories ---
   const categories = [
     "All", "Furniture", "Linens", "Dining", "Equipment", "Decorations", "Structures", "Miscellaneous"
   ];
 
-  // --- Inventory Data (Converted to State for Adding Items) ---
-  const [inventoryData, setInventoryData] = useState([
-    { id: 1, name: 'Tiffany Chairs (Gold)', sku: 'FUR-001', category: 'Furniture', quantity: 145, unit: 'Pcs', threshold: 150, lastUpdated: 'Oct 20' },
-    { id: 2, name: 'White Satin Tablecloth', sku: 'LIN-104', category: 'Linens', quantity: 300, unit: 'Pcs', threshold: 50, lastUpdated: 'Oct 18' },
-    { id: 3, name: 'Silver Cutlery Set', sku: 'DIN-042', category: 'Dining', quantity: 500, unit: 'Sets', threshold: 100, lastUpdated: 'Oct 21' },
-    { id: 4, name: 'Chafing Dishes', sku: 'EQP-201', category: 'Equipment', quantity: 25, unit: 'Units', threshold: 30, lastUpdated: 'Sep 30' },
-    { id: 5, name: 'Crystal Centerpieces', sku: 'DEC-099', category: 'Decorations', quantity: 40, unit: 'Pcs', threshold: 45, lastUpdated: 'Oct 22' },
-    { id: 6, name: 'Garden Tent (20x20)', sku: 'STR-301', category: 'Structures', quantity: 5, unit: 'Units', threshold: 2, lastUpdated: 'Oct 15' },
-    { id: 7, name: 'Extension Cords (Heavy)', sku: 'MSC-500', category: 'Miscellaneous', quantity: 12, unit: 'Pcs', threshold: 15, lastUpdated: 'Oct 24' },
-    { id: 8, name: 'Round Tables (10-Seater)', sku: 'FUR-002', category: 'Furniture', quantity: 50, unit: 'Pcs', threshold: 10, lastUpdated: 'Oct 25' },
-  ]);
+  // --- Handlers ---
 
-  // Function to add new item
-  const handleSaveItem = (newItem) => {
-    setInventoryData(prev => [newItem, ...prev]);
+  const handleOpenAdd = () => {
+    setEditingItem(null); // Clear editing state
+    setIsModalOpen(true);
   };
 
-  // Filter Logic
+  const handleOpenEdit = (item) => {
+    setEditingItem(item); // Load item data
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (itemData, id) => {
+    if (id) {
+      // Logic for Update
+      await updateItem(id, itemData);
+    } else {
+      // Logic for Add (Generate SKU client-side or let backend do it)
+      const newItem = {
+        ...itemData,
+        sku: `SKU-${Math.floor(1000 + Math.random() * 9000)}`, // Fallback generation
+      };
+      await addItem(newItem);
+    }
+  };
+
+  // --- Calculations ---
+
   const filteredItems = inventoryData.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || item.sku.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = item.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          item.sku?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === "All" || item.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
-  // Stats Calculation
-  const lowStockCount = inventoryData.filter(i => i.quantity <= i.threshold).length;
+  const lowStockCount = inventoryData.filter(i => 
+    (i.stock?.quantityTotal || 0) <= (i.stock?.threshold || 0)
+  ).length;
+  
   const totalItems = inventoryData.length;
+  
+  // Calculate Total Value safely
+  const totalValue = inventoryData.reduce((acc, item) => {
+    return acc + ((item.price || 0) * (item.stock?.quantityTotal || 0));
+  }, 0);
+
+  if (loading) return <div className={`h-screen flex items-center justify-center ${theme.bg} ${theme.text}`}>Loading Assets...</div>;
+  if (error) return <div className={`h-screen flex items-center justify-center ${theme.bg} text-red-500`}>{error}</div>;
 
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text} selection:bg-[#C9A25D] selection:text-white`}>
@@ -265,7 +299,7 @@ const Inventory = () => {
             {[
               { label: 'Total Asset Count', value: totalItems, sub: 'Across 7 Categories', icon: Package },
               { label: 'Low Stock Alerts', value: lowStockCount, sub: 'Requires Re-order', icon: AlertTriangle, isAlert: true },
-              { label: 'Total Asset Value', value: '$142,500', sub: 'Est. Current Value', icon: Tag },
+              { label: 'Total Asset Value', value: `$${totalValue.toLocaleString()}`, sub: 'Est. Current Value', icon: Tag },
             ].map((stat, idx) => (
               <FadeIn key={idx} delay={idx * 100}>
                 <div className={`p-6 border ${theme.border} ${theme.cardBg} flex items-start justify-between group hover:border-[#C9A25D]/30 transition-all duration-500`}>
@@ -293,10 +327,10 @@ const Inventory = () => {
                   <p className={`text-xs ${theme.subText} mt-1`}>Real-time tracking of equipment and supplies.</p>
                 </div>
                 
-                {/* Filter & Actions Group */}
+                {/* Filter & Actions */}
                 <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full lg:w-auto">
                   
-                  {/* Kitchen-style Filter Pills */}
+                  {/* Filter Pills */}
                   <div className={`flex flex-wrap gap-1 p-1 rounded-sm border ${theme.border} ${darkMode ? 'bg-stone-900' : 'bg-stone-50'}`}>
                     {categories.map(cat => (
                       <button
@@ -316,9 +350,8 @@ const Inventory = () => {
                   </div>
 
                   <div className="flex gap-3">
-                    {/* ADD ITEM BUTTON */}
                     <button 
-                      onClick={() => setIsNewItemOpen(true)}
+                      onClick={handleOpenAdd}
                       className="flex items-center gap-2 bg-[#1c1c1c] text-white px-4 py-2.5 text-[10px] uppercase tracking-widest hover:bg-[#C9A25D] transition-colors"
                     >
                         <Plus size={14} /> Add Item
@@ -344,14 +377,20 @@ const Inventory = () => {
                 <div className="col-span-2 hidden md:block">SKU</div>
                 <div className="col-span-2 hidden md:block">Category</div>
                 <div className="col-span-4 md:col-span-3">Stock Level</div>
-                <div className="col-span-2 text-right">Status</div>
+                <div className="col-span-2 text-right">Actions</div>
               </div>
 
               {/* Table Rows */}
               <div className={`divide-y divide-stone-100 dark:divide-stone-800`}>
                 {filteredItems.map((item) => {
-                  const percentage = Math.min((item.quantity / (item.threshold * 2)) * 100, 100);
-                  const isLow = item.quantity <= item.threshold;
+                  // Safe Access to Nested Stock Object
+                  const stock = item.stock || {};
+                  const qty = stock.quantityTotal || 0;
+                  const threshold = stock.threshold || 0;
+                  const unit = stock.unit || 'Pcs';
+
+                  const percentage = threshold > 0 ? Math.min((qty / (threshold * 2)) * 100, 100) : 100;
+                  const isLow = qty <= threshold;
                   
                   return (
                     <div 
@@ -378,9 +417,9 @@ const Inventory = () => {
                       <div className="col-span-4 md:col-span-3">
                         <div className="flex justify-between text-xs mb-1.5">
                           <span className={isLow ? 'text-red-400 font-bold' : theme.text}>
-                            {item.quantity} <span className="text-[10px] text-stone-400 font-normal">{item.unit}</span>
+                            {qty} <span className="text-[10px] text-stone-400 font-normal">{unit}</span>
                           </span>
-                          <span className="text-[10px] text-stone-400">Min: {item.threshold}</span>
+                          <span className="text-[10px] text-stone-400">Min: {threshold}</span>
                         </div>
                         <div className={`w-full h-1.5 ${darkMode ? 'bg-stone-800' : 'bg-stone-200'} rounded-full overflow-hidden`}>
                           <div 
@@ -392,19 +431,28 @@ const Inventory = () => {
                         </div>
                       </div>
 
-                      {/* Status & Action */}
-                      <div className="col-span-4 md:col-span-2 flex justify-end items-center gap-4">
-                        {isLow ? (
-                          <span className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-red-500 bg-red-500/10 px-3 py-1.5 rounded-sm font-medium">
-                            <AlertTriangle size={10} /> Low
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-emerald-600 bg-emerald-500/10 px-3 py-1.5 rounded-sm font-medium">
-                            In Stock
-                          </span>
+                      {/* Action Buttons */}
+                      <div className="col-span-4 md:col-span-2 flex justify-end items-center gap-3">
+                        {isLow && (
+                           <AlertTriangle size={14} className="text-red-500 mr-2 animate-pulse" />
                         )}
-                        <button className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:text-[#C9A25D] ${theme.subText}`}>
-                          <MoreHorizontal size={16} />
+                        
+                        {/* Edit Button */}
+                        <button 
+                          onClick={() => handleOpenEdit(item)}
+                          className={`p-1.5 rounded-sm hover:bg-[#C9A25D] hover:text-white transition-colors ${theme.subText}`}
+                          title="Edit Item"
+                        >
+                          <Pencil size={14} />
+                        </button>
+
+                        {/* Delete Button */}
+                        <button 
+                          onClick={() => deleteItem(item.id)}
+                          className={`p-1.5 rounded-sm hover:bg-red-500 hover:text-white transition-colors ${theme.subText}`}
+                          title="Delete Item"
+                        >
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </div>
@@ -434,13 +482,14 @@ const Inventory = () => {
         </div>
       </main>
 
-      {/* --- 4. RENDER MODAL --- */}
-      <NewItemModal 
-         isOpen={isNewItemOpen} 
-         onClose={() => setIsNewItemOpen(false)} 
-         onSave={handleSaveItem}
+      {/* --- RENDER SHARED MODAL --- */}
+      <ItemModal 
+         isOpen={isModalOpen} 
+         onClose={() => setIsModalOpen(false)} 
+         onSave={handleSave}
          theme={theme}
          categories={categories}
+         initialData={editingItem} // Pass the item to edit, or null
       />
     </div>
   );

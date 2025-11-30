@@ -23,10 +23,12 @@ app.use((req, res, next) => {
 // Routes
 const inquiryRoute = require("./routes/inquiryRoute");
 const paymongoRoute = require("./routes/paymongoRoute");
+const inventoryRoute = require("./routes/inventoryRoute");
 
 // Use routes
 app.use("/api/inquiries", inquiryRoute);
 app.use("/api/paymongo", paymongoRoute);
+app.use("/api/inventory", inventoryRoute);
 
 // Start server
 const PORT = 5000;
