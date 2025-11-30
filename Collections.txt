@@ -1,0 +1,63 @@
+BOOKINGS COLLECTION
+    bookingId:
+    clientId:
+    bookingStatus:
+    profile: {
+        name:
+        email:
+        contactNumber:
+    } 
+    eventDetails: {
+        date:
+        startTime:
+        endTime:
+        pax:
+        venue:
+        serviceStyle:
+        eventType:
+        package:
+        addOns:
+    }
+    billing: {
+        totalCost:
+        amountPaid:
+        remainingBalance:
+        paymentStatus:
+    }
+    notes:
+
+
+CLIENTS COLLECTION
+    clientId:
+    profile: {
+        name:
+        email:
+        contactNumber:
+    } 
+
+TRANSACTIONS COLLECTION
+    transactId:
+    bookingId:
+    clientId:
+    date:
+    paymentDetails: {
+        amount:
+        method:
+        refNumber:
+        type:
+    }
+    status:
+
+
+INVENTORY COLLECTION
+    sku:
+    name:
+    category:
+    stock: {
+        quantityTotal:
+        quantityInUse:
+        threshold:
+        unit:
+    }
+    price:
+    lastUpdated:
