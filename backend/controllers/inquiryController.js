@@ -16,94 +16,140 @@ const transporter = nodemailer.createTransport({
 const createInquiry = async (req, res) => {
     try {
         const data = req.body;
+        const batch = db.batch();
 
-        // Generate Custom Reference ID (BK-001)
-        const snapshot = await db.collection("inquiries")
-            .orderBy("createdAt", "desc")
+        // =========================================================
+        // 1. GENERATE READABLE BOOKING ID (Field: BK-001)
+        // =========================================================
+        // Query the "bookings" collection
+        const bookingSnapshot = await db.collection("bookings")
+            .orderBy("bookingId", "desc")
             .limit(1)
             .get();
 
-        let newNumber = 1;
+        let newBookingNum = 1;
 
-        if (!snapshot.empty) {
-            const lastDoc = snapshot.docs[0].data();
-            if (lastDoc.refId) {
-                const lastRefId = lastDoc.refId;
-                const lastNumber = parseInt(lastRefId.split("-")[1]);
-                if (!isNaN(lastNumber)) {
-                    newNumber = lastNumber + 1;
+        if (!bookingSnapshot.empty) {
+            const lastDoc = bookingSnapshot.docs[0].data();
+            if (lastDoc.bookingId) {
+                const parts = lastDoc.bookingId.split("-"); 
+                if (parts.length > 1) {
+                    const lastNumber = parseInt(parts[1]);
+                    if (!isNaN(lastNumber)) newBookingNum = lastNumber + 1;
                 }
             }
         }
 
-        const formattedNumber = newNumber.toString().padStart(3, "0");
-        const refId = `BK-${formattedNumber}`;
+        const readableBookingId = `BK-${newBookingNum.toString().padStart(3, "0")}`;
 
-        // Prepare Batch Write
-        const batch = db.batch();
-        const inquiryRef = db.collection("inquiries").doc(); 
-        
-        batch.set(inquiryRef, {
-            refId: refId,
-            fullName: data.name,
-            email: data.email,
-            phone: data.phone,
-            dateOfEvent: data.date,
-            startTime: data.startTime,
-            endTime: data.endTime,
-            estimatedGuests: parseInt(data.guests) || 0,
-            estimatedBudget: parseFloat(data.budget) || 0,
-            eventType: data.eventType,
-            serviceStyle: data.serviceStyle,
-            venueName: data.venue,          
-            venueId: data.venueId,          
-            venueType: data.venueType,      
-            initialNotes: data.notes,
-            status: "Pending",
+        // =========================================================
+        // 2. HANDLE CLIENT LOGIC
+        // =========================================================
+        let readableClientId; 
+        let clientDocId; 
+
+        // Check if client exists by email in "clients" collection
+        const clientQuery = await db.collection("clients")
+            .where("profile.email", "==", data.email)
+            .limit(1)
+            .get();
+
+        if (!clientQuery.empty) {
+            // -- EXISTING CLIENT --
+            const clientDoc = clientQuery.docs[0];
+            clientDocId = clientDoc.id; // Auto-ID
+            readableClientId = clientDoc.data().clientId; // Readable ID (CL-XXX)
+        } else {
+            // -- NEW CLIENT --
+            const clientSnapshot = await db.collection("clients")
+                .orderBy("clientId", "desc")
+                .limit(1)
+                .get();
+
+            let newClientNum = 1;
+            if (!clientSnapshot.empty) {
+                const lastClient = clientSnapshot.docs[0].data();
+                if (lastClient.clientId) {
+                    const parts = lastClient.clientId.split("-");
+                    if (parts.length > 1) {
+                        const lastNumber = parseInt(parts[1]);
+                        if (!isNaN(lastNumber)) newClientNum = lastNumber + 1;
+                    }
+                }
+            }
+
+            readableClientId = `CL-${newClientNum.toString().padStart(3, "0")}`;
+            
+            // Auto-ID Document for Client
+            const newClientRef = db.collection("clients").doc(); 
+            clientDocId = newClientRef.id;
+
+            batch.set(newClientRef, {
+                clientId: readableClientId, // Field: CL-001
+                profile: {
+                    name: data.name,
+                    email: data.email,
+                    contactNumber: data.phone || ""
+                },
+                createdAt: new Date().toISOString()
+            });
+        }
+
+        // =========================================================
+        // 3. CREATE BOOKING DOCUMENT
+        // =========================================================
+        // Auto-ID Document for Booking in "bookings" collection
+        const bookingRef = db.collection("bookings").doc(); 
+
+        const bookingData = {
+            bookingId: readableBookingId, // Field: BK-001
+            clientRefId: clientDocId,     // Link to Client Doc Auto-ID
+            clientId: readableClientId,   // Link to Client Readable ID
+            bookingStatus: "Pending",     
+            
+            profile: {
+                name: data.name,
+                email: data.email,
+                contactNumber: data.phone || ""
+            },
+
+            eventDetails: {
+                date: data.date,
+                startTime: data.startTime,
+                endTime: data.endTime,
+                pax: parseInt(data.guests) || 0,
+                venue: data.venue,
+                venueId: data.venueId || null,
+                venueType: data.venueType || "predefined",
+                serviceStyle: data.serviceStyle,
+                eventType: data.eventType,
+                package: null, 
+                addOns: data.addOns || []
+            },
+
+            billing: {
+                totalCost: 0, 
+                amountPaid: 0,
+                remainingBalance: 0,
+                paymentStatus: "Unpaid"
+            },
+
+            notes: data.notes || "",
             createdAt: new Date().toISOString()
-        });
+        };
 
-        // Create associated empty documents
-        const paymentsRef = db.collection("payments").doc(refId);
-        batch.set(paymentsRef, {
-            refId: refId,
-            linkedInquiryId: inquiryRef.id,
-            totalCost: null,
-            reservationFee: null,
-            downpayment: null,
-            balance: null,
-            paymentStatus: "Unpaid",
-            history: []
-        });
-
-        const proposalsRef = db.collection("proposals").doc(refId);
-        batch.set(proposalsRef, {
-            refId: refId,
-            linkedInquiryId: inquiryRef.id,
-            selectedPackage: null,
-            items: [],
-            costBreakdown: { food: null, serviceCharge: null, grandTotal: null },
-            isApproved: false
-        });
-
-        const notesRef = db.collection("notes").doc(refId);
-        batch.set(notesRef, {
-            refId: refId,
-            linkedInquiryId: inquiryRef.id,
-            internalNotes: null,
-            timeline: [{ date: new Date().toISOString().split('T')[0], user: "System", action: "Inquiry Received" }]
-        });
+        batch.set(bookingRef, bookingData);
 
         await batch.commit();
 
         res.status(200).json({ 
             success: true,
-            refId: refId, 
-            message: "Inquiry created successfully!" 
+            refId: readableBookingId, 
+            message: "Inquiry received successfully!" 
         });
 
     } catch (error) {
-        console.error("Error saving inquiry:", error);
+        console.error("Error saving booking:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

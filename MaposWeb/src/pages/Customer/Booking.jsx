@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowUp, Calendar, Users, ChevronDown, Check, Utensils,
-  ChevronLeft, ChevronRight, Clock, Plus, ArrowRight
+  ChevronLeft, ChevronRight, Plus, ArrowRight, Clock
 } from "lucide-react";
 import Navbar from "../../components/customer/Navbar";
 import Footer from "../../components/customer/Footer";
@@ -16,6 +16,7 @@ const FadeIn = ({ children, delay = 0, direction = "up" }) => {
   const ref = useRef(null);
 
   useEffect(() => {
+    const currentRef = ref.current;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -23,12 +24,10 @@ const FadeIn = ({ children, delay = 0, direction = "up" }) => {
           observer.unobserve(entry.target);
         }
       },
-      { threshold: 0.15 }
+      { threshold: 0.1, rootMargin: "50px" }
     );
-    if (ref.current) observer.observe(ref.current);
-    return () => {
-      if (ref.current) observer.unobserve(ref.current);
-    };
+    if (currentRef) observer.observe(currentRef);
+    return () => { if (currentRef) observer.unobserve(currentRef); };
   }, []);
 
   const translateClass = direction === "up" ? "translate-y-10" : "translate-x-0";
@@ -46,11 +45,102 @@ const FadeIn = ({ children, delay = 0, direction = "up" }) => {
   );
 };
 
+// --- IMPROVED CUSTOM TIME PICKER ---
+const CustomTimeSelect = ({ label, value, onChange, theme }) => {
+  // Internal state to allow partial selection visually
+  const [h, setH] = useState("");
+  const [m, setM] = useState("");
+  const [p, setP] = useState("");
+
+  // Sync internal state if parent value changes (e.g. navigating back)
+  useEffect(() => {
+    if (value) {
+      const [time, period] = value.split(" ");
+      if (time && period) {
+        const [hour, minute] = time.split(":");
+        setH(hour);
+        setM(minute);
+        setP(period);
+      }
+    }
+  }, [value]);
+
+  const handleUpdate = (type, val) => {
+    let newH = h, newM = m, newP = p;
+
+    if (type === "h") { setH(val); newH = val; }
+    if (type === "m") { setM(val); newM = val; }
+    if (type === "p") { setP(val); newP = val; }
+
+    // Only update parent if FULL time is selected
+    if (newH && newM && newP) {
+      onChange(`${newH}:${newM} ${newP}`);
+    }
+  };
+
+  const hours = Array.from({ length: 12 }, (_, i) => (i + 1).toString());
+  const minutes = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"];
+
+  return (
+    <div className="relative group">
+      <label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>{label}</label>
+      
+      {/* Container */}
+      <div className={`flex items-center justify-between border-b ${theme.border} py-3 transition-colors group-focus-within:border-[#C9A25D]`}>
+        
+        {/* Hour */}
+        <div className="relative w-1/4">
+          <select 
+            value={h} 
+            onChange={(e) => handleUpdate("h", e.target.value)}
+            className={`w-full bg-transparent text-lg md:text-xl ${theme.text} text-center appearance-none focus:outline-none cursor-pointer`}
+          >
+            <option value="" disabled>HH</option>
+            {hours.map(hr => <option key={hr} value={hr} className="bg-stone-100 dark:bg-stone-900 text-sm">{hr}</option>)}
+          </select>
+        </div>
+
+        <span className="text-stone-400 font-light -mt-1">:</span>
+
+        {/* Minute */}
+        <div className="relative w-1/4">
+          <select 
+            value={m} 
+            onChange={(e) => handleUpdate("m", e.target.value)}
+            className={`w-full bg-transparent text-lg md:text-xl ${theme.text} text-center appearance-none focus:outline-none cursor-pointer`}
+          >
+            <option value="" disabled>MM</option>
+            {minutes.map(min => <option key={min} value={min} className="bg-stone-100 dark:bg-stone-900 text-sm">{min}</option>)}
+          </select>
+        </div>
+
+        {/* AM/PM */}
+        <div className="relative w-1/4 border-l border-stone-200 dark:border-stone-800 ml-2 pl-2">
+          <select 
+            value={p} 
+            onChange={(e) => handleUpdate("p", e.target.value)}
+            className={`w-full bg-transparent text-sm md:text-lg font-bold text-[#C9A25D] text-center appearance-none focus:outline-none cursor-pointer`}
+          >
+            <option value="" disabled>--</option>
+            <option value="AM" className="bg-stone-100 dark:bg-stone-900">AM</option>
+            <option value="PM" className="bg-stone-100 dark:bg-stone-900">PM</option>
+          </select>
+        </div>
+
+        {/* Static Clock Icon */}
+        <div className="pl-3 opacity-50">
+            <Clock className="w-4 h-4" />
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
 const Booking = () => {
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("theme") === "dark");
 
-  // --- Scroll Logic ---
   const [activeIndex, setActiveIndex] = useState(0);
   const [isScrolling, setIsScrolling] = useState(false);
   const [navIsScrolled, setNavIsScrolled] = useState(false);
@@ -59,13 +149,11 @@ const Booking = () => {
   const sectionRefs = useRef([]);
   const addToRefs = (el) => { if (el && !sectionRefs.current.includes(el)) sectionRefs.current.push(el); };
 
-  // --- Data States ---
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // 1. UPDATED: Added addOns array to initial state
   const [formData, setFormData] = useState({
-    name: "", email: "", phone: "", date: "", guests: "", budget: "", startTime: "", endTime: "", notes: "",
-    addOns: [] 
+    firstName: "", lastName: "", email: "", phoneSuffix: "", 
+    date: "", guests: "", startTime: "", endTime: "", notes: "", addOns: [] 
   });
   
   const [eventType, setEventType] = useState("");
@@ -73,41 +161,35 @@ const Booking = () => {
   const [selectedVenue, setSelectedVenue] = useState(null); 
   const [currentLocation, setCurrentLocation] = useState(null); 
 
-  // --- Modals State ---
   const [showMapModal, setShowMapModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
-
-  // --- Dropdowns State ---
   const [eventTypeOpen, setEventTypeOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  // Data
   const bookedDates = ["2025-11-15", "2025-11-20", "2025-12-01", "2025-12-25"];
-  const prices = { full_service: 1500, service_only: 600 };
+  
   const venues = [
     { id: 1, name: "Palacios Event Place", capacity: "300 Pax", img: "/images/palacios.png", type: "predefined" },
     { id: 2, name: "La Veranda Events Hall", capacity: "150 Pax", img: "/images/laverandaa.png", type: "predefined" },
     { id: 3, name: "Tenorio's Events Place", capacity: "50 Pax", img: "/images/tenorios.png", type: "predefined" }
   ];
   const eventOptions = ["Wedding", "Corporate Gala", "Private Dinner", "Cocktail Reception", "Product Launch", "Birthday", "Engagement Party", "Charity Ball", "Anniversary", "Baby Shower", "Baptism", "Graduation", "Reunion"];
-
-  // 2. ADDED: Add-ons Data & Logic
   const addOnOptions = ["Live Band", "Photographer", "Event Host"];
 
+  // --- LOGIC: Add-ons ---
   const toggleAddOn = (item) => {
     setFormData((prev) => {
       const exists = prev.addOns.includes(item);
       const newAddOns = exists 
-        ? prev.addOns.filter((i) => i !== item) // Remove
-        : [...prev.addOns, item]; // Add
+        ? prev.addOns.filter((i) => i !== item) 
+        : [...prev.addOns, item];
       return { ...prev, addOns: newAddOns };
     });
   };
 
   // --- SCROLL ENGINE ---
   const handleNativeScroll = (e) => setNavIsScrolled(e.currentTarget.scrollTop > 50);
-
   const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
   const smoothScrollTo = (targetPosition, duration) => {
@@ -139,6 +221,40 @@ const Booking = () => {
     }
   };
 
+  // --- VALIDATION & SCROLL EVENT ---
+  const validateStep = (currentStepIndex) => {
+    if (currentStepIndex === 1) {
+      if (!formData.firstName || !formData.lastName || !formData.email || formData.phoneSuffix.length !== 9) {
+        alert("Please fill in all host details correctly (Phone must be 11 digits).");
+        return false;
+      }
+    }
+    if (currentStepIndex === 2) {
+      if (!selectedVenue) {
+        alert("Please select a venue.");
+        return false;
+      }
+    }
+    if (currentStepIndex === 3) {
+      if (!serviceStyle) {
+        alert("Please select a service style.");
+        return false;
+      }
+    }
+    if (currentStepIndex === 4) {
+      if (!formData.date || !formData.startTime || !formData.endTime || !formData.guests || !eventType) {
+        alert("Please fill in all event details.");
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleNextClick = (targetIndex) => {
+    if (targetIndex > activeIndex && !validateStep(activeIndex)) return;
+    scrollToSection(targetIndex);
+  };
+
   useEffect(() => {
     const handleWheel = (e) => {
       if (window.innerWidth < 768) return; 
@@ -150,15 +266,28 @@ const Booking = () => {
 
       const direction = e.deltaY > 0 ? 1 : -1;
       const nextIndex = Math.min(Math.max(activeIndex + direction, 0), sectionRefs.current.length - 1);
+      
+      if (direction > 0 && !validateStep(activeIndex)) return;
+
       if (nextIndex !== activeIndex) scrollToSection(nextIndex);
     };
     const container = containerRef.current;
     if (container) container.addEventListener('wheel', handleWheel, { passive: false });
     return () => { if (container) container.removeEventListener('wheel', handleWheel); };
-  }, [activeIndex, isScrolling, showMapModal, showTermsModal]);
+  }, [activeIndex, isScrolling, showMapModal, showTermsModal]); 
 
-  // --- Logic ---
+
+  // --- INITIALIZATION & THEME ---
   useEffect(() => {
+    // FIX: Force Scroll to Top on Reload
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0;
+    }
+    window.scrollTo(0, 0);
+
     if (darkMode) {
       document.documentElement.classList.add("dark");
       localStorage.setItem("theme", "dark");
@@ -170,20 +299,18 @@ const Booking = () => {
     }
   }, [darkMode]);
 
-  useEffect(() => {
-    const guestCount = parseInt(formData.guests) || 0;
-    const pricePerHead = prices[serviceStyle] || 0;
-    if (guestCount > 0 && pricePerHead > 0) {
-      setFormData((prev) => ({ ...prev, budget: guestCount * pricePerHead }));
-    }
-  }, [formData.guests, serviceStyle]);
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // --- Venue Selection Logic ---
+  const handlePhoneChange = (e) => {
+    const val = e.target.value.replace(/\D/g, '');
+    if (val.length <= 9) {
+      setFormData(prev => ({ ...prev, phoneSuffix: val }));
+    }
+  };
+
   const handlePredefinedVenueSelect = (venue) => {
     setSelectedVenue(venue);
   };
@@ -192,7 +319,6 @@ const Booking = () => {
     setSelectedVenue(venueData);
   };
 
-  // --- Map & Geolocation Logic ---
   const handleOpenMap = () => {
     if (!navigator.geolocation) {
       alert("Geolocation is not supported by your browser.");
@@ -204,18 +330,14 @@ const Booking = () => {
         const { latitude, longitude } = position.coords;
         let addressName = "Current Location";
         const API_KEY = "pk.3afdd6de186ee932339deec83a4c2882"; 
-
         try {
           const response = await fetch(`https://us1.locationiq.com/v1/reverse?key=${API_KEY}&lat=${latitude}&lon=${longitude}&format=json`);
           const data = await response.json();
-          if (data && data.display_name) {
-            addressName = data.display_name;
-          }
+          if (data && data.display_name) addressName = data.display_name;
         } catch (err) {
           console.error("Reverse geocoding failed:", err);
           addressName = `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`;
         }
-        
         setCurrentLocation({ lat: latitude, lng: longitude, name: addressName });
         setShowMapModal(true);
       },
@@ -227,30 +349,47 @@ const Booking = () => {
     );
   };
 
-  // --- Submission Logic ---
   const handleRequestQuotation = (e) => {
     e.preventDefault();
+    if (!validateStep(4)) return; 
     if (!selectedVenue) { alert("Please select a venue."); return; }
     setShowTermsModal(true);
   };
 
   const handleFinalSubmit = async () => {
     setIsSubmitting(true);
+    
+    const finalFullName = `${formData.firstName} ${formData.lastName}`;
+    const finalPhone = `09${formData.phoneSuffix}`;
+
     const bookingData = {
-      ...formData, venue: selectedVenue.name, venueId: selectedVenue.id, venueType: selectedVenue.type, eventType, serviceStyle,
+      name: finalFullName,
+      email: formData.email,
+      phone: finalPhone,
+      date: formData.date,
+      startTime: formData.startTime,
+      endTime: formData.endTime,
+      guests: formData.guests, 
+      venue: selectedVenue ? selectedVenue.name : "",
+      venueId: selectedVenue ? selectedVenue.id : null,
+      venueType: selectedVenue ? selectedVenue.type : "",
+      eventType: eventType,
+      serviceStyle: serviceStyle,
+      addOns: formData.addOns, 
+      notes: formData.notes
     };
+
     try {
       const response = await api.post("/inquiries", bookingData);
       navigate("/confirmation", { state: { ...bookingData, refId: response.data.refId } });
       setShowTermsModal(false);
     } catch (error) {
       console.error("Submission Error:", error);
-      alert("Failed to submit. Try again.");
+      alert("Failed to submit. Please check your connection and try again.");
       setIsSubmitting(false);
     }
   };
 
-  // Theme Helpers
   const theme = {
     bg: darkMode ? "bg-[#0c0c0c]" : "bg-[#FAFAFA]",
     text: darkMode ? "text-stone-200" : "text-stone-900",
@@ -259,7 +398,6 @@ const Booking = () => {
     dropdownBg: darkMode ? "bg-[#1c1c1c]" : "bg-white",
   };
 
-  // Calendar Logic
   const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
   const getFirstDayOfMonth = (y, m) => new Date(y, m, 1).getDay();
   const renderCalendarDays = () => {
@@ -303,7 +441,7 @@ const Booking = () => {
             <p className="text-white/80 text-sm md:text-base max-w-lg mx-auto font-light leading-relaxed tracking-wide">Tell us about your vision. Whether an intimate dinner or a grand gala, we craft the menu to match the occasion.</p>
           </FadeIn>
         </div>
-        <div onClick={() => scrollToSection(1)} className="absolute bottom-10 w-full flex flex-col items-center justify-center gap-3 opacity-80 animate-bounce z-10 cursor-pointer hover:opacity-100">
+        <div onClick={() => handleNextClick(1)} className="absolute bottom-10 w-full flex flex-col items-center justify-center gap-3 opacity-80 animate-bounce z-10 cursor-pointer hover:opacity-100">
            <span className="text-[9px] text-white tracking-[0.4em] uppercase">Start Booking</span>
            <div className="w-[1px] h-12 bg-gradient-to-b from-white to-transparent"></div>
         </div>
@@ -319,24 +457,44 @@ const Booking = () => {
                         <span className="text-[#C9A25D] text-xs font-bold tracking-widest uppercase mb-2 block">Step 01</span>
                         <h2 className={`font-serif text-5xl md:text-6xl ${theme.text}`}>The Host</h2>
                     </div>
+                    
                     <div className="space-y-10">
-                        <div className="group relative">
-                            <label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Full Name</label>
-                            <input type="text" name="name" value={formData.name} onChange={handleInputChange} className={`w-full bg-transparent border-b ${theme.border} py-3 text-xl md:text-2xl ${theme.text} focus:outline-none focus:border-[#C9A25D] transition-colors`} placeholder="Who should we address?" required />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                            <div className="group relative">
+                                <label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>First Name</label>
+                                <input type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} className={`w-full bg-transparent border-b ${theme.border} py-3 text-xl md:text-2xl ${theme.text} focus:outline-none focus:border-[#C9A25D] transition-colors`} placeholder="Juan" required />
+                            </div>
+                            <div className="group relative">
+                                <label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Last Name</label>
+                                <input type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} className={`w-full bg-transparent border-b ${theme.border} py-3 text-xl md:text-2xl ${theme.text} focus:outline-none focus:border-[#C9A25D] transition-colors`} placeholder="Dela Cruz" required />
+                            </div>
                         </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                             <div className="group relative">
                                 <label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Email Address</label>
                                 <input type="email" name="email" value={formData.email} onChange={handleInputChange} className={`w-full bg-transparent border-b ${theme.border} py-3 text-xl ${theme.text} focus:outline-none focus:border-[#C9A25D]`} placeholder="example@email.com" required />
                             </div>
+                            
                             <div className="group relative">
                                 <label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Phone Number</label>
-                                <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className={`w-full bg-transparent border-b ${theme.border} py-3 text-xl ${theme.text} focus:outline-none focus:border-[#C9A25D]`} placeholder="+63 900 000 0000" />
+                                <div className={`flex items-end border-b ${theme.border} focus-within:border-[#C9A25D] transition-colors`}>
+                                  <span className={`py-3 text-xl ${theme.text} mr-2 font-light select-none opacity-80`}>09</span>
+                                  <input 
+                                    type="text" 
+                                    name="phoneSuffix" 
+                                    value={formData.phoneSuffix} 
+                                    onChange={handlePhoneChange} 
+                                    className={`w-full bg-transparent py-3 text-xl ${theme.text} focus:outline-none`} 
+                                    placeholder="XXX XXX XXX" 
+                                    required 
+                                  />
+                                </div>
                             </div>
                         </div>
                     </div>
                     <div className="mt-16 flex justify-end">
-                        <button type="button" onClick={() => scrollToSection(2)} className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-bold hover:text-[#C9A25D] transition-colors">Next Step <ArrowRight className="w-4 h-4" /></button>
+                        <button type="button" onClick={() => handleNextClick(2)} className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-bold hover:text-[#C9A25D] transition-colors">Next Step <ArrowRight className="w-4 h-4" /></button>
                     </div>
                 </FadeIn>
             </div>
@@ -388,7 +546,7 @@ const Booking = () => {
                     </div>
                     <div className="mt-12 flex justify-between items-center">
                         <button type="button" onClick={() => scrollToSection(1)} className={`text-xs uppercase tracking-widest ${theme.subText} hover:${theme.text}`}>Back</button>
-                        <button type="button" onClick={() => scrollToSection(3)} className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-bold hover:text-[#C9A25D] transition-colors">Next Step <ArrowRight className="w-4 h-4" /></button>
+                        <button type="button" onClick={() => handleNextClick(3)} className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-bold hover:text-[#C9A25D] transition-colors">Next Step <ArrowRight className="w-4 h-4" /></button>
                     </div>
                 </FadeIn>
             </div>
@@ -425,7 +583,7 @@ const Booking = () => {
                     </div>
                     <div className="mt-16 flex justify-between items-center">
                         <button type="button" onClick={() => scrollToSection(2)} className={`text-xs uppercase tracking-widest ${theme.subText} hover:${theme.text}`}>Back</button>
-                        <button type="button" onClick={() => scrollToSection(4)} className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-bold hover:text-[#C9A25D] transition-colors">Next Step <ArrowRight className="w-4 h-4" /></button>
+                        <button type="button" onClick={() => handleNextClick(4)} className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-bold hover:text-[#C9A25D] transition-colors">Next Step <ArrowRight className="w-4 h-4" /></button>
                     </div>
                 </FadeIn>
             </div>
@@ -456,14 +614,26 @@ const Booking = () => {
                                     <div className="grid grid-cols-7 gap-1">{renderCalendarDays()}</div>
                                 </div>
                             </div>
+
+                             {/* CUSTOM TIME PICKERS */}
                              <div className="grid grid-cols-2 gap-4">
-                                <div><label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Start</label><input type="text" name="startTime" value={formData.startTime} onChange={handleInputChange} placeholder="00:00 AM" className={`w-full bg-transparent border-b ${theme.border} py-3 text-lg ${theme.text} focus:outline-none focus:border-[#C9A25D]`} /></div>
-                                <div><label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>End</label><input type="text" name="endTime" value={formData.endTime} onChange={handleInputChange} placeholder="00:00 PM" className={`w-full bg-transparent border-b ${theme.border} py-3 text-lg ${theme.text} focus:outline-none focus:border-[#C9A25D]`} /></div>
+                                <CustomTimeSelect 
+                                    label="Start Time" 
+                                    value={formData.startTime} 
+                                    onChange={(val) => setFormData(prev => ({...prev, startTime: val}))}
+                                    theme={theme}
+                                />
+                                <CustomTimeSelect 
+                                    label="End Time" 
+                                    value={formData.endTime} 
+                                    onChange={(val) => setFormData(prev => ({...prev, endTime: val}))}
+                                    theme={theme}
+                                />
                             </div>
                         </div>
 
                         <div className="space-y-8">
-                             <div><label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Guest Count</label><input type="number" name="guests" value={formData.guests} onChange={handleInputChange} placeholder="0" className={`w-full bg-transparent border-b ${theme.border} py-3 text-xl ${theme.text} focus:outline-none focus:border-[#C9A25D]`} /></div>
+                             <div><label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Guest Count</label><input type="number" name="guests" value={formData.guests} onChange={handleInputChange} placeholder="0" className={`w-full bg-transparent border-b ${theme.border} py-3 text-xl ${theme.text} focus:outline-none focus:border-[#C9A25D]`} required /></div>
                             
                             <div className="relative">
                                 <label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Occasion</label>
@@ -483,13 +653,13 @@ const Booking = () => {
 
                     <div className="mt-16 flex justify-between items-center">
                         <button type="button" onClick={() => scrollToSection(3)} className={`text-xs uppercase tracking-widest ${theme.subText} hover:${theme.text}`}>Back</button>
-                        <button type="button" onClick={() => scrollToSection(5)} className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-bold hover:text-[#C9A25D] transition-colors">Next Step <ArrowRight className="w-4 h-4" /></button>
+                        <button type="button" onClick={() => handleNextClick(5)} className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-bold hover:text-[#C9A25D] transition-colors">Next Step <ArrowRight className="w-4 h-4" /></button>
                     </div>
                 </FadeIn>
              </div>
         </section>
 
-        {/* --- SLIDE 5: SUBMIT (UPDATED) --- */}
+        {/* --- SLIDE 5: SUBMIT --- */}
         <section ref={addToRefs} className={`min-h-screen md:h-screen flex flex-col justify-center py-20 ${theme.bg} border-t ${theme.border}`}>
              <div className="max-w-screen-md mx-auto px-6 w-full">
                 <FadeIn>
@@ -498,7 +668,6 @@ const Booking = () => {
                         <h2 className={`font-serif text-4xl md:text-5xl ${theme.text}`}>Final Touches</h2>
                     </div>
 
-                    {/* 3. NEW: Add-ons Checklist */}
                     <div className="mb-10">
                         <label className={`text-xs uppercase tracking-widest ${theme.subText} mb-6 block`}>Enhance Your Event</label>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

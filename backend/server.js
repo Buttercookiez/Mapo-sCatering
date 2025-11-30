@@ -8,6 +8,7 @@ const cors = require("cors");
 const app = express();
 
 // Middleware - FIXED ORDER
+app.use (express.json())
 app.use(cors());
 
 // Parse JSON for all routes EXCEPT webhook
