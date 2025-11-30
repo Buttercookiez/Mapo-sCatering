@@ -61,13 +61,17 @@ const Booking = () => {
 
   // --- Data States ---
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // 1. UPDATED: Added addOns array to initial state
   const [formData, setFormData] = useState({
     name: "", email: "", phone: "", date: "", guests: "", budget: "", startTime: "", endTime: "", notes: "",
+    addOns: [] 
   });
+  
   const [eventType, setEventType] = useState("");
   const [serviceStyle, setServiceStyle] = useState(""); 
   const [selectedVenue, setSelectedVenue] = useState(null); 
-  const [currentLocation, setCurrentLocation] = useState(null); // Added for Geolocation
+  const [currentLocation, setCurrentLocation] = useState(null); 
 
   // --- Modals State ---
   const [showMapModal, setShowMapModal] = useState(false);
@@ -87,6 +91,19 @@ const Booking = () => {
     { id: 3, name: "Tenorio's Events Place", capacity: "50 Pax", img: "/images/tenorios.png", type: "predefined" }
   ];
   const eventOptions = ["Wedding", "Corporate Gala", "Private Dinner", "Cocktail Reception", "Product Launch", "Birthday", "Engagement Party", "Charity Ball", "Anniversary", "Baby Shower", "Baptism", "Graduation", "Reunion"];
+
+  // 2. ADDED: Add-ons Data & Logic
+  const addOnOptions = ["Live Band", "Photographer", "Event Host"];
+
+  const toggleAddOn = (item) => {
+    setFormData((prev) => {
+      const exists = prev.addOns.includes(item);
+      const newAddOns = exists 
+        ? prev.addOns.filter((i) => i !== item) // Remove
+        : [...prev.addOns, item]; // Add
+      return { ...prev, addOns: newAddOns };
+    });
+  };
 
   // --- SCROLL ENGINE ---
   const handleNativeScroll = (e) => setNavIsScrolled(e.currentTarget.scrollTop > 50);
@@ -125,7 +142,6 @@ const Booking = () => {
   useEffect(() => {
     const handleWheel = (e) => {
       if (window.innerWidth < 768) return; 
-      // FIX: Stop scroll if inside a dropdown or modal content
       if (e.target.closest('.stop-scroll-propagation')) return;
       if (showMapModal || showTermsModal) return;
 
@@ -176,26 +192,20 @@ const Booking = () => {
     setSelectedVenue(venueData);
   };
 
-  // --- Map & Geolocation Logic (FIXED: Fetches Address Name) ---
+  // --- Map & Geolocation Logic ---
   const handleOpenMap = () => {
-    // 1. Check if browser supports it
     if (!navigator.geolocation) {
       alert("Geolocation is not supported by your browser.");
       setShowMapModal(true);
       return;
     }
-
-    // 2. Fetch with High Accuracy & Options
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        // Success: Get coordinates
         const { latitude, longitude } = position.coords;
-        
         let addressName = "Current Location";
-        const API_KEY = "pk.3afdd6de186ee932339deec83a4c2882"; // Using the same key as your Modal
+        const API_KEY = "pk.3afdd6de186ee932339deec83a4c2882"; 
 
         try {
-          // FETCH: Reverse Geocoding to get actual address string
           const response = await fetch(`https://us1.locationiq.com/v1/reverse?key=${API_KEY}&lat=${latitude}&lon=${longitude}&format=json`);
           const data = await response.json();
           if (data && data.display_name) {
@@ -203,36 +213,17 @@ const Booking = () => {
           }
         } catch (err) {
           console.error("Reverse geocoding failed:", err);
-          // Fallback if fetch fails
           addressName = `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`;
         }
-
-        console.log("Location found:", latitude, longitude, addressName);
         
-        setCurrentLocation({
-          lat: latitude,
-          lng: longitude,
-          name: addressName // Now contains the specific address
-        });
-        
+        setCurrentLocation({ lat: latitude, lng: longitude, name: addressName });
         setShowMapModal(true);
       },
       (error) => {
-        // Detailed Error Handling
-        console.error("Geolocation Error:", error);
-        let errorMsg = "Unable to retrieve location.";
-        if (error.code === 1) errorMsg = "Location permission denied. Please allow access in browser settings.";
-        else if (error.code === 2) errorMsg = "Location unavailable. Ensure GPS is on.";
-        else if (error.code === 3) errorMsg = "Location request timed out.";
-        
-        alert(errorMsg + " Opening default map.");
+        alert("Unable to retrieve location. Opening default map.");
         setShowMapModal(true);
       },
-      { 
-        enableHighAccuracy: true, // Force GPS if available
-        timeout: 10000,           // Wait up to 10 seconds
-        maximumAge: 0             // Do not use cached position
-      }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
@@ -240,7 +231,6 @@ const Booking = () => {
   const handleRequestQuotation = (e) => {
     e.preventDefault();
     if (!selectedVenue) { alert("Please select a venue."); return; }
-    // Open Terms Modal instead of submitting directly
     setShowTermsModal(true);
   };
 
@@ -297,21 +287,8 @@ const Booking = () => {
     >
       <Navbar darkMode={darkMode} setDarkMode={setDarkMode} isScrolled={activeIndex > 0 || navIsScrolled} />
       
-      {/* Modals */}
-      <GoogleMapModal 
-        isOpen={showMapModal} 
-        onClose={() => setShowMapModal(false)} 
-        onSelect={handleCustomVenueSelect}
-        darkMode={darkMode}
-        currentLocation={currentLocation} // Pass the fetched location to the modal
-      />
-      <TermsModal 
-        isOpen={showTermsModal}
-        onClose={() => setShowTermsModal(false)}
-        onAccept={handleFinalSubmit}
-        isSubmitting={isSubmitting}
-        darkMode={darkMode}
-      />
+      <GoogleMapModal isOpen={showMapModal} onClose={() => setShowMapModal(false)} onSelect={handleCustomVenueSelect} darkMode={darkMode} currentLocation={currentLocation} />
+      <TermsModal isOpen={showTermsModal} onClose={() => setShowTermsModal(false)} onAccept={handleFinalSubmit} isSubmitting={isSubmitting} darkMode={darkMode} />
 
       {/* --- SLIDE 0: HERO --- */}
       <section ref={addToRefs} className="relative h-screen w-full overflow-hidden bg-stone-900 flex flex-col justify-center items-center">
@@ -394,11 +371,7 @@ const Booking = () => {
                             </div>
                         ))}
 
-                        {/* Custom Venue Card - Triggers Map with Geolocation */}
-                        <div 
-                            onClick={handleOpenMap} 
-                            className={`group relative cursor-pointer flex flex-col h-[350px] md:h-[450px] bg-stone-100 dark:bg-stone-900 border ${theme.border} transition-all duration-500 hover:border-[#C9A25D] ${selectedVenue?.type === 'custom' ? 'border-[#C9A25D]' : ''}`}
-                        >
+                        <div onClick={handleOpenMap} className={`group relative cursor-pointer flex flex-col h-[350px] md:h-[450px] bg-stone-100 dark:bg-stone-900 border ${theme.border} transition-all duration-500 hover:border-[#C9A25D] ${selectedVenue?.type === 'custom' ? 'border-[#C9A25D]' : ''}`}>
                             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
                                 <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 transition-colors duration-300 ${selectedVenue?.type === 'custom' ? 'bg-[#C9A25D] text-white' : 'bg-stone-200 dark:bg-stone-800 text-stone-500 group-hover:text-[#C9A25D]'}`}>
                                     <Plus className="w-8 h-8" />
@@ -438,7 +411,6 @@ const Booking = () => {
                                 className={`p-8 border cursor-pointer transition-all duration-500 hover:-translate-y-2
                                     ${serviceStyle === style.id ? "border-[#C9A25D] bg-[#C9A25D]/5" : `${theme.border} hover:border-[#C9A25D]`}
                                 `}>
-                                {/* FIX: Icon color consistency in Light Mode */}
                                 <div className={`w-12 h-12 mx-auto mb-6 rounded-full flex items-center justify-center transition-colors
                                     ${serviceStyle === style.id 
                                         ? 'bg-[#C9A25D] text-white' 
@@ -469,9 +441,7 @@ const Booking = () => {
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                        {/* Column 1 */}
                         <div className="space-y-8">
-                            {/* Date Picker - Uses stop-scroll-propagation */}
                             <div className="group relative">
                                 <label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Date</label>
                                 <button type="button" onClick={() => setCalendarOpen(!calendarOpen)} className={`w-full text-left bg-transparent border-b ${theme.border} py-3 text-xl ${theme.text} flex justify-between items-center`}>
@@ -492,11 +462,9 @@ const Booking = () => {
                             </div>
                         </div>
 
-                        {/* Column 2 */}
                         <div className="space-y-8">
                              <div><label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Guest Count</label><input type="number" name="guests" value={formData.guests} onChange={handleInputChange} placeholder="0" className={`w-full bg-transparent border-b ${theme.border} py-3 text-xl ${theme.text} focus:outline-none focus:border-[#C9A25D]`} /></div>
                             
-                            {/* Occasion Dropdown - FIX: stop-scroll-propagation */}
                             <div className="relative">
                                 <label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Occasion</label>
                                 <button type="button" onClick={() => setEventTypeOpen(!eventTypeOpen)} className={`w-full text-left bg-transparent border-b ${theme.border} py-3 text-xl ${theme.text} flex justify-between items-center`}>
@@ -521,7 +489,7 @@ const Booking = () => {
              </div>
         </section>
 
-        {/* --- SLIDE 5: SUBMIT --- */}
+        {/* --- SLIDE 5: SUBMIT (UPDATED) --- */}
         <section ref={addToRefs} className={`min-h-screen md:h-screen flex flex-col justify-center py-20 ${theme.bg} border-t ${theme.border}`}>
              <div className="max-w-screen-md mx-auto px-6 w-full">
                 <FadeIn>
@@ -530,9 +498,39 @@ const Booking = () => {
                         <h2 className={`font-serif text-4xl md:text-5xl ${theme.text}`}>Final Touches</h2>
                     </div>
 
-                    <textarea name="notes" rows="5" onChange={handleInputChange} placeholder="Share your vision, themes, dietary restrictions, or any specific requests..." className={`w-full bg-transparent border ${theme.border} p-6 text-lg ${theme.text} placeholder-stone-500 focus:outline-none focus:border-[#C9A25D] mb-12`}></textarea>
+                    {/* 3. NEW: Add-ons Checklist */}
+                    <div className="mb-10">
+                        <label className={`text-xs uppercase tracking-widest ${theme.subText} mb-6 block`}>Enhance Your Event</label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {addOnOptions.map((item) => {
+                                const isSelected = formData.addOns.includes(item);
+                                return (
+                                    <div 
+                                        key={item} 
+                                        onClick={() => toggleAddOn(item)}
+                                        className={`cursor-pointer p-4 border transition-all duration-300 flex items-center gap-4 group
+                                            ${isSelected 
+                                                ? 'border-[#C9A25D] bg-[#C9A25D]/5' 
+                                                : `${theme.border} hover:border-[#C9A25D]`
+                                            }`}
+                                    >
+                                        <div className={`w-5 h-5 border flex items-center justify-center transition-colors
+                                            ${isSelected 
+                                                ? 'bg-[#C9A25D] border-[#C9A25D] text-white' 
+                                                : 'border-stone-400 bg-transparent group-hover:border-[#C9A25D]'
+                                            }`}>
+                                            {isSelected && <Check className="w-3 h-3" />}
+                                        </div>
+                                        <span className={`text-sm tracking-wide ${theme.text}`}>{item}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    <label className={`text-xs uppercase tracking-widest ${theme.subText} mb-6 block`}>NOTES</label>
 
-                    {/* Improved Button */}
+                    <textarea name="notes" rows="4" onChange={handleInputChange} placeholder="Share your vision, themes, dietary restrictions, or any specific requests..." className={`w-full bg-transparent border ${theme.border} p-6 text-lg ${theme.text} placeholder-stone-500 focus:outline-none focus:border-[#C9A25D] mb-12`}></textarea>
+
                     <button 
                         className={`group relative w-full py-6 text-sm tracking-[0.3em] uppercase font-bold overflow-hidden transition-all duration-300 shadow-2xl ${darkMode ? 'bg-white text-black' : 'bg-black text-white'}`}
                     >
