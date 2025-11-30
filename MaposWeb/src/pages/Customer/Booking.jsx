@@ -495,7 +495,6 @@ const Booking = () => {
                         {/* Column 2 */}
                         <div className="space-y-8">
                              <div><label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Guest Count</label><input type="number" name="guests" value={formData.guests} onChange={handleInputChange} placeholder="0" className={`w-full bg-transparent border-b ${theme.border} py-3 text-xl ${theme.text} focus:outline-none focus:border-[#C9A25D]`} /></div>
-                             <div className="relative"><label className={`text-xs uppercase tracking-widest ${theme.subText} mb-2 block`}>Est. Budget (PHP)</label><input type="text" value={formData.budget ? formData.budget.toLocaleString() : ""} readOnly className={`w-full bg-transparent border-b ${theme.border} py-3 text-xl ${theme.text} opacity-70`} /></div>
                             
                             {/* Occasion Dropdown - FIX: stop-scroll-propagation */}
                             <div className="relative">
