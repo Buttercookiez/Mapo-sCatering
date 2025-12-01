@@ -82,9 +82,6 @@ const ProposalTab = ({
             Event: <span className="font-bold text-[#C9A25D]">{details.type}</span> • Guests: <span className="font-bold text-[#C9A25D]">{details.guests}</span>
           </p>
         </div>
-        <div className="text-right">
-           <span className="text-xs uppercase tracking-widest text-stone-400">Database Connected</span>
-        </div>
       </div>
 
       {/* --- RENDER 3 COLUMNS --- */}
@@ -150,12 +147,6 @@ const ProposalTab = ({
       <div className={`fixed bottom-0 left-0 right-0 p-4 border-t ${theme.border} ${theme.cardBg} z-30 flex justify-center shadow-2xl`}>
          <div className="max-w-4xl w-full flex items-center justify-between gap-6">
             <div className="hidden md:block">
-                <p className="text-xs text-stone-400 uppercase tracking-widest">Selected Packages:</p>
-                <div className={`text-xs font-bold ${theme.text} flex gap-2`}>
-                   {selections.budget && <span className="bg-stone-100 dark:bg-stone-800 px-2 py-1 rounded">{selections.budget.name}</span>}
-                   {selections.mid && <span className="bg-[#C9A25D]/20 px-2 py-1 rounded">{selections.mid.name}</span>}
-                   {selections.high && <span className="bg-stone-100 dark:bg-stone-800 px-2 py-1 rounded">{selections.high.name}</span>}
-                </div>
             </div>
             
             <button

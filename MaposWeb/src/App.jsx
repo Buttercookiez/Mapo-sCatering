@@ -9,6 +9,7 @@ import Venue from './pages/Customer/Venue';
 import Booking from './pages/Customer/Booking';
 import Confirmation from './pages/Customer/Confirmation';
 import ClientProposal from './pages/Customer/ClientProposal'; // <--- Import the new page
+import ProposalSelection from './pages/Customer/ProposalSelection'; // <--- Import the new page
 
 
 
@@ -46,7 +47,7 @@ function App() {
         <Route path="/tasks" element={<AdminPlaceholder title="Task Manager" />} />
         <Route path="/venue-status" element={<AdminPlaceholder title="Venue Status" />} />
         <Route path="/finance/reports" element={<AdminPlaceholder title="Profit Reports" />} />
-
+        <Route path="/proposal-selection/:token" element={<ProposalSelection />} /> 
       </Routes>
     </BrowserRouter>
   );

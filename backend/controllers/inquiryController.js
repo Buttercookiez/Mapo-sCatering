@@ -1,5 +1,6 @@
 // controllers/inquiryController.js
-const db = require("../firestore/firebase"); // Ensure this path matches your project
+const crypto = require('crypto'); // Built-in Node library
+const db = require("../firestore/firebase");
 const nodemailer = require("nodemailer");
 
 // --- CONFIG: Email Transporter ---
@@ -11,13 +12,13 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// --- 1. CREATE INQUIRY (Saves to "bookings" & "clients") ---
+// --- 1. CREATE INQUIRY ---
 const createInquiry = async (req, res) => {
     try {
         const data = req.body;
         const batch = db.batch();
 
-        // 1. GENERATE READABLE BOOKING ID (BK-001)
+        // Generate Readable ID
         const bookingSnapshot = await db.collection("bookings")
             .orderBy("bookingId", "desc")
             .limit(1)
@@ -36,7 +37,7 @@ const createInquiry = async (req, res) => {
         }
         const readableBookingId = `BK-${newBookingNum.toString().padStart(3, "0")}`;
 
-        // 2. HANDLE CLIENT LOGIC
+        // Client Logic
         let readableClientId;
         let clientDocId;
 
@@ -82,21 +83,18 @@ const createInquiry = async (req, res) => {
             });
         }
 
-        // 3. CREATE BOOKING DOCUMENT
+        // Create Booking
         const bookingRef = db.collection("bookings").doc();
-
         const bookingData = {
             bookingId: readableBookingId,
             clientRefId: clientDocId,
             clientId: readableClientId,
             bookingStatus: "Pending",
-
             profile: {
                 name: data.name,
                 email: data.email,
                 contactNumber: data.phone || ""
             },
-
             eventDetails: {
                 date: data.date,
                 startTime: data.startTime,
@@ -110,14 +108,12 @@ const createInquiry = async (req, res) => {
                 package: null,
                 addOns: data.addOns || []
             },
-
             billing: {
                 totalCost: 0,
                 amountPaid: 0,
                 remainingBalance: 0,
                 paymentStatus: "Unpaid"
             },
-
             notes: data.notes || "",
             createdAt: new Date().toISOString()
         };
@@ -137,12 +133,11 @@ const createInquiry = async (req, res) => {
     }
 };
 
-// --- 2. GET INQUIRY DETAILS (Aligned to 'bookings' collection) ---
+// --- 2. GET INQUIRY DETAILS ---
 const getInquiryDetails = async (req, res) => {
     try {
-        const { refId } = req.params; // refId comes in as "BK-XXX"
+        const { refId } = req.params;
 
-        // 1. Query "bookings" collection instead of "inquiries"
         const bookingSnapshot = await db.collection("bookings")
             .where("bookingId", "==", refId)
             .limit(1)
@@ -155,41 +150,29 @@ const getInquiryDetails = async (req, res) => {
         const docData = bookingSnapshot.docs[0].data();
         const docId = bookingSnapshot.docs[0].id;
 
-        // 2. Fetch related collections (assuming they use the readable RefID as document ID or key)
         const paymentSnap = await db.collection("payments").doc(refId).get();
         const proposalSnap = await db.collection("proposals").doc(refId).get();
 
-        // 3. Flatten/Map the data structure for the Frontend
-        // The frontend expects fields like 'fullName', 'dateOfEvent', 'status', etc.
         const mappedData = {
-            // IDs
             id: docId,
             refId: docData.bookingId,
-
-            // Client Info (Mapped from 'profile')
             fullName: docData.profile?.name || "Unknown",
             client: docData.profile?.name || "Unknown",
             email: docData.profile?.email,
             phone: docData.profile?.contactNumber,
-
-            // Event Info (Mapped from 'eventDetails')
             dateOfEvent: docData.eventDetails?.date,
-            date: docData.eventDetails?.date, // Fallback
+            date: docData.eventDetails?.date,
             startTime: docData.eventDetails?.startTime,
             endTime: docData.eventDetails?.endTime,
             estimatedGuests: docData.eventDetails?.pax,
-            guests: docData.eventDetails?.pax, // Fallback
+            guests: docData.eventDetails?.pax,
             venueName: docData.eventDetails?.venue,
-            venue: docData.eventDetails?.venue, // Fallback
+            venue: docData.eventDetails?.venue,
             serviceStyle: docData.eventDetails?.serviceStyle,
             eventType: docData.eventDetails?.eventType,
-
-            // Status & Billing
-            status: docData.bookingStatus, // "Pending", "Confirmed", etc.
+            status: docData.bookingStatus,
             bookingStatus: docData.bookingStatus,
             estimatedBudget: docData.billing?.totalCost || 0,
-
-            // External Collections
             payment: paymentSnap.exists ? paymentSnap.data() : {},
             proposal: proposalSnap.exists ? proposalSnap.data() : {},
             notes: docData.notes || ""
@@ -203,17 +186,15 @@ const getInquiryDetails = async (req, res) => {
     }
 };
 
-// --- 3. GET BOOKING LIST (Aligned to 'bookings' collection) ---
+// --- 3. GET BOOKING LIST ---
 const getBooking = async (req, res) => {
     try {
-        // Query "bookings" instead of "inquiries"
         const snapshot = await db.collection('bookings')
             .orderBy("createdAt", "desc")
             .get();
 
         const inquiries = snapshot.docs.map(doc => {
             const data = doc.data();
-            // Map the nested fields to the flat structure the table view likely needs
             return {
                 refId: data.bookingId,
                 fullName: data.profile?.name,
@@ -235,23 +216,49 @@ const getBooking = async (req, res) => {
 
 // --- 4. SEND PROPOSAL EMAIL ---
 const sendProposalEmail = async (req, res) => {
-    const { 
-        clientEmail, 
-        clientName, 
-        refId, 
-        packageOptions, 
-        details 
+    const {
+        clientEmail,
+        clientName,
+        refId,
+        packageOptions,
+        details
     } = req.body;
 
-    const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173"; 
-    const selectionLink = `${FRONTEND_URL}/proposal-selection/${refId}`;
+    // --- SECURITY FIX: Generate Token HERE, not globally ---
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // Valid for 7 days
+    // ------------------------------------------------------
+
+    const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+    const selectionLink = `${FRONTEND_URL}/proposal-selection/${token}`;
     const eventDate = details?.date || "Date TBD";
 
-    // Generate the 3-column HTML cards
+    // 1. SAVE PROPOSAL TO DB
+    try {
+        await db.collection("proposals").doc(refId).set({
+            refId: refId,
+            token: token,
+            expiresAt: expiresAt.toISOString(),
+            clientName: clientName,
+            clientEmail: clientEmail,
+            eventDate: eventDate,
+            options: packageOptions,
+            status: "Sent",
+            createdAt: new Date().toISOString()
+        }, { merge: true });
+
+        console.log(`[DB] Saved proposal options for ${refId}`);
+    } catch (dbError) {
+        console.error("Failed to save proposal to DB:", dbError);
+        return res.status(500).json({ success: false, message: "Database save failed." });
+    }
+
+    // 2. GENERATE EMAIL HTML
     const cardsHtml = packageOptions.map((pkg, index) => {
-        const bgColor = index === 1 ? "#fffbf2" : "#ffffff"; 
+        const bgColor = index === 1 ? "#fffbf2" : "#ffffff";
         const borderColor = index === 1 ? "#C9A25D" : "#e0e0e0";
-        
+
         return `
             <td width="33%" valign="top" style="padding: 5px;">
                 <div style="border: 1px solid ${borderColor}; background-color: ${bgColor}; border-radius: 4px; overflow: hidden; height: 100%;">
@@ -275,24 +282,16 @@ const sendProposalEmail = async (req, res) => {
     try {
         const htmlContent = `
             <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; color: #333; background-color: #f9f9f9; padding: 20px;">
-                
                 <div style="background-color: #1c1c1c; padding: 30px; text-align: center; border-radius: 4px 4px 0 0;">
                     <h2 style="color: #C9A25D; margin: 0; text-transform: uppercase; letter-spacing: 2px;">Your Event Proposal</h2>
                     <p style="color: #888; font-size: 12px; margin-top: 5px;">Ref: ${refId}</p>
                 </div>
-                
                 <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e0e0e0;">
                     <p>Hi <strong>${clientName || "Client"}</strong>,</p>
                     <p>We are excited to host your event on <strong>${eventDate}</strong>! Based on your requirements, we have prepared three exclusive packages for you to choose from.</p>
-                    
-                    <!-- 3 COLUMN LAYOUT -->
                     <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 20px; margin-bottom: 20px;">
-                        <tr>
-                            ${cardsHtml}
-                        </tr>
+                        <tr>${cardsHtml}</tr>
                     </table>
-
-                    <!-- UPDATED SECTION STARTS HERE -->
                     <div style="text-align: center; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
                         <a href="${selectionLink}" 
                            style="background-color: #C9A25D; color: #ffffff; padding: 15px 30px; text-decoration: none; font-weight: bold; text-transform: uppercase; border-radius: 4px; display: inline-block;">
@@ -302,19 +301,13 @@ const sendProposalEmail = async (req, res) => {
                             If you would like to proceed with one of these packages, please click the button above to confirm your selection. Otherwise, you may disregard this email.
                         </p>
                     </div>
-                    <!-- UPDATED SECTION ENDS HERE -->
-
-                </div>
-                
-                <div style="text-align: center; padding: 20px; font-size: 11px; color: #aaa;">
-                    &copy; ${new Date().getFullYear()} Mapos Catering Services. All rights reserved.
                 </div>
             </div>
         `;
 
         const mailOptions = {
             from: `"Mapos Catering" <${process.env.EMAIL_USER}>`,
-            to: clientEmail, 
+            to: clientEmail,
             subject: `Choose Your Package: Proposal for ${refId}`,
             html: htmlContent
         };
@@ -328,33 +321,26 @@ const sendProposalEmail = async (req, res) => {
     }
 };
 
-
-// --- 5. UPDATE STATUS (Aligned to 'bookings' collection) ---
+// --- 5. UPDATE STATUS (ADMIN MANUAL) ---
 const updateInquiryStatus = async (req, res) => {
     try {
-        const { refId } = req.params; // e.g., "BK-006"
-        const { status } = req.body;  // e.g., "Confirmed"
+        const { refId } = req.params;
+        const { status } = req.body;
 
-        // 1. Find document in "bookings" by bookingId
         const snapshot = await db.collection("bookings")
             .where("bookingId", "==", refId)
             .limit(1)
             .get();
 
         if (snapshot.empty) {
-            console.error(`[UPDATE] Booking ${refId} not found.`);
             return res.status(404).json({ success: false, message: "Booking not found" });
         }
 
-        // 2. Get Doc ID and Update
         const docId = snapshot.docs[0].id;
-
-        // Update status in the "bookings" collection
         await db.collection("bookings").doc(docId).update({
-            bookingStatus: status // Updating the field defined in createInquiry
+            bookingStatus: status
         });
 
-        console.log(`[UPDATE] Updated ${refId} to ${status}`);
         res.status(200).json({ success: true, message: `Status updated to ${status}` });
 
     } catch (error) {
@@ -363,25 +349,23 @@ const updateInquiryStatus = async (req, res) => {
     }
 };
 
+// --- 6. GET PACKAGES ---
 const getPackagesByEventType = async (req, res) => {
     try {
-        const { eventType } = req.query; // Get ?eventType=Wedding
+        const { eventType } = req.query;
 
         if (!eventType) {
             return res.status(400).json({ error: "Event type is required" });
         }
 
-        // Fetch packages matching the event type
         const snapshot = await db.collection("packages")
             .where("eventType", "==", eventType)
             .get();
 
         if (snapshot.empty) {
-            // Fallback: If "Corporate Gala" not found, try generic "Other"
             const fallbackSnap = await db.collection("packages")
                 .where("eventType", "==", "Other")
                 .get();
-            
             const fallbackData = fallbackSnap.docs.map(doc => doc.data());
             return res.json(fallbackData);
         }
@@ -395,11 +379,93 @@ const getPackagesByEventType = async (req, res) => {
     }
 };
 
+// --- 7. VERIFY PROPOSAL TOKEN (CLIENT SIDE) ---
+// This is called when the client clicks the email link
+const verifyProposal = async (req, res) => {
+    try {
+        const { token } = req.params;
+
+        const snapshot = await db.collection("proposals")
+            .where("token", "==", token)
+            .limit(1)
+            .get();
+
+        if (snapshot.empty) {
+            return res.status(404).json({ success: false, message: "Invalid proposal link." });
+        }
+
+        const data = snapshot.docs[0].data();
+
+        if (new Date(data.expiresAt) < new Date()) {
+            return res.status(410).json({ success: false, message: "This link has expired." });
+        }
+
+        if (data.status === "Confirmed") {
+            return res.status(409).json({ success: false, message: "You have already confirmed this proposal." });
+        }
+
+        res.json({
+            success: true,
+            clientName: data.clientName,
+            eventDate: data.eventDate,
+            options: data.options,
+            refId: data.refId
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+// --- 8. CONFIRM SELECTION (CLIENT SIDE) ---
+// This is called when the client clicks "Select" on the website
+const confirmSelection = async (req, res) => {
+    try {
+        const { token, selectedPackage } = req.body;
+
+        const snapshot = await db.collection("proposals").where("token", "==", token).limit(1).get();
+
+        if (snapshot.empty) return res.status(404).json({ message: "Invalid token" });
+
+        const proposalDoc = snapshot.docs[0];
+        const proposalData = proposalDoc.data();
+
+        // 1. Update Proposal Status
+        await proposalDoc.ref.update({
+            status: "Confirmed",
+            selectedPackage: selectedPackage,
+            confirmedAt: new Date().toISOString()
+        });
+
+        // 2. Update the Main Booking (so Admin sees it)
+        const bookingSnap = await db.collection("bookings")
+            .where("bookingId", "==", proposalData.refId)
+            .limit(1)
+            .get();
+
+        if (!bookingSnap.empty) {
+            await bookingSnap.docs[0].ref.update({
+                "eventDetails.package": selectedPackage.name,
+                bookingStatus: "Client Responded"
+            });
+        }
+
+        res.status(200).json({ success: true, message: "Package confirmed!" });
+
+    } catch (error) {
+        console.error("Error confirming selection:", error);
+        res.status(500).json({ message: "Failed to confirm selection." });
+    }
+};
+
 module.exports = {
     createInquiry,
     getInquiryDetails,
     getBooking,
     sendProposalEmail,
     updateInquiryStatus,
-    getPackagesByEventType
+    getPackagesByEventType,
+    verifyProposal,    // Renamed for clarity
+    confirmSelection   // Added this missing function
 };

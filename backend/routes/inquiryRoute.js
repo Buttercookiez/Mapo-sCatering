@@ -8,7 +8,10 @@ const {
     getBooking, 
     sendProposalEmail, 
     updateInquiryStatus, 
-    getPackagesByEventType 
+    getPackagesByEventType,
+    // 🚨 ADD THESE TWO NEW CONTROLLER FUNCTIONS 🚨
+    verifyProposal,    
+    confirmSelection   
 } = require("../controllers/inquiryController");
 
 // ==============================================
@@ -17,8 +20,13 @@ const {
 
 // This MUST be before /:refId so "packages" isn't treated as an ID
 router.get("/packages", getPackagesByEventType); 
-
 router.post("/send-proposal", sendProposalEmail);
+
+// 🚨 ADD THE PROPOSAL ROUTES HERE 🚨
+// This handles the link verification when the client clicks the email link
+router.get("/proposals/verify/:token", verifyProposal);   
+// This handles the client's package selection confirmation
+router.post("/proposals/confirm", confirmSelection);       
 
 // ==============================================
 // 2. GENERAL ROUTES

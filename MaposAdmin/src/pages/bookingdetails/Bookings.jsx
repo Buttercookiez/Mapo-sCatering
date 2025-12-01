@@ -16,7 +16,6 @@ const Bookings = () => {
     return savedState !== null ? savedState === "true" : true;
   });
 
-  // 1. Initialize View (Default to 'list' on refresh to avoid empty details)
   const [currentView, setCurrentView] = useState("list");
 
   const [activeDetailTab, setActiveDetailTab] = useState(
@@ -28,15 +27,27 @@ const Bookings = () => {
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
 
   const [bookings, setBookings] = useState([]);
+  
+  // --- FIX: ADD THIS LINE ---
+  const [isLoading, setIsLoading] = useState(true); 
 
+  // --- FIX: UPDATE THIS USE EFFECT ---
   useEffect(() => {
+    setIsLoading(true); // Start loading
     api
       .get("/inquiries")
-      .then((res) => setBookings(res.data))
-      .catch((err) => console.error(err));
+      .then((res) => {
+        setBookings(res.data);
+      })
+      .catch((err) => {
+        console.error("Error fetching bookings:", err);
+      })
+      .finally(() => {
+        setIsLoading(false); // Stop loading regardless of success/error
+      });
   }, []);
 
-  // 2. Safety Check: If we are in 'details' mode but have no booking selected (e.g., after refresh), go back to list
+  // Safety Check
   useEffect(() => {
     if (currentView === "details" && !selectedBooking) {
       setCurrentView("list");
@@ -100,10 +111,10 @@ const Bookings = () => {
           setSearchQuery={setSearchQuery}
         />
 
-        {/* 3. Logic Check: Only show Details if currentView is 'details' AND selectedBooking exists */}
         {currentView === "list" || !selectedBooking ? (
           <BookingList
             bookings={bookings}
+            isLoading={isLoading} // Now this variable exists!
             onSelectBooking={(booking) => {
               setSelectedBooking(booking);
               setCurrentView("details");
@@ -114,9 +125,9 @@ const Bookings = () => {
           />
         ) : (
           <BookingDetails
-            booking={selectedBooking} // REMOVED "|| bookings[0]"
+            booking={selectedBooking}
             onBack={() => {
-              setSelectedBooking(null); // Clear selection when going back
+              setSelectedBooking(null);
               setCurrentView("list");
             }}
             activeDetailTab={activeDetailTab}
