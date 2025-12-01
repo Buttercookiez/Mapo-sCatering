@@ -4,7 +4,7 @@ import DashboardNavbar from "../../components/layout/Navbar";
 import BookingList from "./BookingList";
 import api from "../../api/api";
 import NewBookingModal from "./NewBookingModal";
-import BookingDetails from "./Bookingdetails";
+import BookingDetails from "./bookingdetails/Bookingdetails";
 
 // --- MAIN PAGE COMPONENT ---
 const Bookings = () => {

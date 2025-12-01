@@ -11,14 +11,27 @@ export const getBookingByRefId = async (refId) => {
   } 
 };
 
-// NEW: Send Proposal
+// Send Proposal
 export const sendProposalEmail = async (payload) => {
   try {
-    // Matches the backend route we made
     const response = await api.post(`/inquiries/send-proposal`, payload);
     return response.data;
   } catch (error) {
     console.error("Error sending proposal email:", error);
+    throw error;
+  }
+};
+
+// === ADD THIS NEW FUNCTION BELOW ===
+
+// Update Booking Status (Confirmed, Rejected, etc.)
+export const updateBookingStatus = async (refId, status) => {
+  try {
+    // We use PATCH because we are only updating one field (the status)
+    const response = await api.patch(`/inquiries/${refId}`, { status });
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating status for ${refId}:`, error);
     throw error;
   }
 };

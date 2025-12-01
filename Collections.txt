@@ -24,7 +24,7 @@ BOOKINGS COLLECTION
         remainingBalance:
         paymentStatus:
     }
-    notes:
+    notes: 
 
 
 CLIENTS COLLECTION

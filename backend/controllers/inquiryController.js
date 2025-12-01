@@ -3,7 +3,6 @@ const db = require("../firestore/firebase"); // Ensure this path matches your pr
 const nodemailer = require("nodemailer");
 
 // --- CONFIG: Email Transporter ---
-// REPLACE 'user' and 'pass' with your actual Gmail and App Password
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -12,23 +11,19 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// --- 1. CREATE INQUIRY ---
+// --- 1. CREATE INQUIRY (Saves to "bookings" & "clients") ---
 const createInquiry = async (req, res) => {
     try {
         const data = req.body;
         const batch = db.batch();
 
-        // =========================================================
-        // 1. GENERATE READABLE BOOKING ID (Field: BK-001)
-        // =========================================================
-        // Query the "bookings" collection
+        // 1. GENERATE READABLE BOOKING ID (BK-001)
         const bookingSnapshot = await db.collection("bookings")
             .orderBy("bookingId", "desc")
             .limit(1)
             .get();
 
         let newBookingNum = 1;
-
         if (!bookingSnapshot.empty) {
             const lastDoc = bookingSnapshot.docs[0].data();
             if (lastDoc.bookingId) {
@@ -39,28 +34,22 @@ const createInquiry = async (req, res) => {
                 }
             }
         }
-
         const readableBookingId = `BK-${newBookingNum.toString().padStart(3, "0")}`;
 
-        // =========================================================
         // 2. HANDLE CLIENT LOGIC
-        // =========================================================
         let readableClientId; 
         let clientDocId; 
 
-        // Check if client exists by email in "clients" collection
         const clientQuery = await db.collection("clients")
             .where("profile.email", "==", data.email)
             .limit(1)
             .get();
 
         if (!clientQuery.empty) {
-            // -- EXISTING CLIENT --
             const clientDoc = clientQuery.docs[0];
-            clientDocId = clientDoc.id; // Auto-ID
-            readableClientId = clientDoc.data().clientId; // Readable ID (CL-XXX)
+            clientDocId = clientDoc.id; 
+            readableClientId = clientDoc.data().clientId; 
         } else {
-            // -- NEW CLIENT --
             const clientSnapshot = await db.collection("clients")
                 .orderBy("clientId", "desc")
                 .limit(1)
@@ -79,13 +68,11 @@ const createInquiry = async (req, res) => {
             }
 
             readableClientId = `CL-${newClientNum.toString().padStart(3, "0")}`;
-            
-            // Auto-ID Document for Client
             const newClientRef = db.collection("clients").doc(); 
             clientDocId = newClientRef.id;
 
             batch.set(newClientRef, {
-                clientId: readableClientId, // Field: CL-001
+                clientId: readableClientId,
                 profile: {
                     name: data.name,
                     email: data.email,
@@ -95,16 +82,13 @@ const createInquiry = async (req, res) => {
             });
         }
 
-        // =========================================================
         // 3. CREATE BOOKING DOCUMENT
-        // =========================================================
-        // Auto-ID Document for Booking in "bookings" collection
         const bookingRef = db.collection("bookings").doc(); 
 
         const bookingData = {
-            bookingId: readableBookingId, // Field: BK-001
-            clientRefId: clientDocId,     // Link to Client Doc Auto-ID
-            clientId: readableClientId,   // Link to Client Readable ID
+            bookingId: readableBookingId, 
+            clientRefId: clientDocId,     
+            clientId: readableClientId,   
             bookingStatus: "Pending",     
             
             profile: {
@@ -139,7 +123,6 @@ const createInquiry = async (req, res) => {
         };
 
         batch.set(bookingRef, bookingData);
-
         await batch.commit();
 
         res.status(200).json({ 
@@ -154,33 +137,65 @@ const createInquiry = async (req, res) => {
     }
 };
 
-// --- 2. GET INQUIRY DETAILS ---
+// --- 2. GET INQUIRY DETAILS (Aligned to 'bookings' collection) ---
 const getInquiryDetails = async (req, res) => {
     try {
-        const { refId  } = req.params; 
+        const { refId } = req.params; // refId comes in as "BK-XXX"
 
-        const inquirySnapshot = await db.collection("inquiries").where("refId", "==", refId ).limit(1).get();
+        // 1. Query "bookings" collection instead of "inquiries"
+        const bookingSnapshot = await db.collection("bookings")
+            .where("bookingId", "==", refId)
+            .limit(1)
+            .get();
 
-        if (inquirySnapshot.empty) {
-            return res.status(404).json({ success: false, message: "Inquiry not found" });
+        if (bookingSnapshot.empty) {
+            return res.status(404).json({ success: false, message: "Booking not found" });
         }
 
-        const inquiryData = inquirySnapshot.docs[0].data();
-        const docId = inquirySnapshot.docs[0].id; 
+        const docData = bookingSnapshot.docs[0].data();
+        const docId = bookingSnapshot.docs[0].id; 
 
+        // 2. Fetch related collections (assuming they use the readable RefID as document ID or key)
         const paymentSnap = await db.collection("payments").doc(refId).get();
         const proposalSnap = await db.collection("proposals").doc(refId).get();
-        const notesSnap = await db.collection("notes").doc(refId).get();
+        
+        // 3. Flatten/Map the data structure for the Frontend
+        // The frontend expects fields like 'fullName', 'dateOfEvent', 'status', etc.
+        const mappedData = {
+            // IDs
+            id: docId,
+            refId: docData.bookingId,
+            
+            // Client Info (Mapped from 'profile')
+            fullName: docData.profile?.name || "Unknown",
+            client: docData.profile?.name || "Unknown",
+            email: docData.profile?.email,
+            phone: docData.profile?.contactNumber,
 
-        const combinedData = {
-            id: docId, 
-            ...inquiryData, 
+            // Event Info (Mapped from 'eventDetails')
+            dateOfEvent: docData.eventDetails?.date,
+            date: docData.eventDetails?.date, // Fallback
+            startTime: docData.eventDetails?.startTime,
+            endTime: docData.eventDetails?.endTime,
+            estimatedGuests: docData.eventDetails?.pax,
+            guests: docData.eventDetails?.pax, // Fallback
+            venueName: docData.eventDetails?.venue,
+            venue: docData.eventDetails?.venue, // Fallback
+            serviceStyle: docData.eventDetails?.serviceStyle,
+            eventType: docData.eventDetails?.eventType,
+            
+            // Status & Billing
+            status: docData.bookingStatus, // "Pending", "Confirmed", etc.
+            bookingStatus: docData.bookingStatus,
+            estimatedBudget: docData.billing?.totalCost || 0,
+
+            // External Collections
             payment: paymentSnap.exists ? paymentSnap.data() : {},
             proposal: proposalSnap.exists ? proposalSnap.data() : {},
-            notes: notesSnap.exists ? notesSnap.data() : {}
+            notes: docData.notes || ""
         };
 
-        res.status(200).json(combinedData);
+        res.status(200).json(mappedData);
 
     } catch (error) {
         console.error("Error fetching details:", error);
@@ -188,47 +203,50 @@ const getInquiryDetails = async (req, res) => {
     }
 };
 
-// --- 3. GET BOOKING LIST ---
+// --- 3. GET BOOKING LIST (Aligned to 'bookings' collection) ---
 const getBooking = async (req, res) => {
     try {
-        const snapshot = await db.collection('inquiries').orderBy("createdAt", "desc").get();
+        // Query "bookings" instead of "inquiries"
+        const snapshot = await db.collection('bookings')
+            .orderBy("createdAt", "desc")
+            .get();
 
         const inquiries = snapshot.docs.map(doc => {
             const data = doc.data();
+            // Map the nested fields to the flat structure the table view likely needs
             return {
-                refId: data.refId,
-                fullName: data.fullName,
-                dateOfEvent: data.dateOfEvent,
-                eventType: data.eventType,
-                estimatedGuests: data.estimatedGuests,
-                venueName: data.venueName 
+                refId: data.bookingId,
+                fullName: data.profile?.name,
+                email: data.profile?.email,
+                dateOfEvent: data.eventDetails?.date,
+                eventType: data.eventDetails?.eventType,
+                estimatedGuests: data.eventDetails?.pax,
+                venueName: data.eventDetails?.venue,
+                status: data.bookingStatus
             };
         });
 
         res.json(inquiries);
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: 'Failed to fetch inquiries' });
+        res.status(500).json({ error: 'Failed to fetch bookings' });
     }
 };
 
-// --- 4. SEND PROPOSAL EMAIL (UPDATED) ---
+// --- 4. SEND PROPOSAL EMAIL ---
 const sendProposalEmail = async (req, res) => {
     const { 
         clientEmail, 
         clientName, 
         refId, 
         totalCost, 
-        breakdown, 
         details 
     } = req.body;
 
-    // Use the variable from .env, or fallback to localhost if missing
     const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173"; 
     const paymentLink = `${FRONTEND_URL}/client-proposal/${refId}`;
 
-    console.log("Sending to:", clientEmail);
-    console.log("Using Link:", paymentLink);
+    console.log(`Sending proposal for ${refId} to ${clientEmail}`);
 
     try {
         const htmlContent = `
@@ -252,18 +270,12 @@ const sendProposalEmail = async (req, res) => {
                            Review & Pay Now
                         </a>
                     </div>
-                    
-                    <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
-
-                    <p style="font-size: 12px; color: #666;">
-                        Link: <a href="${paymentLink}">${paymentLink}</a>
-                    </p>
                 </div>
             </div>
         `;
 
         const mailOptions = {
-            from: `"Mapos Catering" <${process.env.EMAIL_USER}>`, // Uses env var
+            from: `"Mapos Catering" <${process.env.EMAIL_USER}>`,
             to: clientEmail, 
             subject: `Action Required: Proposal for ${refId}`,
             html: htmlContent
@@ -278,4 +290,44 @@ const sendProposalEmail = async (req, res) => {
     }
 };
 
-module.exports = { createInquiry, getInquiryDetails, getBooking, sendProposalEmail };
+// --- 5. UPDATE STATUS (Aligned to 'bookings' collection) ---
+const updateInquiryStatus = async (req, res) => {
+    try {
+        const { refId } = req.params; // e.g., "BK-006"
+        const { status } = req.body;  // e.g., "Confirmed"
+
+        // 1. Find document in "bookings" by bookingId
+        const snapshot = await db.collection("bookings")
+            .where("bookingId", "==", refId)
+            .limit(1)
+            .get();
+
+        if (snapshot.empty) {
+            console.error(`[UPDATE] Booking ${refId} not found.`);
+            return res.status(404).json({ success: false, message: "Booking not found" });
+        }
+
+        // 2. Get Doc ID and Update
+        const docId = snapshot.docs[0].id;
+        
+        // Update status in the "bookings" collection
+        await db.collection("bookings").doc(docId).update({ 
+            bookingStatus: status // Updating the field defined in createInquiry
+        });
+
+        console.log(`[UPDATE] Updated ${refId} to ${status}`);
+        res.status(200).json({ success: true, message: `Status updated to ${status}` });
+
+    } catch (error) {
+        console.error("Error updating status:", error);
+        res.status(500).json({ success: false, message: "Failed to update status" });
+    }
+};
+
+module.exports = { 
+    createInquiry, 
+    getInquiryDetails, 
+    getBooking, 
+    sendProposalEmail, 
+    updateInquiryStatus 
+};
