@@ -35,3 +35,14 @@ export const updateBookingStatus = async (refId, status) => {
     throw error;
   }
 };
+
+export const getPackagesByEvent = async (eventType) => {
+  try {
+    // URL encodes spaces (e.g., "Corporate Gala" -> "Corporate%20Gala")
+    const response = await api.get(`/inquiries/packages?eventType=${encodeURIComponent(eventType)}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching packages:", error);
+    return []; // Return empty array on error
+  }
+};

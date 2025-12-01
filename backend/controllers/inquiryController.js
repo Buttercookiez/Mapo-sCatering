@@ -6,7 +6,7 @@ const nodemailer = require("nodemailer");
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: process.env.EMAIL_USER, 
+        user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     }
 });
@@ -27,7 +27,7 @@ const createInquiry = async (req, res) => {
         if (!bookingSnapshot.empty) {
             const lastDoc = bookingSnapshot.docs[0].data();
             if (lastDoc.bookingId) {
-                const parts = lastDoc.bookingId.split("-"); 
+                const parts = lastDoc.bookingId.split("-");
                 if (parts.length > 1) {
                     const lastNumber = parseInt(parts[1]);
                     if (!isNaN(lastNumber)) newBookingNum = lastNumber + 1;
@@ -37,8 +37,8 @@ const createInquiry = async (req, res) => {
         const readableBookingId = `BK-${newBookingNum.toString().padStart(3, "0")}`;
 
         // 2. HANDLE CLIENT LOGIC
-        let readableClientId; 
-        let clientDocId; 
+        let readableClientId;
+        let clientDocId;
 
         const clientQuery = await db.collection("clients")
             .where("profile.email", "==", data.email)
@@ -47,8 +47,8 @@ const createInquiry = async (req, res) => {
 
         if (!clientQuery.empty) {
             const clientDoc = clientQuery.docs[0];
-            clientDocId = clientDoc.id; 
-            readableClientId = clientDoc.data().clientId; 
+            clientDocId = clientDoc.id;
+            readableClientId = clientDoc.data().clientId;
         } else {
             const clientSnapshot = await db.collection("clients")
                 .orderBy("clientId", "desc")
@@ -68,7 +68,7 @@ const createInquiry = async (req, res) => {
             }
 
             readableClientId = `CL-${newClientNum.toString().padStart(3, "0")}`;
-            const newClientRef = db.collection("clients").doc(); 
+            const newClientRef = db.collection("clients").doc();
             clientDocId = newClientRef.id;
 
             batch.set(newClientRef, {
@@ -83,14 +83,14 @@ const createInquiry = async (req, res) => {
         }
 
         // 3. CREATE BOOKING DOCUMENT
-        const bookingRef = db.collection("bookings").doc(); 
+        const bookingRef = db.collection("bookings").doc();
 
         const bookingData = {
-            bookingId: readableBookingId, 
-            clientRefId: clientDocId,     
-            clientId: readableClientId,   
-            bookingStatus: "Pending",     
-            
+            bookingId: readableBookingId,
+            clientRefId: clientDocId,
+            clientId: readableClientId,
+            bookingStatus: "Pending",
+
             profile: {
                 name: data.name,
                 email: data.email,
@@ -107,12 +107,12 @@ const createInquiry = async (req, res) => {
                 venueType: data.venueType || "predefined",
                 serviceStyle: data.serviceStyle,
                 eventType: data.eventType,
-                package: null, 
+                package: null,
                 addOns: data.addOns || []
             },
 
             billing: {
-                totalCost: 0, 
+                totalCost: 0,
                 amountPaid: 0,
                 remainingBalance: 0,
                 paymentStatus: "Unpaid"
@@ -125,10 +125,10 @@ const createInquiry = async (req, res) => {
         batch.set(bookingRef, bookingData);
         await batch.commit();
 
-        res.status(200).json({ 
+        res.status(200).json({
             success: true,
-            refId: readableBookingId, 
-            message: "Inquiry received successfully!" 
+            refId: readableBookingId,
+            message: "Inquiry received successfully!"
         });
 
     } catch (error) {
@@ -153,19 +153,19 @@ const getInquiryDetails = async (req, res) => {
         }
 
         const docData = bookingSnapshot.docs[0].data();
-        const docId = bookingSnapshot.docs[0].id; 
+        const docId = bookingSnapshot.docs[0].id;
 
         // 2. Fetch related collections (assuming they use the readable RefID as document ID or key)
         const paymentSnap = await db.collection("payments").doc(refId).get();
         const proposalSnap = await db.collection("proposals").doc(refId).get();
-        
+
         // 3. Flatten/Map the data structure for the Frontend
         // The frontend expects fields like 'fullName', 'dateOfEvent', 'status', etc.
         const mappedData = {
             // IDs
             id: docId,
             refId: docData.bookingId,
-            
+
             // Client Info (Mapped from 'profile')
             fullName: docData.profile?.name || "Unknown",
             client: docData.profile?.name || "Unknown",
@@ -183,7 +183,7 @@ const getInquiryDetails = async (req, res) => {
             venue: docData.eventDetails?.venue, // Fallback
             serviceStyle: docData.eventDetails?.serviceStyle,
             eventType: docData.eventDetails?.eventType,
-            
+
             // Status & Billing
             status: docData.bookingStatus, // "Pending", "Confirmed", etc.
             bookingStatus: docData.bookingStatus,
@@ -239,37 +239,75 @@ const sendProposalEmail = async (req, res) => {
         clientEmail, 
         clientName, 
         refId, 
-        totalCost, 
+        packageOptions, 
         details 
     } = req.body;
 
     const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173"; 
-    const paymentLink = `${FRONTEND_URL}/client-proposal/${refId}`;
+    const selectionLink = `${FRONTEND_URL}/proposal-selection/${refId}`;
+    const eventDate = details?.date || "Date TBD";
 
-    console.log(`Sending proposal for ${refId} to ${clientEmail}`);
+    // Generate the 3-column HTML cards
+    const cardsHtml = packageOptions.map((pkg, index) => {
+        const bgColor = index === 1 ? "#fffbf2" : "#ffffff"; 
+        const borderColor = index === 1 ? "#C9A25D" : "#e0e0e0";
+        
+        return `
+            <td width="33%" valign="top" style="padding: 5px;">
+                <div style="border: 1px solid ${borderColor}; background-color: ${bgColor}; border-radius: 4px; overflow: hidden; height: 100%;">
+                    <div style="background-color: ${index === 1 ? '#C9A25D' : '#333'}; color: white; padding: 8px; font-size: 10px; font-weight: bold; text-align: center; text-transform: uppercase;">
+                        ${pkg.tier}
+                    </div>
+                    <div style="padding: 15px; text-align: center;">
+                        <h4 style="margin: 0 0 5px 0; font-size: 14px; color: #333;">${pkg.name}</h4>
+                        <p style="margin: 0 0 10px 0; font-size: 18px; font-weight: bold; color: #C9A25D;">₱${pkg.pricePerHead}</p>
+                        <p style="font-size: 10px; color: #888; margin-bottom: 10px;">per head</p>
+                        <hr style="border: 0; border-top: 1px dashed #eee; margin: 10px 0;">
+                        <ul style="padding: 0; margin: 0; list-style-type: none; font-size: 11px; color: #555; text-align: left;">
+                            ${pkg.inclusions.map(inc => `<li style="margin-bottom: 4px;">✓ ${inc}</li>`).join("")}
+                        </ul>
+                    </div>
+                </div>
+            </td>
+        `;
+    }).join("");
 
     try {
         const htmlContent = `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; border: 1px solid #e0e0e0;">
-                <div style="background-color: #1c1c1c; padding: 20px; text-align: center;">
-                    <h2 style="color: #C9A25D; margin: 0; text-transform: uppercase;">Proposal Ready</h2>
+            <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; color: #333; background-color: #f9f9f9; padding: 20px;">
+                
+                <div style="background-color: #1c1c1c; padding: 30px; text-align: center; border-radius: 4px 4px 0 0;">
+                    <h2 style="color: #C9A25D; margin: 0; text-transform: uppercase; letter-spacing: 2px;">Your Event Proposal</h2>
+                    <p style="color: #888; font-size: 12px; margin-top: 5px;">Ref: ${refId}</p>
                 </div>
                 
-                <div style="padding: 30px;">
-                    <p style="font-size: 16px;">Hi <strong>${clientName}</strong>,</p>
-                    <p>Your event proposal for <strong>${details.date}</strong> is ready.</p>
+                <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e0e0e0;">
+                    <p>Hi <strong>${clientName || "Client"}</strong>,</p>
+                    <p>We are excited to host your event on <strong>${eventDate}</strong>! Based on your requirements, we have prepared three exclusive packages for you to choose from.</p>
                     
-                    <div style="background-color: #f8f8f8; padding: 15px; border-left: 4px solid #C9A25D; margin: 20px 0;">
-                        <p style="margin: 5px 0;"><strong>Total Estimate:</strong> ₱ ${Number(totalCost).toLocaleString()}</p>
-                    </div>
+                    <!-- 3 COLUMN LAYOUT -->
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 20px; margin-bottom: 20px;">
+                        <tr>
+                            ${cardsHtml}
+                        </tr>
+                    </table>
 
-                    <div style="text-align: center; margin: 35px 0;">
-                        <a href="${paymentLink}" 
-                           target="_blank"
-                           style="background-color: #C9A25D; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; border-radius: 4px; display: inline-block;">
-                           Review & Pay Now
+                    <!-- UPDATED SECTION STARTS HERE -->
+                    <div style="text-align: center; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                        <a href="${selectionLink}" 
+                           style="background-color: #C9A25D; color: #ffffff; padding: 15px 30px; text-decoration: none; font-weight: bold; text-transform: uppercase; border-radius: 4px; display: inline-block;">
+                           Proceed to Selection
                         </a>
+                        <p style="font-size: 12px; color: #777; margin-top: 15px; font-style: italic; line-height: 1.5;">
+                            If you would like to proceed with one of these packages, please click the button above to confirm your selection. Otherwise, you may disregard this email.
+                        </p>
                     </div>
+                    <!-- UPDATED SECTION ENDS HERE -->
+
+                </div>
+                
+                <div style="text-align: center; padding: 20px; font-size: 11px; color: #aaa;">
+                    &copy; ${new Date().getFullYear()} Mapos Catering Services. All rights reserved.
                 </div>
             </div>
         `;
@@ -277,7 +315,7 @@ const sendProposalEmail = async (req, res) => {
         const mailOptions = {
             from: `"Mapos Catering" <${process.env.EMAIL_USER}>`,
             to: clientEmail, 
-            subject: `Action Required: Proposal for ${refId}`,
+            subject: `Choose Your Package: Proposal for ${refId}`,
             html: htmlContent
         };
 
@@ -285,10 +323,11 @@ const sendProposalEmail = async (req, res) => {
         res.status(200).json({ success: true, message: "Proposal sent successfully" });
 
     } catch (error) {
-        console.error("Email send error:", error);
-        res.status(500).json({ success: false, message: "Failed to send email" });
+        console.error("[EMAIL ERROR]", error);
+        res.status(500).json({ success: false, message: "Failed to send email." });
     }
 };
+
 
 // --- 5. UPDATE STATUS (Aligned to 'bookings' collection) ---
 const updateInquiryStatus = async (req, res) => {
@@ -309,9 +348,9 @@ const updateInquiryStatus = async (req, res) => {
 
         // 2. Get Doc ID and Update
         const docId = snapshot.docs[0].id;
-        
+
         // Update status in the "bookings" collection
-        await db.collection("bookings").doc(docId).update({ 
+        await db.collection("bookings").doc(docId).update({
             bookingStatus: status // Updating the field defined in createInquiry
         });
 
@@ -324,10 +363,43 @@ const updateInquiryStatus = async (req, res) => {
     }
 };
 
-module.exports = { 
-    createInquiry, 
-    getInquiryDetails, 
-    getBooking, 
-    sendProposalEmail, 
-    updateInquiryStatus 
+const getPackagesByEventType = async (req, res) => {
+    try {
+        const { eventType } = req.query; // Get ?eventType=Wedding
+
+        if (!eventType) {
+            return res.status(400).json({ error: "Event type is required" });
+        }
+
+        // Fetch packages matching the event type
+        const snapshot = await db.collection("packages")
+            .where("eventType", "==", eventType)
+            .get();
+
+        if (snapshot.empty) {
+            // Fallback: If "Corporate Gala" not found, try generic "Other"
+            const fallbackSnap = await db.collection("packages")
+                .where("eventType", "==", "Other")
+                .get();
+            
+            const fallbackData = fallbackSnap.docs.map(doc => doc.data());
+            return res.json(fallbackData);
+        }
+
+        const packages = snapshot.docs.map(doc => doc.data());
+        res.json(packages);
+
+    } catch (error) {
+        console.error("Error fetching packages:", error);
+        res.status(500).json({ error: "Failed to fetch packages" });
+    }
+};
+
+module.exports = {
+    createInquiry,
+    getInquiryDetails,
+    getBooking,
+    sendProposalEmail,
+    updateInquiryStatus,
+    getPackagesByEventType
 };

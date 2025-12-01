@@ -5,10 +5,10 @@ import { ArrowLeft, MoreHorizontal, Lock } from "lucide-react";
 
 // API
 // Added updateBookingStatus to imports
-import { 
-  getBookingByRefId, 
-  sendProposalEmail, 
-  updateBookingStatus 
+import {
+  getBookingByRefId,
+  sendProposalEmail,
+  updateBookingStatus,
 } from "../../../api/bookingService";
 
 // Helper Components
@@ -113,7 +113,7 @@ const BookingDetails = ({
   };
 
   // 3. Handle Send Proposal
-  const handleSendProposal = async () => {
+  const handleSendProposal = async (payloadData) => {
     if (!details.email) {
       alert("No email address found for this client.");
       return;
@@ -122,19 +122,18 @@ const BookingDetails = ({
     setIsSending(true);
     setEmailStatus(null);
 
-    const menuCost = proposalTotal;
-    const serviceCharge = menuCost * 0.1;
-    const grandTotal = menuCost + serviceCharge;
+    // payloadData contains { options: [pkg1, pkg2, pkg3] }
+    const { options } = payloadData;
+
+    // Calculate a rough estimate (using the Mid-Range option as the "Total Cost" placeholder in the email subject/summary)
+    const midOption = options[1]; // Index 1 is Mid-Range
+    const estimatedTotal = midOption.totalPrice; 
 
     const payload = {
       refId: details.id,
       clientName: details.client,
       clientEmail: details.email,
-      totalCost: grandTotal,
-      breakdown: {
-        menuPrice: menuCost,
-        serviceCharge: serviceCharge,
-      },
+      packageOptions: options, // <--- Passes to backend
       details: {
         date: details.date,
         guests: details.guests,
@@ -152,7 +151,7 @@ const BookingDetails = ({
     } finally {
       setIsSending(false);
     }
-  };
+};
 
   // 4. Handle Booking Status Change (FIXED)
   const handleUpdateStatus = async (newStatus) => {
@@ -169,16 +168,16 @@ const BookingDetails = ({
 
     // 3. API Call to persist changes
     try {
-      // Assuming you have an API function for this. 
+      // Assuming you have an API function for this.
       // If not, simply skip this try/catch block, but state will be lost on refresh.
       if (details.id) {
-         await updateBookingStatus(details.id, newStatus); 
+        await updateBookingStatus(details.id, newStatus);
       }
     } catch (error) {
       console.error("Failed to update status on server:", error);
       alert("Failed to save status. Please check your connection.");
       // Revert status on error (optional)
-      // setBookingData(prev => ({ ...prev, status: 'Pending' })); 
+      // setBookingData(prev => ({ ...prev, status: 'Pending' }));
     }
   };
 
@@ -189,7 +188,7 @@ const BookingDetails = ({
       setIsSending(false);
       setRejectionSent(true);
       // Automatically update status to Rejected when email is sent
-      handleUpdateStatus("Rejected"); 
+      handleUpdateStatus("Rejected");
     }, 1500);
   };
 
@@ -201,7 +200,7 @@ const BookingDetails = ({
   // Helper booleans for UI Logic
   const isBookingConfirmed =
     details.status === "Confirmed" || details.status === "Paid";
-    
+
   const isBookingRejected =
     details.status === "Cancelled" || details.status === "Rejected";
 
@@ -298,7 +297,7 @@ const BookingDetails = ({
                   details={details}
                   theme={theme}
                   // Pass boolean to explicitly tell tab if it should show actions
-                  isBookingConfirmed={isBookingConfirmed} 
+                  isBookingConfirmed={isBookingConfirmed}
                   isBookingRejected={isBookingRejected}
                   rejectionSent={rejectionSent}
                   rejectionReason={rejectionReason}

@@ -174,7 +174,7 @@ const Booking = () => {
     { id: 2, name: "La Veranda Events Hall", capacity: "150 Pax", img: "/images/laverandaa.png", type: "predefined" },
     { id: 3, name: "Tenorio's Events Place", capacity: "50 Pax", img: "/images/tenorios.png", type: "predefined" }
   ];
-  const eventOptions = ["Wedding", "Corporate Gala", "Private Dinner", "Cocktail Reception", "Product Launch", "Birthday", "Engagement Party", "Charity Ball", "Anniversary", "Baby Shower", "Baptism", "Graduation", "Reunion"];
+  const eventOptions = ["Wedding", "Corporate Gala", "Private Dinner", "Birthday", "Other"];
   const addOnOptions = ["Live Band", "Photographer", "Event Host"];
 
   // --- LOGIC: Add-ons ---
