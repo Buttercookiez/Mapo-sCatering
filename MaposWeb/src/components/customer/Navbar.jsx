@@ -24,7 +24,6 @@ const Navbar = ({ darkMode, setDarkMode, isScrolled }) => {
   // Navigation Links Configuration
   const navLinks = [
     { name: 'Home', path: '/' },
-    { name: 'Menu', path: '/menu' },
     { name: 'Venue', path: '/venue' },
     { name: 'Booking', path: '/booking' },
   ];
