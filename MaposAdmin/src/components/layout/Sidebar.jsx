@@ -3,7 +3,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutGrid, Calendar, Users, MapPin, 
   Package, DollarSign, TrendingUp, ChefHat, ChevronLeft, ChevronRight,
-  BookOpen, FileText // Changed CheckSquare to FileText for Records
+  BookOpen, FileText, // Changed CheckSquare to FileText for Records
+  Package2,
+  PackageOpenIcon,
+  MenuIcon,
+  MenuSquareIcon
 } from 'lucide-react';
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen, theme }) => {
@@ -32,17 +36,10 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, theme }) => {
     {
       label: "Operations",
       items: [
-        { id: 'Kitchen', icon: ChefHat, label: 'Kitchen & Prep', path: '/kitchen' },
+        { id: 'Packages', icon: MenuSquareIcon, label: 'Packages', path: '/package' },
         { id: 'Inventory', icon: Package, label: 'Inventory', path: '/inventory' },
-        { id: 'Venue', icon: MapPin, label: 'Venue Status', path: '/venue-status' },
       ]
     },
-    {
-      label: "Finance",
-      items: [
-        { id: 'Finance', icon: DollarSign, label: 'Financials', path: '/finance' },
-      ]
-    }
   ];
 
   const isActive = (path) => location.pathname === path;

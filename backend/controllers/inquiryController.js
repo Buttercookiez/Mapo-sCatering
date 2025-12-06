@@ -379,37 +379,59 @@ const getPackagesByEventType = async (req, res) => {
     }
 };
 
-// --- 7. VERIFY PROPOSAL TOKEN (CLIENT SIDE) ---
-// This is called when the client clicks the email link
+// --- 7. VERIFY PROPOSAL TOKEN (UPDATED) ---
 const verifyProposal = async (req, res) => {
     try {
         const { token } = req.params;
 
-        const snapshot = await db.collection("proposals")
+        // 1. Get Proposal
+        const proposalSnap = await db.collection("proposals")
             .where("token", "==", token)
             .limit(1)
             .get();
 
-        if (snapshot.empty) {
+        if (proposalSnap.empty) {
             return res.status(404).json({ success: false, message: "Invalid proposal link." });
         }
 
-        const data = snapshot.docs[0].data();
+        const proposalData = proposalSnap.docs[0].data();
 
-        if (new Date(data.expiresAt) < new Date()) {
+        if (new Date(proposalData.expiresAt) < new Date()) {
             return res.status(410).json({ success: false, message: "This link has expired." });
         }
 
-        if (data.status === "Confirmed") {
-            return res.status(409).json({ success: false, message: "You have already confirmed this proposal." });
+        // 2. Get Linked Booking Data (For Add-ons, Pax, and Payment Status)
+        const bookingSnap = await db.collection("bookings")
+            .where("bookingId", "==", proposalData.refId)
+            .limit(1)
+            .get();
+
+        let bookingDetails = {};
+        if (!bookingSnap.empty) {
+            const bData = bookingSnap.docs[0].data();
+            bookingDetails = {
+                pax: bData.eventDetails?.pax || 0,
+                venue: bData.eventDetails?.venue || "TBD",
+                startTime: bData.eventDetails?.startTime,
+                endTime: bData.eventDetails?.endTime,
+                // Assuming addOns in DB is an array of objects like [{name: "Lechon", price: 8000}]
+                // If it's just strings, you'll need to assign prices in frontend or backend.
+                addOns: bData.eventDetails?.addOns || [],
+                // Get current payment status
+                amountPaid: bData.billing?.amountPaid || 0,
+                paymentStatus: bData.billing?.paymentStatus || "Unpaid"
+            };
         }
 
         res.json({
             success: true,
-            clientName: data.clientName,
-            eventDate: data.eventDate,
-            options: data.options,
-            refId: data.refId
+            clientName: proposalData.clientName,
+            eventDate: proposalData.eventDate,
+            options: proposalData.options, // The packages
+            refId: proposalData.refId,
+            status: proposalData.status,
+            selectedPackage: proposalData.selectedPackage, // In case they revisit
+            ...bookingDetails // Spread the booking details (pax, addons, billing)
         });
 
     } catch (error) {

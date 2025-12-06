@@ -8,7 +8,7 @@ import Calendar from './pages/Events/Calendar';
 import Finance from './pages/Finance/Financials';
 import BookingsAndProposals from './pages/bookingdetails/Bookings'; 
 import Inventory from './pages/Inventory/Inventory';
-import Kitchen from './pages/Kitchen/Kitchenprep';
+import PackageEditor from './pages/Package/PackageEditor';
 import ClientRecords from './pages/ClientRecords/ClientRecords'; 
 import Transaction from './pages/Transactions/transactions';
 
@@ -39,14 +39,10 @@ function App() {
         <Route path="/events" element={<Calendar />} />
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/finance" element={<Finance />} />
-        <Route path="/kitchen" element={<Kitchen />} />
+        <Route path="/package" element={<PackageEditor />} />
         <Route path="/clients" element={<ClientRecords />} />
         <Route path="/bookings" element={<BookingsAndProposals />} /> 
-        
-        {/* Placeholders for remaining Sidebar links */}
         <Route path="/transactions" element={<Transaction/>} />
-        <Route path="/venue-status" element={<AdminPlaceholder title="Venue Status" />} />
-        <Route path="/finance" element={<AdminPlaceholder title="Profit Reports" />} />
 
       </Routes>
     </BrowserRouter>
