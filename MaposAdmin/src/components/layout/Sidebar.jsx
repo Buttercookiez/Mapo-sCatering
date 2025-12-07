@@ -106,8 +106,8 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, theme }) => {
           </div>
           {sidebarOpen && (
             <div className="text-left overflow-hidden">
-              <p className="text-sm font-medium truncate">Chef Marco</p>
-              <p className={`text-[10px] uppercase tracking-wider ${theme.subText}`}>Head Admin</p>
+              <p className="text-sm font-medium truncate">Chef Mavirick Exconde</p>
+              <p className={`text-[10px] uppercase tracking-wider ${theme.subText}`}>Mapo's Owner</p>
             </div>
           )}
         </div>

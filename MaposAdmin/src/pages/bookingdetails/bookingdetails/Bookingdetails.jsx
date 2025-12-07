@@ -1,10 +1,7 @@
-// bookingdetails.jsx
-
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, MoreHorizontal, Lock } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Lock, Loader2 } from "lucide-react";
 
 // API
-// Added updateBookingStatus to imports
 import {
   getBookingByRefId,
   sendProposalEmail,
@@ -13,7 +10,6 @@ import {
 
 // Helper Components
 import FadeIn from "./components/FadeIn";
-import BookingLoadingLayout from "./components/BookingLoading";
 import StatusBadge from "./components/StatusBadge";
 import BookingSidebar from "./components/BookingSidebar";
 
@@ -47,12 +43,10 @@ const BookingDetails = ({
 
   // 1. Fetch Data Effect
   useEffect(() => {
-    // Reset tab to Event Info when opening a new booking
     setActiveDetailTab("Event Info");
 
     const fetchBookingDetails = async () => {
       const idToFetch = booking?.refId || booking?.id;
-
       if (!idToFetch) return;
 
       setIsLoading(true);
@@ -68,7 +62,7 @@ const BookingDetails = ({
     };
 
     fetchBookingDetails();
-  }, [booking, setActiveDetailTab]); // Added setActiveDetailTab to dependencies
+  }, [booking, setActiveDetailTab]);
 
   // 2. Proposal Calculation Effect
   useEffect(() => {
@@ -83,7 +77,6 @@ const BookingDetails = ({
   }, [bookingData]);
 
   // 6. Data Merging & Preparation
-  // We prioritize bookingData (local state) so updates are instant
   const currentData = bookingData || booking || {};
   const paymentData = currentData.payment || {};
 
@@ -99,7 +92,6 @@ const BookingDetails = ({
     timeStart: currentData.startTime || "TBD",
     timeEnd: currentData.endTime || "TBD",
     serviceStyle: currentData.serviceStyle || "Plated",
-    // CRITICAL: Ensure status is read from currentData
     status: currentData.status || "Pending",
     budget: currentData.estimatedBudget || 0,
     reservationFee: paymentData.reservationFee || 5000,
@@ -122,18 +114,14 @@ const BookingDetails = ({
     setIsSending(true);
     setEmailStatus(null);
 
-    // payloadData contains { options: [pkg1, pkg2, pkg3] }
     const { options } = payloadData;
-
-    // Calculate a rough estimate (using the Mid-Range option as the "Total Cost" placeholder in the email subject/summary)
-    const midOption = options[1]; // Index 1 is Mid-Range
-    const estimatedTotal = midOption.totalPrice; 
+    const midOption = options[1];
 
     const payload = {
       refId: details.id,
       clientName: details.client,
       clientEmail: details.email,
-      packageOptions: options, // <--- Passes to backend
+      packageOptions: options,
       details: {
         date: details.date,
         guests: details.guests,
@@ -151,53 +139,38 @@ const BookingDetails = ({
     } finally {
       setIsSending(false);
     }
-};
+  };
 
-  // 4. Handle Booking Status Change (FIXED)
+  // 4. Handle Booking Status Change
   const handleUpdateStatus = async (newStatus) => {
-    // 1. Optimistic Update: Update UI immediately
     setBookingData((prev) => ({
       ...prev,
       status: newStatus,
     }));
 
-    // 2. Determine behavior based on status
     if (newStatus === "Cancelled" || newStatus === "Rejected") {
-      setActiveDetailTab("Event Info"); // Force stay on Info tab
+      setActiveDetailTab("Event Info");
     }
 
-    // 3. API Call to persist changes
     try {
-      // Assuming you have an API function for this.
-      // If not, simply skip this try/catch block, but state will be lost on refresh.
       if (details.id) {
         await updateBookingStatus(details.id, newStatus);
       }
     } catch (error) {
       console.error("Failed to update status on server:", error);
       alert("Failed to save status. Please check your connection.");
-      // Revert status on error (optional)
-      // setBookingData(prev => ({ ...prev, status: 'Pending' }));
     }
   };
 
   const handleSendRejection = () => {
     setIsSending(true);
-    // Simulate API call for rejection email
     setTimeout(() => {
       setIsSending(false);
       setRejectionSent(true);
-      // Automatically update status to Rejected when email is sent
       handleUpdateStatus("Rejected");
     }, 1500);
   };
 
-  // 5. LOADING STATE
-  if (isLoading || (!booking && !bookingData)) {
-    return <BookingLoadingLayout theme={theme} />;
-  }
-
-  // Helper booleans for UI Logic
   const isBookingConfirmed =
     details.status === "Confirmed" || details.status === "Paid";
 
@@ -232,7 +205,6 @@ const BookingDetails = ({
           </div>
         </div>
         <div className="flex gap-3 items-center">
-          {/* Status Badge updates automatically because it uses details.status */}
           <StatusBadge status={details.status} />
           <button
             className={`p-2 hover:text-[#C9A25D] transition-colors ${theme.subText}`}
@@ -249,7 +221,22 @@ const BookingDetails = ({
       )}
 
       {/* Content Layout */}
-      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden relative">
+        {/* --- LOADING OVERLAY --- */}
+        {/* Updated: Uses theme.bg for solid background matching the page, removing transparency/blur */}
+        {isLoading && (
+          <div
+            className={`absolute inset-0 z-50 flex flex-col items-center justify-center ${theme.bg} transition-all duration-300`}
+          >
+            <Loader2 size={32} className="animate-spin mb-4 text-[#C9A25D]" />
+            <p
+              className={`text-xs uppercase tracking-widest font-medium ${theme.text}`}
+            >
+              Loading Details...
+            </p>
+          </div>
+        )}
+
         {/* LEFT: Static Info Card (Sidebar) */}
         <BookingSidebar
           details={details}
@@ -264,7 +251,6 @@ const BookingDetails = ({
             className={`flex items-center border-b ${theme.border} ${theme.cardBg} px-6`}
           >
             {detailTabs.map((tab) => {
-              // Dynamic Logic: If status is Confirmed, lock is removed immediately
               const isDisabled =
                 !isBookingConfirmed &&
                 (tab === "Payments" || tab === "Proposal");
@@ -290,46 +276,47 @@ const BookingDetails = ({
           </div>
 
           <div className="flex-1 overflow-y-auto p-8 lg:p-12 no-scrollbar">
-            <FadeIn key={activeDetailTab}>
-              {/* EVENT INFO */}
-              {activeDetailTab === "Event Info" && (
-                <EventInfoTab
-                  details={details}
-                  theme={theme}
-                  // Pass boolean to explicitly tell tab if it should show actions
-                  isBookingConfirmed={isBookingConfirmed}
-                  isBookingRejected={isBookingRejected}
-                  rejectionSent={rejectionSent}
-                  rejectionReason={rejectionReason}
-                  setRejectionReason={setRejectionReason}
-                  handleUpdateStatus={handleUpdateStatus}
-                  handleSendRejection={handleSendRejection}
-                  isSending={isSending}
-                />
-              )}
+            {!isLoading && (
+              <FadeIn key={activeDetailTab}>
+                {/* EVENT INFO */}
+                {activeDetailTab === "Event Info" && (
+                  <EventInfoTab
+                    details={details}
+                    theme={theme}
+                    isBookingConfirmed={isBookingConfirmed}
+                    isBookingRejected={isBookingRejected}
+                    rejectionSent={rejectionSent}
+                    rejectionReason={rejectionReason}
+                    setRejectionReason={setRejectionReason}
+                    handleUpdateStatus={handleUpdateStatus}
+                    handleSendRejection={handleSendRejection}
+                    isSending={isSending}
+                  />
+                )}
 
-              {/* PAYMENTS */}
-              {activeDetailTab === "Payments" && (
-                <PaymentsTab
-                  details={details}
-                  theme={theme}
-                  darkMode={darkMode}
-                />
-              )}
+                {/* PAYMENTS */}
+                {activeDetailTab === "Payments" && (
+                  <PaymentsTab
+                    details={details}
+                    theme={theme}
+                    darkMode={darkMode}
+                  />
+                )}
 
-              {/* PROPOSAL */}
-              {activeDetailTab === "Proposal" && (
-                <ProposalTab
-                  details={details}
-                  theme={theme}
-                  proposalTotal={proposalTotal}
-                  setProposalTotal={setProposalTotal}
-                  handleSendProposal={handleSendProposal}
-                  isSending={isSending}
-                  emailStatus={emailStatus}
-                />
-              )}
-            </FadeIn>
+                {/* PROPOSAL */}
+                {activeDetailTab === "Proposal" && (
+                  <ProposalTab
+                    details={details}
+                    theme={theme}
+                    proposalTotal={proposalTotal}
+                    setProposalTotal={setProposalTotal}
+                    handleSendProposal={handleSendProposal}
+                    isSending={isSending}
+                    emailStatus={emailStatus}
+                  />
+                )}
+              </FadeIn>
+            )}
           </div>
         </div>
       </div>

@@ -9,7 +9,6 @@ const {
     sendProposalEmail, 
     updateInquiryStatus, 
     getPackagesByEventType,
-    // 🚨 ADD THESE TWO NEW CONTROLLER FUNCTIONS 🚨
     verifyProposal,    
     confirmSelection   
 } = require("../controllers/inquiryController");
