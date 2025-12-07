@@ -12,7 +12,7 @@ import DashboardNavbar from '../../components/layout/Navbar';
 import { useInventory } from '../../hooks/useInventory';
 
 // --- ANIMATION HELPER ---
-const FadeIn = ({ children, delay = 0 }) => {
+const FadeIn = ({ children, delay = 0, className = "" }) => {
   const [isVisible, setIsVisible] = useState(false);
   const ref = useRef(null);
 
@@ -30,7 +30,7 @@ const FadeIn = ({ children, delay = 0 }) => {
       ref={ref}
       className={`transition-all duration-700 ease-out transform ${
         isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-      }`}
+      } ${className}`}
       style={{ transitionDelay: `${delay}ms` }}
     >
       {children}
@@ -271,186 +271,205 @@ const Inventory = () => {
 
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text} selection:bg-[#C9A25D] selection:text-white`}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap'); .font-serif { font-family: 'Cormorant Garamond', serif; } .font-sans { font-family: 'Inter', sans-serif; } .no-scrollbar::-webkit-scrollbar { display: none; }`}</style>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap');
+        .font-serif { font-family: 'Cormorant Garamond', serif; }
+        .font-sans { font-family: 'Inter', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #57534e; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #C9A25D; }
+        /* Firefox fallback */
+        .custom-scrollbar { scrollbar-width: thin; scrollbar-color: #57534e transparent; }
+      `}</style>
 
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={setActiveTab} theme={theme} />
 
       <main className="flex-1 flex flex-col relative overflow-hidden">
         <DashboardNavbar activeTab="Inventory Management" theme={theme} darkMode={darkMode} setDarkMode={setDarkMode} searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
 
-        <div className="flex-1 overflow-y-auto p-6 md:p-12 scroll-smooth no-scrollbar">
+        {/* 1. FIXED PARENT CONTAINER: h-full, flex-col, overflow-hidden */}
+        <div className="flex-1 flex flex-col p-6 md:p-12 pb-12 overflow-hidden gap-8">
           
-          {/* Stats Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            {[
-              { label: 'Total Asset Count', value: totalItems, sub: 'Across 7 Categories', icon: Package },
-              { label: 'Low Stock Alerts', value: lowStockCount, sub: 'Based on Available Qty', icon: AlertTriangle, isAlert: true },
-              { label: 'Total Asset Value', value: `₱${totalValue.toLocaleString()}`, sub: 'Est. Current Value', icon: Tag },
-            ].map((stat, idx) => (
-              <FadeIn key={idx} delay={idx * 100}>
-                <div className={`p-6 border ${theme.border} ${theme.cardBg} flex items-start justify-between group hover:border-[#C9A25D]/30 transition-all duration-500`}>
-                  <div>
-                    <span className={`text-[10px] uppercase tracking-[0.2em] ${theme.subText}`}>{stat.label}</span>
-                    <h3 className={`font-serif text-4xl mt-2 mb-1 ${stat.isAlert && stat.value > 0 ? 'text-red-400' : theme.text} h-10 flex items-center`}>{loading ? <Loader2 className="animate-spin text-[#C9A25D]" size={24} /> : stat.value}</h3>
-                    <p className="text-xs text-stone-400">{stat.sub}</p>
+          {/* 2. STATS ROW (Fixed Height) */}
+          <div className="flex-none">
+            <FadeIn>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  { label: 'Total Asset Count', value: totalItems, sub: 'Across 7 Categories', icon: Package },
+                  { label: 'Low Stock Alerts', value: lowStockCount, sub: 'Based on Available Qty', icon: AlertTriangle, isAlert: true },
+                  { label: 'Total Asset Value', value: `₱${totalValue.toLocaleString()}`, sub: 'Est. Current Value', icon: Tag },
+                ].map((stat, idx) => (
+                  <div key={idx} className={`p-6 border ${theme.border} ${theme.cardBg} flex items-start justify-between group hover:border-[#C9A25D]/30 transition-all duration-500`}>
+                    <div>
+                      <span className={`text-[10px] uppercase tracking-[0.2em] ${theme.subText}`}>{stat.label}</span>
+                      <h3 className={`font-serif text-4xl mt-2 mb-1 ${stat.isAlert && stat.value > 0 ? 'text-red-400' : theme.text} h-10 flex items-center`}>{loading ? <Loader2 className="animate-spin text-[#C9A25D]" size={24} /> : stat.value}</h3>
+                      <p className="text-xs text-stone-400">{stat.sub}</p>
+                    </div>
+                    <div className={`p-2 rounded-full ${theme.bg} ${stat.isAlert && stat.value > 0 ? 'text-red-400' : 'text-[#C9A25D]'}`}><stat.icon size={20} strokeWidth={1} /></div>
                   </div>
-                  <div className={`p-2 rounded-full ${theme.bg} ${stat.isAlert && stat.value > 0 ? 'text-red-400' : 'text-[#C9A25D]'}`}><stat.icon size={20} strokeWidth={1} /></div>
-                </div>
-              </FadeIn>
-            ))}
+                ))}
+              </div>
+            </FadeIn>
           </div>
 
-          <FadeIn delay={300}>
-            {/* GRID LAYOUT: 70% ASSETS / 30% LOGS */}
-            <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 min-h-[600px]">
-              
-              {/* --- LEFT: ASSETS TABLE (70%) --- */}
-              <div className={`lg:col-span-7 flex flex-col border ${theme.border} ${theme.cardBg} shadow-sm rounded-sm overflow-hidden`}>
+          {/* 3. TABLES CONTAINER (Fills Remaining Height) */}
+          <div className="flex-1 min-h-0">
+            <FadeIn delay={300} className="h-full">
+              {/* GRID LAYOUT: 70% ASSETS / 30% LOGS */}
+              <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 h-full">
                 
-                {/* Assets Header */}
-                <div className="p-6 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center">
-                    <div>
-                        <h3 className="font-serif text-2xl italic">Asset Overview</h3>
-                        <p className={`text-xs ${theme.subText} mt-1`}>Manage equipment & supplies.</p>
-                    </div>
-                    
-                    <div className="flex gap-2 relative">
-                        {/* FILTER DROPDOWN */}
-                        <div className="relative" ref={dropdownRef}>
-                            <button 
-                                onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
-                                className={`flex items-center gap-2 px-4 py-2.5 border ${theme.border} text-[10px] uppercase tracking-widest hover:text-[#C9A25D] hover:border-[#C9A25D] transition-all bg-transparent ${theme.subText}`}
-                            >
-                                <Filter size={14} /> 
-                                {categoryFilter === "All" ? "Filter" : categoryFilter}
-                            </button>
-                            {isFilterDropdownOpen && (
-                                <div className={`absolute top-full right-0 mt-2 w-48 ${theme.cardBg} border ${theme.border} shadow-xl z-20 py-2 rounded-sm`}>
-                                    <div className="px-4 py-2 border-b border-stone-100 dark:border-stone-800 text-[10px] uppercase tracking-widest text-stone-400 font-bold">Category</div>
-                                    {categories.map((cat) => (
-                                        <button 
-                                            key={cat}
-                                            onClick={() => { setCategoryFilter(cat); setIsFilterDropdownOpen(false); }}
-                                            className={`w-full text-left px-4 py-2 text-xs hover:bg-[#C9A25D] hover:text-white flex justify-between items-center ${categoryFilter === cat ? 'text-[#C9A25D] font-bold' : theme.text}`}
-                                        >
-                                            {cat}
-                                            {categoryFilter === cat && <Check size={12} />}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                {/* --- LEFT: ASSETS TABLE (70%) --- */}
+                <div className={`lg:col-span-7 flex flex-col border ${theme.border} ${theme.cardBg} shadow-sm rounded-sm overflow-hidden h-full`}>
+                  
+                  {/* Fixed Header */}
+                  <div className="flex-none p-6 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center">
+                      <div>
+                          <h3 className="font-serif text-2xl italic">Asset Overview</h3>
+                          <p className={`text-xs ${theme.subText} mt-1`}>Manage equipment & supplies.</p>
+                      </div>
+                      
+                      <div className="flex gap-2 relative">
+                          {/* FILTER DROPDOWN */}
+                          <div className="relative" ref={dropdownRef}>
+                              <button 
+                                  onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
+                                  className={`flex items-center gap-2 px-4 py-2.5 border ${theme.border} text-[10px] uppercase tracking-widest hover:text-[#C9A25D] hover:border-[#C9A25D] transition-all bg-transparent ${theme.subText}`}
+                              >
+                                  <Filter size={14} /> 
+                                  {categoryFilter === "All" ? "Filter" : categoryFilter}
+                              </button>
+                              {isFilterDropdownOpen && (
+                                  <div className={`absolute top-full right-0 mt-2 w-48 ${theme.cardBg} border ${theme.border} shadow-xl z-20 py-2 rounded-sm`}>
+                                      <div className="px-4 py-2 border-b border-stone-100 dark:border-stone-800 text-[10px] uppercase tracking-widest text-stone-400 font-bold">Category</div>
+                                      {categories.map((cat) => (
+                                          <button 
+                                              key={cat}
+                                              onClick={() => { setCategoryFilter(cat); setIsFilterDropdownOpen(false); }}
+                                              className={`w-full text-left px-4 py-2 text-xs hover:bg-[#C9A25D] hover:text-white flex justify-between items-center ${categoryFilter === cat ? 'text-[#C9A25D] font-bold' : theme.text}`}
+                                          >
+                                              {cat}
+                                              {categoryFilter === cat && <Check size={12} />}
+                                          </button>
+                                      ))}
+                                  </div>
+                              )}
+                          </div>
 
-                        {/* ADD BUTTON */}
-                        <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-[#1c1c1c] text-white px-4 py-2.5 text-[10px] uppercase tracking-widest hover:bg-[#C9A25D] transition-colors shadow-md">
-                            <Plus size={14} /> Add Item
-                        </button>
-                    </div>
+                          {/* ADD BUTTON */}
+                          <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-[#1c1c1c] text-white px-4 py-2.5 text-[10px] uppercase tracking-widest hover:bg-[#C9A25D] transition-colors shadow-md">
+                              <Plus size={14} /> Add Item
+                          </button>
+                      </div>
+                  </div>
+
+                  {/* Fixed Column Header */}
+                  <div className={`flex-none grid grid-cols-12 gap-4 px-6 py-4 border-b ${theme.border} ${darkMode ? 'bg-[#1c1c1c] text-stone-400' : 'bg-stone-50 text-stone-600'} text-[10px] uppercase tracking-[0.2em] font-semibold sticky top-0`}>
+                      <div className="col-span-4">Item Name</div>
+                      <div className="col-span-3 hidden md:block">Category</div>
+                      <div className="col-span-3">Stock</div>
+                      <div className="col-span-2 text-right">Actions</div>
+                  </div>
+
+                  {/* Scrollable Table Body */}
+                  <div className={`flex-1 overflow-y-auto custom-scrollbar divide-y divide-stone-100 dark:divide-stone-800`}>
+                      {loading ? ( <div className="h-full flex flex-col items-center justify-center text-stone-400"><Loader2 size={32} className="animate-spin mb-4 text-[#C9A25D]" /><p className="text-xs uppercase">Loading Assets...</p></div> ) 
+                      : filteredItems.length === 0 ? ( <div className="h-full flex flex-col items-center justify-center text-center"><Package size={40} className="mx-auto text-stone-300 mb-4" /><p className="text-stone-400 italic">No items found.</p></div> ) 
+                      : ( filteredItems.map((item) => {
+                          const stock = item.stock || {};
+                          const qtyTotal = stock.quantityTotal || 0;
+                          const qtyInUse = stock.quantityInUse || 0;
+                          const qtyAvailable = qtyTotal - qtyInUse;
+                          const threshold = stock.threshold || 0;
+                          const inUsePct = qtyTotal > 0 ? (qtyInUse / qtyTotal) * 100 : 0;
+
+                          return (
+                          <div key={item.id} className={`grid grid-cols-12 gap-4 px-6 py-4 items-center group ${theme.hoverBg} transition-colors`}>
+                              <div className="col-span-4">
+                                  <span className={`font-serif text-base block leading-tight ${theme.text}`}>{item.name}</span>
+                                  <span className="text-[10px] text-stone-400 font-mono">{item.sku}</span>
+                              </div>
+                              <div className="col-span-3 hidden md:block"><span className={`text-[9px] uppercase px-2 py-1 border rounded-sm ${theme.border} text-stone-500`}>{item.category}</span></div>
+                              <div className="col-span-3">
+                                  <div className="flex justify-between text-[10px] mb-1">
+                                      <span className={qtyAvailable <= threshold ? 'text-red-400 font-bold' : theme.text}>{qtyAvailable} Avail</span>
+                                      <span className="text-[#C9A25D]">{qtyInUse} Out</span>
+                                  </div>
+                                  <div className={`w-full h-1 ${darkMode ? 'bg-stone-800' : 'bg-stone-200'} rounded-full overflow-hidden flex`}>
+                                      <div className="h-full bg-[#C9A25D] transition-all duration-1000" style={{ width: `${inUsePct}%` }}></div>
+                                  </div>
+                              </div>
+                              <div className="col-span-2 flex justify-end items-center gap-1">
+                                  <button onClick={() => handleOpenStock(item)} className={`p-1.5 rounded-sm hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors ${theme.subText}`} title="Move Stock"><ArrowRightLeft size={14} /></button>
+                                  <button onClick={() => handleOpenEdit(item)} className={`p-1.5 rounded-sm hover:bg-[#C9A25D] hover:text-white transition-colors ${theme.subText}`} title="Edit"><Pencil size={14} /></button>
+                                  <button onClick={() => deleteItem(item.id)} className={`p-1.5 rounded-sm hover:bg-red-500 hover:text-white transition-colors ${theme.subText}`} title="Delete"><Trash2 size={14} /></button>
+                              </div>
+                          </div>
+                          );
+                      }))}
+                  </div>
                 </div>
 
-                {/* Assets Table */}
-                <div className="flex-1 flex flex-col">
-                    <div className={`grid grid-cols-12 gap-4 px-6 py-4 border-b ${theme.border} ${darkMode ? 'bg-[#1c1c1c] text-stone-400' : 'bg-stone-50 text-stone-600'} text-[10px] uppercase tracking-[0.2em] font-semibold sticky top-0`}>
-                        <div className="col-span-4">Item Name</div>
-                        <div className="col-span-3 hidden md:block">Category</div>
-                        <div className="col-span-3">Stock</div>
-                        <div className="col-span-2 text-right">Actions</div>
-                    </div>
+                {/* --- RIGHT: LOGS SIDEBAR (30%) --- */}
+                <div className={`lg:col-span-3 flex flex-col border ${theme.border} ${theme.cardBg} shadow-sm rounded-sm overflow-hidden h-full`}>
+                   <div className="flex-none p-6 border-b border-stone-100 dark:border-stone-800">
+                      <h3 className="font-serif text-xl italic flex items-center gap-2"><History size={18} className="text-[#C9A25D]" /> Activity Log</h3>
+                   </div>
+                   
+                   <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                      {safeLogs.length === 0 ? (
+                          <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
+                              <History size={32} className="mb-2" />
+                              <p className="text-xs">No recent activity</p>
+                          </div>
+                      ) : (
+                          <div className="space-y-0 relative">
+                              {/* Vertical Line */}
+                              <div className={`absolute left-[13px] top-4 bottom-4 w-px ${darkMode ? 'bg-stone-800' : 'bg-stone-200'}`}></div>
 
-                    <div className={`divide-y divide-stone-100 dark:divide-stone-800 overflow-y-auto flex-1 h-0`}>
-                        {loading ? ( <div className="h-full flex flex-col items-center justify-center text-stone-400"><Loader2 size={32} className="animate-spin mb-4 text-[#C9A25D]" /><p className="text-xs uppercase">Loading Assets...</p></div> ) 
-                        : filteredItems.length === 0 ? ( <div className="h-full flex flex-col items-center justify-center text-center"><Package size={40} className="mx-auto text-stone-300 mb-4" /><p className="text-stone-400 italic">No items found.</p></div> ) 
-                        : ( filteredItems.map((item) => {
-                            const stock = item.stock || {};
-                            const qtyTotal = stock.quantityTotal || 0;
-                            const qtyInUse = stock.quantityInUse || 0;
-                            const qtyAvailable = qtyTotal - qtyInUse;
-                            const threshold = stock.threshold || 0;
-                            const inUsePct = qtyTotal > 0 ? (qtyInUse / qtyTotal) * 100 : 0;
+                              {safeLogs.map((log, i) => (
+                                  <div key={log.id || i} className="pl-8 pb-6 relative group">
+                                      {/* Timeline Dot */}
+                                      <div className={`absolute left-[10px] top-1.5 w-[7px] h-[7px] rounded-full z-10 
+                                          ${log.action === 'checkout' ? 'bg-[#C9A25D]' : 'bg-emerald-500'}`}>
+                                      </div>
 
-                            return (
-                            <div key={item.id} className={`grid grid-cols-12 gap-4 px-6 py-4 items-center group ${theme.hoverBg} transition-colors`}>
-                                <div className="col-span-4">
-                                    <span className={`font-serif text-base block leading-tight ${theme.text}`}>{item.name}</span>
-                                    <span className="text-[10px] text-stone-400 font-mono">{item.sku}</span>
-                                </div>
-                                <div className="col-span-3 hidden md:block"><span className={`text-[9px] uppercase px-2 py-1 border rounded-sm ${theme.border} text-stone-500`}>{item.category}</span></div>
-                                <div className="col-span-3">
-                                    <div className="flex justify-between text-[10px] mb-1">
-                                        <span className={qtyAvailable <= threshold ? 'text-red-400 font-bold' : theme.text}>{qtyAvailable} Avail</span>
-                                        <span className="text-[#C9A25D]">{qtyInUse} Out</span>
-                                    </div>
-                                    <div className={`w-full h-1 ${darkMode ? 'bg-stone-800' : 'bg-stone-200'} rounded-full overflow-hidden flex`}>
-                                        <div className="h-full bg-[#C9A25D] transition-all duration-1000" style={{ width: `${inUsePct}%` }}></div>
-                                    </div>
-                                </div>
-                                <div className="col-span-2 flex justify-end items-center gap-1">
-                                    <button onClick={() => handleOpenStock(item)} className={`p-1.5 rounded-sm hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors ${theme.subText}`} title="Move Stock"><ArrowRightLeft size={14} /></button>
-                                    <button onClick={() => handleOpenEdit(item)} className={`p-1.5 rounded-sm hover:bg-[#C9A25D] hover:text-white transition-colors ${theme.subText}`} title="Edit"><Pencil size={14} /></button>
-                                    <button onClick={() => deleteItem(item.id)} className={`p-1.5 rounded-sm hover:bg-red-500 hover:text-white transition-colors ${theme.subText}`} title="Delete"><Trash2 size={14} /></button>
-                                </div>
-                            </div>
-                            );
-                        }))}
-                    </div>
+                                      <div className="flex justify-between items-start mb-1">
+                                          <span className={`text-[10px] uppercase font-bold tracking-wider ${log.action === 'checkout' ? 'text-[#C9A25D]' : 'text-emerald-500'}`}>
+                                              {log.action === 'checkout' ? 'Checked Out' : 'Returned'}
+                                          </span>
+                                          <div className="flex items-center gap-1 opacity-50 text-[9px]">
+                                              <Clock size={10} />
+                                              {log.date ? new Date(log.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}
+                                          </div>
+                                      </div>
+                                      
+                                      <p className={`text-xs font-medium ${theme.text} mb-1 line-clamp-1`}>{log.itemName}</p>
+                                      
+                                      <div className="flex items-center gap-3 text-[10px]">
+                                          <span className={`${theme.subText} font-mono`}>
+                                              Qty: <span className={theme.text}>{log.quantityMoved}</span>
+                                          </span>
+                                          {log.quantityLost > 0 && (
+                                              <span className="text-red-400 font-bold flex items-center gap-1">
+                                                  <AlertTriangle size={10} /> -{log.quantityLost} Lost
+                                              </span>
+                                          )}
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      )}
+                   </div>
                 </div>
+
               </div>
+            </FadeIn>
+          </div>
 
-              {/* --- RIGHT: LOGS SIDEBAR (30%) --- */}
-              <div className={`lg:col-span-3 flex flex-col border ${theme.border} ${theme.cardBg} shadow-sm rounded-sm overflow-hidden`}>
-                 <div className="p-6 border-b border-stone-100 dark:border-stone-800">
-                    <h3 className="font-serif text-xl italic flex items-center gap-2"><History size={18} className="text-[#C9A25D]" /> Activity Log</h3>
-                 </div>
-                 
-                 <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                    {safeLogs.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
-                            <History size={32} className="mb-2" />
-                            <p className="text-xs">No recent activity</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-0 relative">
-                            {/* Vertical Line */}
-                            <div className={`absolute left-[13px] top-4 bottom-4 w-px ${darkMode ? 'bg-stone-800' : 'bg-stone-200'}`}></div>
-
-                            {safeLogs.map((log, i) => (
-                                <div key={log.id || i} className="pl-8 pb-6 relative group">
-                                    {/* Timeline Dot */}
-                                    <div className={`absolute left-[10px] top-1.5 w-[7px] h-[7px] rounded-full z-10 
-                                        ${log.action === 'checkout' ? 'bg-[#C9A25D]' : 'bg-emerald-500'}`}>
-                                    </div>
-
-                                    <div className="flex justify-between items-start mb-1">
-                                        <span className={`text-[10px] uppercase font-bold tracking-wider ${log.action === 'checkout' ? 'text-[#C9A25D]' : 'text-emerald-500'}`}>
-                                            {log.action === 'checkout' ? 'Checked Out' : 'Returned'}
-                                        </span>
-                                        <div className="flex items-center gap-1 opacity-50 text-[9px]">
-                                            <Clock size={10} />
-                                            {log.date ? new Date(log.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}
-                                        </div>
-                                    </div>
-                                    
-                                    <p className={`text-xs font-medium ${theme.text} mb-1 line-clamp-1`}>{log.itemName}</p>
-                                    
-                                    <div className="flex items-center gap-3 text-[10px]">
-                                        <span className={`${theme.subText} font-mono`}>
-                                            Qty: <span className={theme.text}>{log.quantityMoved}</span>
-                                        </span>
-                                        {log.quantityLost > 0 && (
-                                            <span className="text-red-400 font-bold flex items-center gap-1">
-                                                <AlertTriangle size={10} /> -{log.quantityLost} Lost
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                 </div>
-              </div>
-
-            </div>
-          </FadeIn>
         </div>
       </main>
 
