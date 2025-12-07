@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Calendar,
   MapPin,
@@ -9,10 +9,11 @@ import {
   CheckCircle,
   Loader2,
   Send,
-  ThumbsUp,
-  XCircle,
-  Unlock
+  Wallet,
+  Bell // Added Bell icon for notification
 } from "lucide-react";
+
+import StatusBadge from "./StatusBadge"; 
 
 const EventInfoTab = ({
   details,
@@ -26,10 +27,25 @@ const EventInfoTab = ({
   isSending,
 }) => {
   
+  // Local state for the Reminder Email button
+  const [isReminderSending, setIsReminderSending] = useState(false);
+  const [reminderSent, setReminderSent] = useState(false);
+
+  const handleSendReminder = () => {
+    setIsReminderSending(true);
+    // Simulate API call for payment reminder
+    setTimeout(() => {
+        setIsReminderSending(false);
+        setReminderSent(true);
+        // Reset success message after 3 seconds
+        setTimeout(() => setReminderSent(false), 3000);
+    }, 1500);
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       {isBookingRejected ? (
-        // --- REJECTION VIEW (Existing Code) ---
+        // --- REJECTION VIEW (Unchanged) ---
         <div
           className={`p-8 border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30 rounded-sm`}
         >
@@ -97,6 +113,7 @@ const EventInfoTab = ({
             </h3>
           </div>
 
+          {/* 2. MAIN DETAILS GRID */}
           <div
             className={`grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 p-8 border ${theme.border} ${theme.cardBg} rounded-sm shadow-sm transition-all duration-500`}
           >
@@ -144,6 +161,9 @@ const EventInfoTab = ({
                 </span>
               </div>
             </div>
+            
+            {/* Note: Reservation Fee removed from here as it's now in the top container */}
+
             <div>
               <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">
                 Service Style
@@ -155,9 +175,11 @@ const EventInfoTab = ({
                 </span>
               </div>
             </div>
+
             <div
               className={`col-span-1 md:col-span-2 border-t border-dashed ${theme.border} my-2`}
             ></div>
+            
             <div>
               <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">
                 Primary Contact
@@ -167,6 +189,7 @@ const EventInfoTab = ({
               </p>
               <p className={`text-xs ${theme.subText}`}>{details.email}</p>
             </div>
+            
             <div className="col-span-1 md:col-span-2">
               <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-2">
                 Special Requests / Dietary Restrictions
@@ -179,6 +202,54 @@ const EventInfoTab = ({
                 </p>
               </div>
             </div>
+          </div>
+
+                    <div className={`mb-8 border ${theme.border} ${theme.cardBg} rounded-sm p-6 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6`}>
+             <div className="flex items-start gap-4">
+                <div className="p-3 bg-[#C9A25D]/10 rounded-full text-[#C9A25D]">
+                    <Wallet size={24} strokeWidth={1.5} />
+                </div>
+                <div>
+                    <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Reservation Fee Status</p>
+                    <div className="flex items-center gap-3">
+                        <span className={`font-serif text-3xl font-medium ${theme.text}`}>
+                            ₱ {Number(details.reservationFee || 0).toLocaleString()}
+                        </span>
+                        <StatusBadge status={details.reservationStatus || "Unpaid"} />
+                    </div>
+                </div>
+             </div>
+
+             {/* Notification Button Action */}
+             <div>
+                {details.reservationStatus !== "Paid" ? (
+                    <button 
+                        onClick={handleSendReminder}
+                        disabled={isReminderSending || reminderSent}
+                        className={`
+                            flex items-center gap-2 px-5 py-2.5 rounded-sm text-xs uppercase tracking-widest font-bold transition-all
+                            ${reminderSent 
+                                ? 'bg-emerald-600 text-white cursor-default' 
+                                : `border border-[#C9A25D] text-[#C9A25D] hover:bg-[#C9A25D] hover:text-white bg-transparent`
+                            }
+                        `}
+                    >
+                        {isReminderSending ? (
+                            <Loader2 size={14} className="animate-spin" />
+                        ) : reminderSent ? (
+                            <CheckCircle size={14} />
+                        ) : (
+                            <Bell size={14} />
+                        )}
+                        {reminderSent ? "Reminder Sent" : "Send Payment Reminder"}
+                    </button>
+                ) : (
+                    <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 px-4 py-2 rounded-sm border border-emerald-200 dark:border-emerald-900/30">
+                        <CheckCircle size={16} />
+                        <span className="text-xs font-bold uppercase tracking-wide">Payment Verified</span>
+                    </div>
+                )}
+             </div>
           </div>
         </>
       )}
