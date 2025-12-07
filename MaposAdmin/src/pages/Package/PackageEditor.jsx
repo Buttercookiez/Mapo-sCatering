@@ -11,7 +11,7 @@ import Sidebar from '../../components/layout/Sidebar';
 import DashboardNavbar from '../../components/layout/Navbar';
 
 // --- SERVICES & HOOKS ---
-import usePackages from '../../hooks/usePackage'; // Ensure filename matches your project (usePackage.js vs usePackages.js)
+import usePackages from '../../hooks/usePackage'; 
 import { packageService } from '../../services/packageService';
 
 // --- 1. CONSTANTS ---
@@ -48,7 +48,6 @@ const FadeIn = ({ children, delay = 0 }) => {
 // --- 3. REFACTORED MODAL (Handles Add, Edit, and View) ---
 
 const PackageFormModal = ({ isOpen, onClose, packageData, onSave, isSaving, theme, mode }) => {
-    // FIX 1: set pricePerHead default to '' (empty string) instead of 0
     const defaultForm = {
         name: '',
         pricePerHead: '', 
@@ -171,7 +170,6 @@ const PackageFormModal = ({ isOpen, onClose, packageData, onSave, isSaving, them
                             <label className={labelClass}>Base Price (Per Head)</label>
                             <div className="relative">
                                 <span className="absolute left-0 top-2 text-stone-400 text-sm">₱</span>
-                                {/* FIX 1: Input type number, allowing empty string to delete leading zeros */}
                                 <input 
                                     type="number" 
                                     disabled={isViewMode}
@@ -306,10 +304,8 @@ const PackageEditor = () => {
           };
 
           if (isEdit) {
-              // UPDATE EXISTING
               await packageService.update(data.id, payload);
           } else {
-              // CREATE NEW
               const cleanEvent = data.eventType.replace(/\s+/g, '').toLowerCase();
               const newId = `${cleanEvent}-${data.categoryId}-${data.selectionId}`;
               
@@ -440,8 +436,9 @@ const PackageEditor = () => {
         {/* --- MAIN GRID CONTENT --- */}
         <div className="flex-1 overflow-x-hidden overflow-y-auto px-6 md:px-12 pb-12 custom-scrollbar">
             {loading ? (
+                // --- LOADING STATE WITH GOLD SPINNER ---
                 <div className="h-64 w-full flex flex-col items-center justify-center text-stone-400">
-                    <Loader2 size={32} className="animate-spin mb-4" />
+                    <Loader2 size={32} className="animate-spin mb-4 text-[#C9A25D]" />
                     <p className="text-xs uppercase tracking-widest">Loading Packages...</p>
                 </div>
             ) : error ? (

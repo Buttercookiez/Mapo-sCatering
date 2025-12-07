@@ -4,7 +4,8 @@ import {
   Search, Filter, ChevronRight, ArrowLeft, Calendar, 
   Users, Mail, Phone, MoreHorizontal, 
   User, FileText, DollarSign, Star, Clock, MapPin, 
-  Briefcase, ArrowUpRight, ArrowUpDown, Package, Download, CreditCard 
+  Briefcase, ArrowUpRight, ArrowUpDown, Package, Download, CreditCard,
+  Loader2, AlertTriangle // Added Loader2 and AlertTriangle
 } from 'lucide-react';
 
 import useClientRecords from '../../hooks/useClientRecords';
@@ -35,8 +36,9 @@ const FadeIn = ({ children, delay = 0 }) => {
   );
 };
 
-// --- 2. CLIENT LIST COMPONENT (Add Client Button Removed) ---
-const ClientList = ({ clients, bookings, onSelectClient, theme, darkMode }) => {
+// --- 2. CLIENT LIST COMPONENT ---
+// Updated to accept 'loading' and 'error' props
+const ClientList = ({ clients, bookings, onSelectClient, theme, darkMode, loading, error }) => {
   
   const getClientSpend = (clientId) => {
     if (!bookings) return 0;
@@ -60,7 +62,7 @@ const ClientList = ({ clients, bookings, onSelectClient, theme, darkMode }) => {
       </div>
 
       <FadeIn>
-        <div className={`border ${theme.border} ${theme.cardBg} rounded-sm overflow-hidden shadow-sm`}>
+        <div className={`border ${theme.border} ${theme.cardBg} rounded-sm overflow-hidden shadow-sm min-h-[400px]`}>
           <div className={`grid grid-cols-12 gap-4 px-8 py-5 border-b ${theme.border} ${darkMode ? 'bg-[#1c1c1c] text-stone-400' : 'bg-stone-100 text-stone-600'} text-[11px] uppercase tracking-[0.2em] font-semibold`}>
             <div className="col-span-4 md:col-span-4">Name / Contact</div>
             <div className="col-span-4 hidden md:block">Email</div>
@@ -69,7 +71,19 @@ const ClientList = ({ clients, bookings, onSelectClient, theme, darkMode }) => {
           </div>
 
           <div className={`divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
-            {clients.length === 0 ? (
+            
+            {/* LOADING STATE - Matches PackageEditor style */}
+            {loading ? (
+               <div className="h-64 w-full flex flex-col items-center justify-center text-stone-400">
+                  <Loader2 size={32} className="animate-spin mb-4 text-[#C9A25D]" />
+                  <p className="text-xs uppercase tracking-widest">Loading Records...</p>
+               </div>
+            ) : error ? (
+               <div className="h-64 w-full flex flex-col items-center justify-center text-red-400">
+                  <AlertTriangle size={32} className="mb-4" />
+                  <p className="text-xs uppercase tracking-widest">Failed to load data</p>
+               </div>
+            ) : clients.length === 0 ? (
                <div className="p-12 text-center">
                  <p className={`text-sm ${theme.subText}`}>No clients found matching your search.</p>
                </div>
@@ -97,7 +111,8 @@ const ClientList = ({ clients, bookings, onSelectClient, theme, darkMode }) => {
 };
 
 // --- 3. CLIENT DETAILS COMPONENT ---
-const ClientDetails = ({ client, clientBookings, clientTransactions, onBack, theme, darkMode }) => {
+// Updated to accept 'loading' prop for internal tabs
+const ClientDetails = ({ client, clientBookings, clientTransactions, onBack, theme, darkMode, loading }) => {
   const [activeTab, setActiveTab] = useState('bookings');
 
   // Dynamic Calculation
@@ -223,8 +238,15 @@ const ClientDetails = ({ client, clientBookings, clientTransactions, onBack, the
                         <div className="col-span-2 text-right">Total Cost</div>
                         <div className="col-span-2 text-right">Status</div>
                      </div>
-                     <div className={`flex-1 overflow-y-auto divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'} scroll-smooth`}>
-                        {clientBookings.length === 0 ? <div className="p-8 text-center text-xs text-stone-500">No bookings found.</div> : 
+                     <div className={`flex-1 overflow-y-auto divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'} scroll-smooth min-h-[200px]`}>
+                        {loading ? (
+                           <div className="h-full flex flex-col items-center justify-center text-stone-400 py-12">
+                              <Loader2 size={24} className="animate-spin mb-3 text-[#C9A25D]" />
+                              <p className="text-[10px] uppercase tracking-widest">Loading Bookings...</p>
+                           </div>
+                        ) : clientBookings.length === 0 ? (
+                           <div className="p-8 text-center text-xs text-stone-500">No bookings found.</div> 
+                        ) : (
                          clientBookings.map((booking, i) => (
                           <div key={i} className={`grid grid-cols-12 gap-4 items-center px-8 py-5 ${theme.hoverBg} transition-colors duration-300 group cursor-pointer`}>
                              <div className="col-span-2 text-xs font-mono text-stone-400 group-hover:text-[#C9A25D] transition-colors">{booking.bookingId}</div>
@@ -247,8 +269,8 @@ const ClientDetails = ({ client, clientBookings, clientTransactions, onBack, the
                                 </span>
                              </div>
                           </div>
-                        ))}
-                        <div className="h-12"></div>
+                        )))}
+                        {!loading && <div className="h-12"></div>}
                      </div>
                   </div>
                 )}
@@ -263,8 +285,15 @@ const ClientDetails = ({ client, clientBookings, clientTransactions, onBack, the
                         <div className="col-span-2 text-right">Amount</div>
                         <div className="col-span-2 text-right">Status</div>
                      </div>
-                     <div className={`flex-1 overflow-y-auto divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'} scroll-smooth`}>
-                        {clientTransactions.length === 0 ? <div className="p-8 text-center text-xs text-stone-500">No transactions found.</div> : 
+                     <div className={`flex-1 overflow-y-auto divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'} scroll-smooth min-h-[200px]`}>
+                        {loading ? (
+                           <div className="h-full flex flex-col items-center justify-center text-stone-400 py-12">
+                              <Loader2 size={24} className="animate-spin mb-3 text-[#C9A25D]" />
+                              <p className="text-[10px] uppercase tracking-widest">Loading Transactions...</p>
+                           </div>
+                        ) : clientTransactions.length === 0 ? (
+                           <div className="p-8 text-center text-xs text-stone-500">No transactions found.</div>
+                        ) : ( 
                          clientTransactions.map((t, i) => (
                           <div key={i} className={`grid grid-cols-12 gap-4 items-center px-8 py-5 ${theme.hoverBg} transition-colors duration-300 group cursor-pointer`}>
                              <div className="col-span-2 text-xs font-mono text-stone-400 group-hover:text-[#C9A25D] transition-colors">{t.transactId}</div>
@@ -287,8 +316,8 @@ const ClientDetails = ({ client, clientBookings, clientTransactions, onBack, the
                                 </span>
                              </div>
                           </div>
-                        ))}
-                        <div className="h-12"></div>
+                        )))}
+                        {!loading && <div className="h-12"></div>}
                      </div>
                   </div>
                 )}
@@ -336,17 +365,8 @@ const ClientRecords = () => {
     hoverBg: 'hover:bg-[#C9A25D]/5', 
   };
   
-  if (loading) {
-    return (
-      <div className={`flex h-screen w-full items-center justify-center font-serif ${theme.bg} ${theme.text}`}>
-         <div className="animate-pulse text-xl italic text-[#C9A25D]">Loading Client Records...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-     return <div className="p-10">Error loading data. Please check your connection.</div>;
-  }
+  // REMOVED: Early return for loading
+  // if (loading) { return ... }  <-- DELETED
 
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text} selection:bg-[#C9A25D] selection:text-white`}>
@@ -366,20 +386,24 @@ const ClientRecords = () => {
         
         {currentView === 'list' ? (
           <ClientList 
-            clients={clients.filter(c => c.profile?.name?.toLowerCase().includes(searchQuery.toLowerCase()))}
+            // Filtering safety check: ensure clients is an array
+            clients={(clients || []).filter(c => c.profile?.name?.toLowerCase().includes(searchQuery.toLowerCase()))}
             bookings={bookings}
             onSelectClient={(client) => { setSelectedClient(client); setCurrentView('details'); }}
             theme={theme}
             darkMode={darkMode}
+            loading={loading} // PASS LOADING
+            error={error}     // PASS ERROR
           />
         ) : (
           <ClientDetails 
             client={selectedClient} 
-            clientBookings={bookings.filter(b => b.clientId === selectedClient.clientId)}
-            clientTransactions={transactions.filter(t => t.clientId === selectedClient.clientId)}
+            clientBookings={(bookings || []).filter(b => b.clientId === selectedClient.clientId)}
+            clientTransactions={(transactions || []).filter(t => t.clientId === selectedClient.clientId)}
             onBack={() => setCurrentView('list')}
             theme={theme}
             darkMode={darkMode}
+            loading={loading} // PASS LOADING
           />
         )}
       </main>

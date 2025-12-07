@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Plus, ArrowUpDown, AlertTriangle, 
   Package, Tag, Download, X, ChevronDown, 
-  Trash2, Pencil, Search
+  Trash2, Pencil, Search, Loader2 
 } from 'lucide-react';
 
 // --- FIXED IMPORTS ---
@@ -40,14 +40,12 @@ const FadeIn = ({ children, delay = 0 }) => {
 
 // --- 2. REUSABLE ITEM MODAL (ADD & EDIT) ---
 const ItemModal = ({ isOpen, onClose, onSave, theme, categories, initialData }) => {
-  // Flat state for easier handling
   const [formData, setFormData] = useState({
     name: '', category: '', price: '',
     quantity: '', unit: 'Pcs', threshold: ''
   });
   const [categoryOpen, setCategoryOpen] = useState(false);
 
-  // Populate Form on Edit
   useEffect(() => {
     if (initialData) {
       setFormData({
@@ -88,17 +86,13 @@ const ItemModal = ({ isOpen, onClose, onSave, theme, categories, initialData }) 
 
   if (!isOpen) return null;
 
-  // --- FIX 1: ADD 'relative z-10' TO INPUTS ---
-  // This ensures inputs sit above the card background but below the dropdown
   const inputBase = `w-full bg-transparent border-b ${theme.border} py-3 pl-0 text-sm ${theme.text} placeholder-stone-400 focus:outline-none focus:border-[#C9A25D] transition-colors relative z-10`;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      {/* Clicking overlay closes modal (Optional UX improvement) */}
       <div className="absolute inset-0" onClick={onClose}></div>
 
       <div className={`w-full max-w-xl ${theme.cardBg} rounded-sm shadow-2xl border ${theme.border} flex flex-col relative z-50`}>
-        {/* Header */}
         <div className={`p-8 border-b ${theme.border} flex justify-between items-center sticky top-0 ${theme.cardBg} z-20`}>
           <div>
             <h2 className={`font-serif text-3xl ${theme.text}`}>{initialData ? 'Edit Asset' : 'Add Item'}</h2>
@@ -107,23 +101,18 @@ const ItemModal = ({ isOpen, onClose, onSave, theme, categories, initialData }) 
           <button onClick={onClose}><X size={20} className="text-stone-500 hover:text-stone-800 dark:hover:text-stone-200"/></button>
         </div>
 
-        {/* Body */}
         <div className="p-8 space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            
             <div className="md:col-span-2">
                 <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Item Name" className={inputBase} />
             </div>
             
-            {/* --- FIX 2: ADD 'z-20' TO DROPDOWN PARENT --- */}
-            {/* This ensures the dropdown menu floats OVER the inputs below it */}
             <div className="relative md:col-span-2 z-20">
                <button type="button" onClick={() => setCategoryOpen(!categoryOpen)} className={`${inputBase} text-left flex items-center justify-between`}>
                   <span className={formData.category ? theme.text : "text-stone-400"}>{formData.category || "Select Category"}</span>
                   <ChevronDown className="w-4 h-4 text-stone-400" />
                </button>
                
-               {/* Dropdown Menu */}
                <div className={`
                  absolute top-full left-0 w-full mt-1 p-2 shadow-xl z-50 border ${theme.border} ${theme.cardBg} max-h-48 overflow-y-auto transition-all duration-200 origin-top
                  ${categoryOpen ? 'opacity-100 scale-y-100 pointer-events-auto' : 'opacity-0 scale-y-0 pointer-events-none'}
@@ -150,7 +139,6 @@ const ItemModal = ({ isOpen, onClose, onSave, theme, categories, initialData }) 
           </div>
         </div>
 
-        {/* Footer */}
         <div className={`p-6 border-t ${theme.border} flex justify-end gap-4`}>
           <button onClick={onClose} className={`px-6 py-3 text-xs uppercase border ${theme.border} ${theme.text}`}>Cancel</button>
           <button onClick={handleSubmit} className="px-8 py-3 bg-[#1c1c1c] text-white text-xs uppercase hover:bg-[#C9A25D] transition-colors">{initialData ? 'Update' : 'Save'}</button>
@@ -175,24 +163,14 @@ const Inventory = () => {
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState(null); // Stores the full item object when editing
+  const [editingItem, setEditingItem] = useState(null); 
 
   // Custom Hook
   const { inventoryData, loading, error, addItem, updateItem, deleteItem } = useInventory();
 
-  // Effects
   useEffect(() => {
-    localStorage.setItem('sidebarState', JSON.stringify(sidebarOpen));
-  }, [sidebarOpen]);
-
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
+    if (darkMode) { document.documentElement.classList.add('dark'); localStorage.setItem('theme', 'dark'); }
+    else { document.documentElement.classList.remove('dark'); localStorage.setItem('theme', 'light'); }
   }, [darkMode]);
 
   const theme = {
@@ -202,66 +180,50 @@ const Inventory = () => {
     subText: darkMode ? 'text-stone-500' : 'text-stone-500',
     border: darkMode ? 'border-stone-800' : 'border-stone-200',
     accent: 'text-[#C9A25D]',
-    accentBg: 'bg-[#C9A25D]',
     hoverBg: darkMode ? 'hover:bg-stone-900' : 'hover:bg-stone-50',
   };
 
-  const categories = [
-    "All", "Furniture", "Linens", "Dining", "Equipment", "Decorations", "Structures", "Miscellaneous"
-  ];
+  const categories = ["All", "Furniture", "Linens", "Dining", "Equipment", "Decorations", "Structures", "Miscellaneous"];
 
   // --- Handlers ---
-
-  const handleOpenAdd = () => {
-    setEditingItem(null); // Clear editing state
-    setIsModalOpen(true);
-  };
-
-  const handleOpenEdit = (item) => {
-    setEditingItem(item); // Load item data
-    setIsModalOpen(true);
-  };
+  const handleOpenAdd = () => { setEditingItem(null); setIsModalOpen(true); };
+  const handleOpenEdit = (item) => { setEditingItem(item); setIsModalOpen(true); };
 
   const handleSave = async (itemData, id) => {
     if (id) {
-      // Logic for Update
       await updateItem(id, itemData);
     } else {
-      // Logic for Add (Generate SKU client-side or let backend do it)
       const newItem = {
         ...itemData,
-        sku: `SKU-${Math.floor(1000 + Math.random() * 9000)}`, // Fallback generation
+        sku: `SKU-${Math.floor(1000 + Math.random() * 9000)}`, 
       };
       await addItem(newItem);
     }
   };
 
   // --- Calculations ---
+  // Ensure inventoryData is an array to prevent crashes during loading
+  const safeInventory = inventoryData || [];
 
-  const filteredItems = inventoryData.filter(item => {
+  const filteredItems = safeInventory.filter(item => {
     const matchesSearch = item.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           item.sku?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === "All" || item.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
-  const lowStockCount = inventoryData.filter(i => 
+  const lowStockCount = safeInventory.filter(i => 
     (i.stock?.quantityTotal || 0) <= (i.stock?.threshold || 0)
   ).length;
   
-  const totalItems = inventoryData.length;
+  const totalItems = safeInventory.length;
   
-  // Calculate Total Value safely
-  const totalValue = inventoryData.reduce((acc, item) => {
+  const totalValue = safeInventory.reduce((acc, item) => {
     return acc + ((item.price || 0) * (item.stock?.quantityTotal || 0));
   }, 0);
 
-  if (loading) return <div className={`h-screen flex items-center justify-center ${theme.bg} ${theme.text}`}>Loading Assets...</div>;
-  if (error) return <div className={`h-screen flex items-center justify-center ${theme.bg} text-red-500`}>{error}</div>;
-
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text} selection:bg-[#C9A25D] selection:text-white`}>
-      
       <style>
         {`
           @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap');
@@ -305,7 +267,10 @@ const Inventory = () => {
                 <div className={`p-6 border ${theme.border} ${theme.cardBg} flex items-start justify-between group hover:border-[#C9A25D]/30 transition-all duration-500`}>
                   <div>
                     <span className={`text-[10px] uppercase tracking-[0.2em] ${theme.subText}`}>{stat.label}</span>
-                    <h3 className={`font-serif text-4xl mt-2 mb-1 ${stat.isAlert ? 'text-red-400' : theme.text}`}>{stat.value}</h3>
+                    <h3 className={`font-serif text-4xl mt-2 mb-1 ${stat.isAlert ? 'text-red-400' : theme.text} h-10 flex items-center`}>
+                       {/* Stats Loader */}
+                       {loading ? <Loader2 className="animate-spin text-[#C9A25D]" size={24} /> : stat.value}
+                    </h3>
                     <p className="text-xs text-stone-400">{stat.sub}</p>
                   </div>
                   <div className={`p-2 rounded-full ${theme.bg} ${stat.isAlert ? 'text-red-400' : 'text-[#C9A25D]'}`}>
@@ -318,7 +283,7 @@ const Inventory = () => {
 
           {/* 2. Main Inventory List */}
           <FadeIn delay={300}>
-            <div className={`border ${theme.border} ${theme.cardBg} min-h-[600px]`}>
+            <div className={`border ${theme.border} ${theme.cardBg} min-h-[600px] flex flex-col`}>
               
               {/* Header Toolbar */}
               <div className="p-6 md:p-8 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 border-b border-stone-100 dark:border-stone-800">
@@ -380,90 +345,102 @@ const Inventory = () => {
                 <div className="col-span-2 text-right">Actions</div>
               </div>
 
-              {/* Table Rows */}
-              <div className={`divide-y divide-stone-100 dark:divide-stone-800`}>
-                {filteredItems.map((item) => {
-                  // Safe Access to Nested Stock Object
-                  const stock = item.stock || {};
-                  const qty = stock.quantityTotal || 0;
-                  const threshold = stock.threshold || 0;
-                  const unit = stock.unit || 'Pcs';
-
-                  const percentage = threshold > 0 ? Math.min((qty / (threshold * 2)) * 100, 100) : 100;
-                  const isLow = qty <= threshold;
-                  
-                  return (
-                    <div 
-                      key={item.id} 
-                      className={`grid grid-cols-12 gap-4 px-8 py-5 items-center group ${theme.hoverBg} transition-colors`}
-                    >
-                      {/* Name */}
-                      <div className="col-span-4 md:col-span-3">
-                        <span className={`font-serif text-lg block leading-tight group-hover:text-[#C9A25D] transition-colors ${theme.text}`}>{item.name}</span>
-                        <span className="text-[10px] text-stone-400 md:hidden block">{item.sku}</span>
-                      </div>
-
-                      {/* SKU */}
-                      <div className={`col-span-2 hidden md:block text-xs ${theme.subText} font-mono tracking-wider`}>{item.sku}</div>
-
-                      {/* Category */}
-                      <div className="col-span-2 hidden md:block">
-                        <span className={`text-[10px] uppercase tracking-wider px-2 py-1 border rounded-sm ${theme.border} text-stone-500`}>
-                          {item.category}
-                        </span>
-                      </div>
-
-                      {/* Stock Visualizer */}
-                      <div className="col-span-4 md:col-span-3">
-                        <div className="flex justify-between text-xs mb-1.5">
-                          <span className={isLow ? 'text-red-400 font-bold' : theme.text}>
-                            {qty} <span className="text-[10px] text-stone-400 font-normal">{unit}</span>
-                          </span>
-                          <span className="text-[10px] text-stone-400">Min: {threshold}</span>
-                        </div>
-                        <div className={`w-full h-1.5 ${darkMode ? 'bg-stone-800' : 'bg-stone-200'} rounded-full overflow-hidden`}>
-                          <div 
-                            className={`h-full rounded-full transition-all duration-1000 ${
-                              isLow ? 'bg-red-400' : 'bg-[#C9A25D]'
-                            }`} 
-                            style={{ width: `${percentage}%` }}
-                          ></div>
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="col-span-4 md:col-span-2 flex justify-end items-center gap-3">
-                        {isLow && (
-                           <AlertTriangle size={14} className="text-red-500 mr-2 animate-pulse" />
-                        )}
-                        
-                        {/* Edit Button */}
-                        <button 
-                          onClick={() => handleOpenEdit(item)}
-                          className={`p-1.5 rounded-sm hover:bg-[#C9A25D] hover:text-white transition-colors ${theme.subText}`}
-                          title="Edit Item"
-                        >
-                          <Pencil size={14} />
-                        </button>
-
-                        {/* Delete Button */}
-                        <button 
-                          onClick={() => deleteItem(item.id)}
-                          className={`p-1.5 rounded-sm hover:bg-red-500 hover:text-white transition-colors ${theme.subText}`}
-                          title="Delete Item"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {filteredItems.length === 0 && (
+              {/* Table Rows & Loading Logic */}
+              <div className={`divide-y divide-stone-100 dark:divide-stone-800 flex-1`}>
+                
+                {loading ? (
+                   // --- LOADING STATE ---
+                   <div className="h-64 w-full flex flex-col items-center justify-center text-stone-400">
+                      <Loader2 size={32} className="animate-spin mb-4 text-[#C9A25D]" />
+                      <p className="text-xs uppercase tracking-widest">Loading Inventory...</p>
+                   </div>
+                ) : error ? (
+                   // --- ERROR STATE ---
+                   <div className="h-64 w-full flex flex-col items-center justify-center text-red-400">
+                      <AlertTriangle size={32} className="mb-4" />
+                      <p className="text-xs uppercase tracking-widest">Failed to load data</p>
+                   </div>
+                ) : filteredItems.length === 0 ? (
+                   // --- EMPTY STATE ---
                    <div className="py-20 text-center">
                       <Package size={40} strokeWidth={1} className="mx-auto text-stone-300 mb-4" />
                       <p className="font-serif italic text-stone-400">No items found in {categoryFilter}.</p>
                    </div>
+                ) : (
+                   // --- DATA MAPPING ---
+                   filteredItems.map((item) => {
+                    const stock = item.stock || {};
+                    const qty = stock.quantityTotal || 0;
+                    const threshold = stock.threshold || 0;
+                    const unit = stock.unit || 'Pcs';
+
+                    const percentage = threshold > 0 ? Math.min((qty / (threshold * 2)) * 100, 100) : 100;
+                    const isLow = qty <= threshold;
+                    
+                    return (
+                      <div 
+                        key={item.id} 
+                        className={`grid grid-cols-12 gap-4 px-8 py-5 items-center group ${theme.hoverBg} transition-colors`}
+                      >
+                        {/* Name */}
+                        <div className="col-span-4 md:col-span-3">
+                          <span className={`font-serif text-lg block leading-tight group-hover:text-[#C9A25D] transition-colors ${theme.text}`}>{item.name}</span>
+                          <span className="text-[10px] text-stone-400 md:hidden block">{item.sku}</span>
+                        </div>
+
+                        {/* SKU */}
+                        <div className={`col-span-2 hidden md:block text-xs ${theme.subText} font-mono tracking-wider`}>{item.sku}</div>
+
+                        {/* Category */}
+                        <div className="col-span-2 hidden md:block">
+                          <span className={`text-[10px] uppercase tracking-wider px-2 py-1 border rounded-sm ${theme.border} text-stone-500`}>
+                            {item.category}
+                          </span>
+                        </div>
+
+                        {/* Stock Visualizer */}
+                        <div className="col-span-4 md:col-span-3">
+                          <div className="flex justify-between text-xs mb-1.5">
+                            <span className={isLow ? 'text-red-400 font-bold' : theme.text}>
+                              {qty} <span className="text-[10px] text-stone-400 font-normal">{unit}</span>
+                            </span>
+                            <span className="text-[10px] text-stone-400">Min: {threshold}</span>
+                          </div>
+                          <div className={`w-full h-1.5 ${darkMode ? 'bg-stone-800' : 'bg-stone-200'} rounded-full overflow-hidden`}>
+                            <div 
+                              className={`h-full rounded-full transition-all duration-1000 ${
+                                isLow ? 'bg-red-400' : 'bg-[#C9A25D]'
+                              }`} 
+                              style={{ width: `${percentage}%` }}
+                            ></div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="col-span-4 md:col-span-2 flex justify-end items-center gap-3">
+                          {isLow && (
+                            <AlertTriangle size={14} className="text-red-500 mr-2 animate-pulse" />
+                          )}
+                          
+                          <button 
+                            onClick={() => handleOpenEdit(item)}
+                            className={`p-1.5 rounded-sm hover:bg-[#C9A25D] hover:text-white transition-colors ${theme.subText}`}
+                            title="Edit Item"
+                          >
+                            <Pencil size={14} />
+                          </button>
+
+                          <button 
+                            onClick={() => deleteItem(item.id)}
+                            className={`p-1.5 rounded-sm hover:bg-red-500 hover:text-white transition-colors ${theme.subText}`}
+                            title="Delete Item"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </div>
               
@@ -489,7 +466,7 @@ const Inventory = () => {
          onSave={handleSave}
          theme={theme}
          categories={categories}
-         initialData={editingItem} // Pass the item to edit, or null
+         initialData={editingItem}
       />
     </div>
   );
