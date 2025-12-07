@@ -1,6 +1,6 @@
 // controllers/inquiryController.js
 const crypto = require('crypto'); // Built-in Node library
-const db = require("../firestore/firebase");
+const {db} = require("../firestore/firebase");
 const nodemailer = require("nodemailer");
 
 // --- CONFIG: Email Transporter ---
