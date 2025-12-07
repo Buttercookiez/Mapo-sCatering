@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Filter, Plus, ChevronRight, Loader2, Inbox } from "lucide-react";
 import { renderStatusBadge } from "./Utils/UIHelpers";
 
@@ -17,6 +17,18 @@ const BookingList = ({
     // 1. MAIN CONTAINER: Fixed Height (h-full) with Padding
     <div className="h-full flex flex-col p-6 md:p-12 pb-12 overflow-hidden">
       
+      {/* --- ADDED STYLE BLOCK FOR CUSTOM SCROLLBAR --- */}
+      <style>
+        {`
+          .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+          .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+          .custom-scrollbar::-webkit-scrollbar-thumb { background: #44403c; border-radius: 4px; }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #C9A25D; }
+          /* Firefox fallback */
+          .custom-scrollbar { scrollbar-width: thin; scrollbar-color: #44403c transparent; }
+        `}
+      </style>
+
       {/* Page Header (Fixed at Top) */}
       <div className="flex-none">
         <BookingHeader 
@@ -28,7 +40,7 @@ const BookingList = ({
       {/* 2. TABLE CARD WRAPPER: Takes remaining height (flex-1) */}
       <div className={`flex-1 min-h-0 flex flex-col border ${theme.border} ${theme.cardBg} rounded-sm shadow-sm transition-all duration-700 animate-in fade-in slide-in-from-bottom-4`}>
             
-            {/* Table Header (Fixed Top of List) - Background removed to match theme */}
+            {/* Table Header (Fixed Top of List) */}
             <div
                 className={`flex-none grid grid-cols-12 gap-4 px-8 py-4 border-b ${theme.border} text-[10px] uppercase tracking-[0.2em] font-bold text-stone-400 select-none`}
             >
@@ -39,7 +51,7 @@ const BookingList = ({
                 <div className="col-span-3 text-right">Status</div>
             </div>
 
-            {/* 3. TABLE BODY: Scrollable (overflow-y-auto) - Shows ALL items */}
+            {/* 3. TABLE BODY: Scrollable (overflow-y-auto) - Uses custom-scrollbar class */}
             <div className={`flex-1 overflow-y-auto custom-scrollbar ${darkMode ? "divide-stone-800" : "divide-stone-100"}`}>
                 
                 {isLoading ? (

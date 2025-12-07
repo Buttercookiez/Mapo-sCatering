@@ -5,7 +5,7 @@ import {
   Users, Mail, Phone, MoreHorizontal, 
   User, FileText, DollarSign, Star, Clock, MapPin, 
   Briefcase, ArrowUpRight, ArrowUpDown, Package, Download, CreditCard,
-  Loader2, AlertTriangle // Added Loader2 and AlertTriangle
+  Loader2, AlertTriangle 
 } from 'lucide-react';
 
 import useClientRecords from '../../hooks/useClientRecords';
@@ -37,7 +37,6 @@ const FadeIn = ({ children, delay = 0 }) => {
 };
 
 // --- 2. CLIENT LIST COMPONENT ---
-// Updated to accept 'loading' and 'error' props
 const ClientList = ({ clients, bookings, onSelectClient, theme, darkMode, loading, error }) => {
   
   const getClientSpend = (clientId) => {
@@ -48,8 +47,11 @@ const ClientList = ({ clients, bookings, onSelectClient, theme, darkMode, loadin
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 md:p-12 scroll-smooth no-scrollbar">
-      <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
+    // 1. MAIN CONTAINER: Fixed Height (h-full) with Padding (pb-12)
+    <div className="h-full flex flex-col p-6 md:p-12 pb-12 overflow-hidden">
+      
+      {/* Page Header (Fixed) */}
+      <div className="flex-none flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
         <div>
           <h2 className={`font-serif text-3xl italic ${theme.text}`}>Client Records</h2>
           <p className={`text-xs mt-1 ${theme.subText}`}>Manage customer profiles and history.</p>
@@ -61,57 +63,61 @@ const ClientList = ({ clients, bookings, onSelectClient, theme, darkMode, loadin
         </div>
       </div>
 
-      <FadeIn>
-        <div className={`border ${theme.border} ${theme.cardBg} rounded-sm overflow-hidden shadow-sm min-h-[400px]`}>
-          <div className={`grid grid-cols-12 gap-4 px-8 py-5 border-b ${theme.border} ${darkMode ? 'bg-[#1c1c1c] text-stone-400' : 'bg-stone-100 text-stone-600'} text-[11px] uppercase tracking-[0.2em] font-semibold`}>
+      {/* 2. TABLE CARD WRAPPER: Takes remaining height (flex-1) */}
+      <div className={`flex-1 min-h-0 flex flex-col border ${theme.border} ${theme.cardBg} rounded-sm shadow-sm transition-all duration-700 animate-in fade-in slide-in-from-bottom-4`}>
+          
+          {/* Table Header (Fixed) */}
+          <div className={`flex-none grid grid-cols-12 gap-4 px-8 py-4 border-b ${theme.border} ${darkMode ? 'text-stone-400' : 'text-stone-600'} text-[11px] uppercase tracking-[0.2em] font-semibold select-none`}>
             <div className="col-span-4 md:col-span-4">Name / Contact</div>
             <div className="col-span-4 hidden md:block">Email</div>
             <div className="col-span-4 md:col-span-2 text-right">Total Paid</div>
             <div className="col-span-2 text-right">Action</div>
           </div>
 
-          <div className={`divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
+          {/* 3. TABLE BODY: Scrollable (overflow-y-auto) */}
+          <div className={`flex-1 overflow-y-auto custom-scrollbar ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
             
-            {/* LOADING STATE - Matches PackageEditor style */}
+            {/* LOADING STATE */}
             {loading ? (
-               <div className="h-64 w-full flex flex-col items-center justify-center text-stone-400">
+               <div className="h-full flex flex-col items-center justify-center text-stone-400">
                   <Loader2 size={32} className="animate-spin mb-4 text-[#C9A25D]" />
                   <p className="text-xs uppercase tracking-widest">Loading Records...</p>
                </div>
             ) : error ? (
-               <div className="h-64 w-full flex flex-col items-center justify-center text-red-400">
+               <div className="h-full flex flex-col items-center justify-center text-red-400">
                   <AlertTriangle size={32} className="mb-4" />
                   <p className="text-xs uppercase tracking-widest">Failed to load data</p>
                </div>
             ) : clients.length === 0 ? (
-               <div className="p-12 text-center">
+               <div className="h-full flex flex-col items-center justify-center text-center">
                  <p className={`text-sm ${theme.subText}`}>No clients found matching your search.</p>
                </div>
             ) : (
-               clients.map((client) => (
-                <div key={client.id} onClick={() => onSelectClient(client)} className={`grid grid-cols-12 gap-4 px-8 py-6 items-center group transition-colors duration-300 cursor-pointer ${theme.cardBg} ${theme.hoverBg}`}>
-                  <div className="col-span-4 md:col-span-4">
-                    <span className={`font-serif text-lg block leading-tight group-hover:text-[#C9A25D] transition-colors ${theme.text}`}>{client.profile?.name}</span>
-                    <span className="text-[10px] text-stone-400 block mt-1">{client.profile?.contactNumber}</span>
-                  </div>
-                  <div className={`col-span-4 hidden md:block text-xs ${theme.subText}`}>{client.profile?.email}</div>
-                  <div className={`col-span-4 md:col-span-2 text-right font-medium font-serif text-lg ${theme.text}`}>₱ {getClientSpend(client.clientId).toLocaleString()}</div>
-                  <div className="col-span-2 flex justify-end items-center gap-4">
-                    <MoreHorizontal size={16} className={theme.subText} />
-                    <ChevronRight size={16} className="text-stone-300 group-hover:text-[#C9A25D] transition-colors"/>
-                  </div>
-                </div>
-              ))
+               // DATA MAPPING
+               <div className={`divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
+                  {clients.map((client) => (
+                    <div key={client.id} onClick={() => onSelectClient(client)} className={`grid grid-cols-12 gap-4 px-8 py-6 items-center group transition-colors duration-300 cursor-pointer ${theme.cardBg} ${theme.hoverBg}`}>
+                      <div className="col-span-4 md:col-span-4">
+                        <span className={`font-serif text-lg block leading-tight group-hover:text-[#C9A25D] transition-colors ${theme.text}`}>{client.profile?.name}</span>
+                        <span className="text-[10px] text-stone-400 block mt-1">{client.profile?.contactNumber}</span>
+                      </div>
+                      <div className={`col-span-4 hidden md:block text-xs ${theme.subText}`}>{client.profile?.email}</div>
+                      <div className={`col-span-4 md:col-span-2 text-right font-medium font-serif text-lg ${theme.text}`}>₱ {getClientSpend(client.clientId).toLocaleString()}</div>
+                      <div className="col-span-2 flex justify-end items-center gap-4">
+                        <MoreHorizontal size={16} className={theme.subText} />
+                        <ChevronRight size={16} className="text-stone-300 group-hover:text-[#C9A25D] transition-colors"/>
+                      </div>
+                    </div>
+                  ))}
+               </div>
             )}
           </div>
         </div>
-      </FadeIn>
     </div>
   );
 };
 
 // --- 3. CLIENT DETAILS COMPONENT ---
-// Updated to accept 'loading' prop for internal tabs
 const ClientDetails = ({ client, clientBookings, clientTransactions, onBack, theme, darkMode, loading }) => {
   const [activeTab, setActiveTab] = useState('bookings');
 
@@ -365,9 +371,6 @@ const ClientRecords = () => {
     hoverBg: 'hover:bg-[#C9A25D]/5', 
   };
   
-  // REMOVED: Early return for loading
-  // if (loading) { return ... }  <-- DELETED
-
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text} selection:bg-[#C9A25D] selection:text-white`}>
       <style>
@@ -376,6 +379,10 @@ const ClientRecords = () => {
           .font-serif { font-family: 'Cormorant Garamond', serif; }
           .font-sans { font-family: 'Inter', sans-serif; }
           .no-scrollbar::-webkit-scrollbar { display: none; }
+          .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+          .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+          .custom-scrollbar::-webkit-scrollbar-thumb { background: #57534e; border-radius: 2px; }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #C9A25D; }
         `}
       </style>
 
