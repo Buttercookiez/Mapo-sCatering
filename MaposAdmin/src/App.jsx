@@ -15,17 +15,6 @@ import Transaction from './pages/Transactions/transactions';
 // Styles
 import './App.css';
 
-// --- Simple Placeholder Component ---
-const AdminPlaceholder = ({ title }) => (
-  <div className="flex h-screen w-full items-center justify-center bg-[#FAFAFA] text-stone-900">
-    <div className="text-center">
-      <h1 className="font-serif text-4xl mb-4 italic">{title}</h1>
-      <p className="text-xs tracking-widest uppercase text-stone-500">Module Under Development</p>
-      <a href="/dashboard" className="block mt-8 text-xs underline hover:text-[#C9A25D]">Back to Dashboard</a>
-    </div>
-  </div>
-);
-
 function App() {
   return (
     <BrowserRouter>

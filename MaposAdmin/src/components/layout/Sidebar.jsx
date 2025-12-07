@@ -1,13 +1,10 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom'; 
 import { 
-  LayoutGrid, Calendar, Users, MapPin, 
-  Package, DollarSign, TrendingUp, ChefHat, ChevronLeft, ChevronRight,
-  BookOpen, FileText, // Changed CheckSquare to FileText for Records
-  Package2,
-  PackageOpenIcon,
-  MenuIcon,
-  MenuSquareIcon
+  LayoutGrid, Calendar, Users, 
+  Package, BookOpen, FileText, 
+  MenuSquareIcon, ChartAreaIcon, 
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen, theme }) => {
@@ -30,7 +27,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, theme }) => {
         { id: 'Bookings', icon: BookOpen, label: 'Booking Details', path: '/bookings' },
         { id: 'Calendar', icon: Calendar, label: 'Events Calendar', path: '/events' },
         { id: 'Clients', icon: Users, label: 'Client Records', path: '/clients' },
-        { id: 'Transactions', icon: FileText, label: 'Transaction Records', path: '/transactions' }, // <--- UPDATED
+        { id: 'Transactions', icon: FileText, label: 'Transaction Records', path: '/transactions' },
       ]
     },
     {
@@ -38,6 +35,12 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, theme }) => {
       items: [
         { id: 'Packages', icon: MenuSquareIcon, label: 'Packages', path: '/package' },
         { id: 'Inventory', icon: Package, label: 'Inventory', path: '/inventory' },
+      ]
+    },
+    {
+      label: "Analytics",
+      items: [
+        { id: 'Finance', icon: ChartAreaIcon, label: 'Finance', path: '/finance' },
       ]
     },
   ];
@@ -77,22 +80,43 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, theme }) => {
               </h3>
             )}
             <div className="space-y-1">
-              {group.items.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => navigate(item.path)}
-                  title={!sidebarOpen ? item.label : ''}
-                  className={`
-                    w-full flex items-center gap-4 px-4 py-3 rounded-md transition-all duration-300 group
-                    ${isActive(item.path) ? `bg-[#C9A25D]/10 text-[#C9A25D]` : `${theme.text} ${theme.hoverBg}`}
-                    ${!sidebarOpen ? 'justify-center' : ''}
-                  `}
-                >
-                  <item.icon strokeWidth={1.5} size={20} className={isActive(item.path) ? 'text-[#C9A25D]' : 'text-stone-400 group-hover:text-[#C9A25D]'} />
-                  {sidebarOpen && <span className="text-xs uppercase tracking-widest font-medium">{item.label}</span>}
-                  {sidebarOpen && isActive(item.path) && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#C9A25D]"></div>}
-                </button>
-              ))}
+              {group.items.map((item) => {
+                const active = isActive(item.path);
+                // Check if label is long (like Transaction Records) to adjust styling
+                const isLongLabel = item.label.length > 18; 
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => navigate(item.path)}
+                    title={!sidebarOpen ? item.label : ''}
+                    className={`
+                      w-full flex items-center gap-4 px-4 py-3 rounded-md transition-all duration-300 group
+                      ${active ? `bg-[#C9A25D]/10 text-[#C9A25D]` : `${theme.text} ${theme.hoverBg}`}
+                      ${!sidebarOpen ? 'justify-center' : ''}
+                    `}
+                  >
+                    <item.icon strokeWidth={1.5} size={20} className={active ? 'text-[#C9A25D] flex-shrink-0' : 'text-stone-400 group-hover:text-[#C9A25D] flex-shrink-0'} />
+                    
+                    {sidebarOpen && (
+                      <span className={`
+                        uppercase font-medium whitespace-nowrap transition-all duration-200
+                        ${/* Logic: If active AND long text, shrink font size and tracking slightly */
+                          active && isLongLabel 
+                            ? 'text-[10px] tracking-wider' 
+                            : 'text-xs tracking-widest'
+                        }
+                      `}>
+                        {item.label}
+                      </span>
+                    )}
+                    
+                    {sidebarOpen && active && (
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#C9A25D] flex-shrink-0"></div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}
@@ -101,13 +125,13 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, theme }) => {
       {/* Profile */}
       <div className={`p-6 border-t ${theme.border}`}>
         <div className={`flex items-center gap-3 w-full ${!sidebarOpen ? 'justify-center' : ''}`}>
-          <div className="w-10 h-10 rounded-full overflow-hidden border border-stone-200 grayscale hover:grayscale-0 transition-all cursor-pointer">
+          <div className="w-10 h-10 rounded-full overflow-hidden border border-stone-200 grayscale hover:grayscale-0 transition-all cursor-pointer flex-shrink-0">
              <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Admin" className="w-full h-full object-cover" />
           </div>
           {sidebarOpen && (
             <div className="text-left overflow-hidden">
               <p className="text-sm font-medium truncate">Chef Mavirick Exconde</p>
-              <p className={`text-[10px] uppercase tracking-wider ${theme.subText}`}>Mapo's Owner</p>
+              <p className={`text-[10px] uppercase tracking-wider ${theme.subText}`}>Mapo's Owner </p>
             </div>
           )}
         </div>

@@ -13,7 +13,6 @@ const DashboardNavbar = ({ activeTab, theme, darkMode, setDarkMode, searchQuery,
     if (tab.includes('client')) return "Search client name, email...";
     if (tab.includes('task')) return "Search tasks, assignees...";
     if (tab.includes('menu') || tab.includes('kitchen')) return "Search recipes, ingredients...";
-    
     // Default fallback
     return "Search dashboard...";
   };
