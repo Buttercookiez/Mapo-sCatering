@@ -14,10 +14,12 @@ app.use(cors());
 // Routes
 const inquiryRoute = require("./routes/inquiryRoute");
 const inventoryRoute = require("./routes/inventoryRoute");
+const packageRoute = require("./routes/packageRoute")
 
 // Use routes
 app.use("/api/inquiries", inquiryRoute);
 app.use("/api/inventory", inventoryRoute);
+app.use("/api/packages", packageRoute);
 
 // Start server
 const PORT = 5000;

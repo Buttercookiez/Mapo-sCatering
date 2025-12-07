@@ -14,7 +14,7 @@ function createWindow() {
   win.loadURL("http://localhost:3001");
 
   // Uncomment this if you want devtools:
-  // win.webContents.openDevTools();
+  win.webContents.openDevTools();
 }
 
 app.whenReady().then(createWindow);
