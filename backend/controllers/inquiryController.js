@@ -1,6 +1,6 @@
 // controllers/inquiryController.js
 const crypto = require('crypto'); // Built-in Node library
-const db = require("../firestore/firebase");
+const db = require("../firestore/firebase").db;
 const nodemailer = require("nodemailer");
 
 // --- CONFIG: Email Transporter ---
@@ -132,7 +132,6 @@ const createInquiry = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-
 // --- 2. GET INQUIRY DETAILS ---
 const getInquiryDetails = async (req, res) => {
     try {
