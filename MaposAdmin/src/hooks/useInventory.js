@@ -1,31 +1,39 @@
 import { useState, useEffect } from 'react';
 import { 
   subscribeToInventory, 
+  subscribeToLogs,
   apiAddItem, 
   apiUpdateItem, 
-  apiDeleteItem 
+  apiDeleteItem,
+  apiMoveStock 
 } from '../services/inventoryService';
 
 export const useInventory = () => {
   const [inventoryData, setInventoryData] = useState([]);
+  const [logsData, setLogsData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // 1. Realtime Listener
   useEffect(() => {
-    const unsubscribe = subscribeToInventory(
-      (data) => {
-        setInventoryData(data);
-        setLoading(false);
-      },
-      (err) => {
-        console.error("Listener Error:", err);
-        setError("Failed to sync live data.");
-        setLoading(false);
-      }
+    const unsubInv = subscribeToInventory(
+      (data) => { setInventoryData(data); setLoading(false); },
+      (err) => { console.error(err); setError("Sync Error"); setLoading(false); }
     );
-    return () => unsubscribe();
+    
+    // 2. Logs Listener (NEW)
+    const unsubLogs = subscribeToLogs(
+      (data) => { setLogsData(data); },
+      (err) => console.error("Log Sync Error:", err)
+    );
+
+    return () => {
+      unsubInv();
+      unsubLogs();
+    };
   }, []);
+
+
 
   // 2. Add Item
   const addItem = async (newItem) => {
@@ -59,5 +67,16 @@ export const useInventory = () => {
     }
   };
 
-  return { inventoryData, loading, error, addItem, updateItem, deleteItem };
-};
+  // 5. NEW: Move Stock Wrapper
+  const moveStock = async (itemId, action, quantity, lostQuantity = 0, notes = "") => {
+    try {
+      await apiMoveStock({ itemId, action, quantity, lostQuantity, notes });
+      return true;
+    } catch (err) {
+      alert(`Error moving stock: ${err}`);
+      return false;
+    }
+  };
+
+  return { inventoryData, loading, error, addItem, updateItem, deleteItem, moveStock, logsData };
+};  

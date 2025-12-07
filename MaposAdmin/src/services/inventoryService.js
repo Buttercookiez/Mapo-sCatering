@@ -1,5 +1,5 @@
 // src/services/inventoryService.js
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, limit } from "firebase/firestore";
 import { db } from "../config/firebase"; // Adjust path if needed
 import api from "../api/api"; // <--- Import your custom axios instance
 
@@ -13,6 +13,24 @@ export const subscribeToInventory = (onUpdate, onError) => {
       ...doc.data(),
     }));
     onUpdate(items);
+  }, onError);
+};
+
+export const subscribeToLogs = (onUpdate, onError) => {
+  const q = query(
+    collection(db, "inventory_logs"), 
+    orderBy("timestamp", "desc"), 
+    limit(50)
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const logs = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      // specific helper to format timestamp if it exists
+      date: doc.data().timestamp?.toDate() || new Date() 
+    }));
+    onUpdate(logs);
   }, onError);
 };
 
@@ -40,6 +58,16 @@ export const apiUpdateItem = async (id, updates) => {
 export const apiDeleteItem = async (id) => {
   try {
     const response = await api.delete(`/inventory/${id}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data?.error || error.message;
+  }
+};
+
+// Add this function
+export const apiMoveStock = async (payload) => {
+  try {
+    const response = await api.post("/inventory/move", payload);
     return response.data;
   } catch (error) {
     throw error.response?.data?.error || error.message;
