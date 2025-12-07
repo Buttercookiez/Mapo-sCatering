@@ -15,10 +15,9 @@ import BookingSidebar from "./components/BookingSidebar";
 
 // Tab Components
 import EventInfoTab from "./components/EventInfoTab";
-import PaymentsTab from "./components/PaymentsTab";
 import ProposalTab from "./components/ProposalTab";
 
-const detailTabs = ["Event Info", "Payments", "Proposal"];
+const detailTabs = ["Event Info", "Proposal"];
 
 const BookingDetails = ({
   booking,
@@ -62,7 +61,7 @@ const BookingDetails = ({
     };
 
     fetchBookingDetails();
-  }, [booking, setActiveDetailTab]);
+  }, [booking, setActiveDetailTab]); 
 
   // 2. Proposal Calculation Effect
   useEffect(() => {
@@ -116,12 +115,12 @@ const BookingDetails = ({
 
     const { options } = payloadData;
     const midOption = options[1];
-
+    
     const payload = {
       refId: details.id,
       clientName: details.client,
       clientEmail: details.email,
-      packageOptions: options,
+      packageOptions: options, 
       details: {
         date: details.date,
         guests: details.guests,
@@ -171,20 +170,20 @@ const BookingDetails = ({
     }, 1500);
   };
 
+  // UPDATED: Now includes "Client Responded" to unlock the Proposal tab
   const isBookingConfirmed =
-    details.status === "Confirmed" || details.status === "Paid";
+    details.status === "Confirmed" || 
+    details.status === "Paid" ||
+    details.status === "Client Responded";
 
   const isBookingRejected =
     details.status === "Cancelled" || details.status === "Rejected";
 
   return (
-    <div
-      className={`flex-1 overflow-y-auto scroll-smooth no-scrollbar h-full flex flex-col ${theme.bg}`}
-    >
+    <div className={`flex-1 overflow-y-auto scroll-smooth no-scrollbar h-full flex flex-col ${theme.bg}`}>
+      
       {/* Top Bar */}
-      <div
-        className={`h-16 flex items-center justify-between px-6 md:px-8 border-b ${theme.border} ${theme.cardBg} sticky top-0 z-20`}
-      >
+      <div className={`h-16 flex items-center justify-between px-6 md:px-8 border-b ${theme.border} ${theme.cardBg} sticky top-0 z-20`}>
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
@@ -206,9 +205,7 @@ const BookingDetails = ({
         </div>
         <div className="flex gap-3 items-center">
           <StatusBadge status={details.status} />
-          <button
-            className={`p-2 hover:text-[#C9A25D] transition-colors ${theme.subText}`}
-          >
+          <button className={`p-2 hover:text-[#C9A25D] transition-colors ${theme.subText}`}>
             <MoreHorizontal size={18} />
           </button>
         </div>
@@ -222,19 +219,13 @@ const BookingDetails = ({
 
       {/* Content Layout */}
       <div className="flex flex-col lg:flex-row flex-1 overflow-hidden relative">
+        
         {/* --- LOADING OVERLAY --- */}
-        {/* Updated: Uses theme.bg for solid background matching the page, removing transparency/blur */}
         {isLoading && (
-          <div
-            className={`absolute inset-0 z-50 flex flex-col items-center justify-center ${theme.bg} transition-all duration-300`}
-          >
-            <Loader2 size={32} className="animate-spin mb-4 text-[#C9A25D]" />
-            <p
-              className={`text-xs uppercase tracking-widest font-medium ${theme.text}`}
-            >
-              Loading Details...
-            </p>
-          </div>
+           <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center ${theme.bg} transition-all duration-300`}>
+                <Loader2 size={32} className="animate-spin mb-4 text-[#C9A25D]" />
+                <p className={`text-xs uppercase tracking-widest font-medium ${theme.text}`}>Loading Details...</p>
+           </div>
         )}
 
         {/* LEFT: Static Info Card (Sidebar) */}
@@ -247,13 +238,11 @@ const BookingDetails = ({
         {/* RIGHT: Tabs Workspace */}
         <div className={`flex-1 flex flex-col ${theme.bg}`}>
           {/* TABS HEADER */}
-          <div
-            className={`flex items-center border-b ${theme.border} ${theme.cardBg} px-6`}
-          >
+          <div className={`flex items-center border-b ${theme.border} ${theme.cardBg} px-6`}>
             {detailTabs.map((tab) => {
               const isDisabled =
                 !isBookingConfirmed &&
-                (tab === "Payments" || tab === "Proposal");
+                (tab === "Proposal"); 
 
               return (
                 <button
@@ -291,15 +280,6 @@ const BookingDetails = ({
                     handleUpdateStatus={handleUpdateStatus}
                     handleSendRejection={handleSendRejection}
                     isSending={isSending}
-                  />
-                )}
-
-                {/* PAYMENTS */}
-                {activeDetailTab === "Payments" && (
-                  <PaymentsTab
-                    details={details}
-                    theme={theme}
-                    darkMode={darkMode}
                   />
                 )}
 

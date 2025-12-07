@@ -2,9 +2,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Plus, ArrowUpDown, AlertTriangle, 
-  Package, Tag, Download, X, ChevronDown, 
-  Trash2, Pencil, Search, Loader2,
-  ArrowRightLeft, History, FileText // New Icons
+  Package, Tag, X, ChevronDown, 
+  Trash2, Pencil, Loader2,
+  ArrowRightLeft, History, Filter, Check, Clock
 } from 'lucide-react';
 
 import Sidebar from '../../components/layout/Sidebar';
@@ -203,24 +203,37 @@ const Inventory = () => {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('Inventory');
-  const [viewMode, setViewMode] = useState('assets'); // 'assets' | 'logs' <--- NEW VIEW STATE
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   
+  // States for UI Interaction
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null); 
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [stockItem, setStockItem] = useState(null);
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
 
-  // Get logsData from hook
+  // Hook Data
   const { inventoryData, logsData, loading, error, addItem, updateItem, deleteItem, moveStock } = useInventory();
   const safeInventory = inventoryData || [];
   const safeLogs = logsData || [];
+
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     if (darkMode) { document.documentElement.classList.add('dark'); localStorage.setItem('theme', 'dark'); }
     else { document.documentElement.classList.remove('dark'); localStorage.setItem('theme', 'light'); }
   }, [darkMode]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsFilterDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const theme = {
     bg: darkMode ? 'bg-[#0c0c0c]' : 'bg-[#FAFAFA]',
@@ -288,51 +301,65 @@ const Inventory = () => {
           </div>
 
           <FadeIn delay={300}>
-            <div className={`border ${theme.border} ${theme.cardBg} min-h-[600px] flex flex-col`}>
+            {/* GRID LAYOUT: 70% ASSETS / 30% LOGS */}
+            <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 min-h-[600px]">
               
-              {/* Toolbar with Toggle */}
-              <div className="p-6 md:p-8 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 border-b border-stone-100 dark:border-stone-800">
-                <div className="flex items-center gap-4">
-                    <div>
-                        <h3 className="font-serif text-2xl italic">Inventory System</h3>
-                        <p className={`text-xs ${theme.subText} mt-1`}>Manage assets and track history.</p>
-                    </div>
-                </div>
+              {/* --- LEFT: ASSETS TABLE (70%) --- */}
+              <div className={`lg:col-span-7 flex flex-col border ${theme.border} ${theme.cardBg} shadow-sm rounded-sm overflow-hidden`}>
                 
-                <div className="flex flex-col md:flex-row items-center gap-4 w-full lg:w-auto">
-                    {/* VIEW TOGGLE */}
-                    <div className={`flex p-1 rounded-sm border ${theme.border}`}>
-                        <button onClick={() => setViewMode('assets')} className={`px-4 py-1.5 text-[10px] uppercase tracking-wider transition-colors ${viewMode === 'assets' ? 'bg-[#C9A25D] text-white' : `${theme.subText} hover:bg-stone-100 dark:hover:bg-stone-800`}`}>Assets</button>
-                        <button onClick={() => setViewMode('logs')} className={`px-4 py-1.5 text-[10px] uppercase tracking-wider transition-colors ${viewMode === 'logs' ? 'bg-[#C9A25D] text-white' : `${theme.subText} hover:bg-stone-100 dark:hover:bg-stone-800`}`}>History Logs</button>
+                {/* Assets Header */}
+                <div className="p-6 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center">
+                    <div>
+                        <h3 className="font-serif text-2xl italic">Asset Overview</h3>
+                        <p className={`text-xs ${theme.subText} mt-1`}>Manage equipment & supplies.</p>
                     </div>
-
-                    {viewMode === 'assets' && (
-                        <>
-                        <div className={`flex flex-wrap gap-1 p-1 rounded-sm border ${theme.border} ${darkMode ? 'bg-stone-900' : 'bg-stone-50'}`}>
-                            {categories.map(cat => (
-                            <button key={cat} onClick={() => setCategoryFilter(cat)} className={`px-3 py-1.5 text-[10px] uppercase tracking-wider transition-all rounded-sm ${categoryFilter === cat ? 'bg-[#C9A25D] text-white shadow-sm' : 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'}`}>{cat}</button>
-                            ))}
+                    
+                    <div className="flex gap-2 relative">
+                        {/* FILTER DROPDOWN */}
+                        <div className="relative" ref={dropdownRef}>
+                            <button 
+                                onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
+                                className={`flex items-center gap-2 px-4 py-2.5 border ${theme.border} text-[10px] uppercase tracking-widest hover:text-[#C9A25D] hover:border-[#C9A25D] transition-all bg-transparent ${theme.subText}`}
+                            >
+                                <Filter size={14} /> 
+                                {categoryFilter === "All" ? "Filter" : categoryFilter}
+                            </button>
+                            {isFilterDropdownOpen && (
+                                <div className={`absolute top-full right-0 mt-2 w-48 ${theme.cardBg} border ${theme.border} shadow-xl z-20 py-2 rounded-sm`}>
+                                    <div className="px-4 py-2 border-b border-stone-100 dark:border-stone-800 text-[10px] uppercase tracking-widest text-stone-400 font-bold">Category</div>
+                                    {categories.map((cat) => (
+                                        <button 
+                                            key={cat}
+                                            onClick={() => { setCategoryFilter(cat); setIsFilterDropdownOpen(false); }}
+                                            className={`w-full text-left px-4 py-2 text-xs hover:bg-[#C9A25D] hover:text-white flex justify-between items-center ${categoryFilter === cat ? 'text-[#C9A25D] font-bold' : theme.text}`}
+                                        >
+                                            {cat}
+                                            {categoryFilter === cat && <Check size={12} />}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                        <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-[#1c1c1c] text-white px-4 py-2.5 text-[10px] uppercase tracking-widest hover:bg-[#C9A25D] transition-colors"><Plus size={14} /> Add Item</button>
-                        </>
-                    )}
-                </div>
-              </div>
 
-              {/* ASSETS TABLE VIEW */}
-              {viewMode === 'assets' && (
-                  <>
-                    <div className={`grid grid-cols-12 gap-4 px-8 py-5 border-y ${theme.border} ${darkMode ? 'bg-[#1c1c1c] text-stone-400' : 'bg-stone-100 text-stone-600'} text-[11px] uppercase tracking-[0.2em] font-semibold`}>
-                        <div className="col-span-4 md:col-span-3">Item Name</div>
-                        <div className="col-span-2 hidden md:block">SKU</div>
-                        <div className="col-span-2 hidden md:block">Category</div>
-                        <div className="col-span-4 md:col-span-3">Stock Usage</div>
+                        {/* ADD BUTTON */}
+                        <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-[#1c1c1c] text-white px-4 py-2.5 text-[10px] uppercase tracking-widest hover:bg-[#C9A25D] transition-colors shadow-md">
+                            <Plus size={14} /> Add Item
+                        </button>
+                    </div>
+                </div>
+
+                {/* Assets Table */}
+                <div className="flex-1 flex flex-col">
+                    <div className={`grid grid-cols-12 gap-4 px-6 py-4 border-b ${theme.border} ${darkMode ? 'bg-[#1c1c1c] text-stone-400' : 'bg-stone-50 text-stone-600'} text-[10px] uppercase tracking-[0.2em] font-semibold sticky top-0`}>
+                        <div className="col-span-4">Item Name</div>
+                        <div className="col-span-3 hidden md:block">Category</div>
+                        <div className="col-span-3">Stock</div>
                         <div className="col-span-2 text-right">Actions</div>
                     </div>
 
-                    <div className={`divide-y divide-stone-100 dark:divide-stone-800 flex-1`}>
-                        {loading ? ( <div className="h-64 flex flex-col items-center justify-center text-stone-400"><Loader2 size={32} className="animate-spin mb-4 text-[#C9A25D]" /><p className="text-xs uppercase">Loading...</p></div> ) 
-                        : filteredItems.length === 0 ? ( <div className="py-20 text-center"><Package size={40} className="mx-auto text-stone-300 mb-4" /><p className="text-stone-400 italic">No items found.</p></div> ) 
+                    <div className={`divide-y divide-stone-100 dark:divide-stone-800 overflow-y-auto flex-1 h-0`}>
+                        {loading ? ( <div className="h-full flex flex-col items-center justify-center text-stone-400"><Loader2 size={32} className="animate-spin mb-4 text-[#C9A25D]" /><p className="text-xs uppercase">Loading Assets...</p></div> ) 
+                        : filteredItems.length === 0 ? ( <div className="h-full flex flex-col items-center justify-center text-center"><Package size={40} className="mx-auto text-stone-300 mb-4" /><p className="text-stone-400 italic">No items found.</p></div> ) 
                         : ( filteredItems.map((item) => {
                             const stock = item.stock || {};
                             const qtyTotal = stock.quantityTotal || 0;
@@ -342,63 +369,86 @@ const Inventory = () => {
                             const inUsePct = qtyTotal > 0 ? (qtyInUse / qtyTotal) * 100 : 0;
 
                             return (
-                            <div key={item.id} className={`grid grid-cols-12 gap-4 px-8 py-5 items-center group ${theme.hoverBg} transition-colors border-b border-stone-100/50 dark:border-stone-800/50`}>
-                                <div className="col-span-4 md:col-span-3"><span className={`font-serif text-lg block leading-tight ${theme.text}`}>{item.name}</span><span className="text-[10px] text-stone-400 md:hidden block">{item.sku}</span></div>
-                                <div className={`col-span-2 hidden md:block text-xs ${theme.subText} font-mono`}>{item.sku}</div>
-                                <div className="col-span-2 hidden md:block"><span className={`text-[10px] uppercase px-2 py-1 border rounded-sm ${theme.border} text-stone-500`}>{item.category}</span></div>
-                                <div className="col-span-4 md:col-span-3">
-                                <div className="flex justify-between text-xs mb-2">
-                                    <span className={qtyAvailable <= threshold ? 'text-red-400 font-bold' : theme.text}>{qtyAvailable} <span className="text-[10px] text-stone-400">Avail</span></span>
-                                    <span className="text-[#C9A25D]">{qtyInUse} <span className="text-[10px] text-stone-400">In Use</span></span>
+                            <div key={item.id} className={`grid grid-cols-12 gap-4 px-6 py-4 items-center group ${theme.hoverBg} transition-colors`}>
+                                <div className="col-span-4">
+                                    <span className={`font-serif text-base block leading-tight ${theme.text}`}>{item.name}</span>
+                                    <span className="text-[10px] text-stone-400 font-mono">{item.sku}</span>
                                 </div>
-                                <div className={`w-full h-1.5 ${darkMode ? 'bg-stone-800' : 'bg-stone-200'} rounded-full overflow-hidden flex`}>
-                                    <div className="h-full bg-[#C9A25D] transition-all duration-1000" style={{ width: `${inUsePct}%` }}></div>
+                                <div className="col-span-3 hidden md:block"><span className={`text-[9px] uppercase px-2 py-1 border rounded-sm ${theme.border} text-stone-500`}>{item.category}</span></div>
+                                <div className="col-span-3">
+                                    <div className="flex justify-between text-[10px] mb-1">
+                                        <span className={qtyAvailable <= threshold ? 'text-red-400 font-bold' : theme.text}>{qtyAvailable} Avail</span>
+                                        <span className="text-[#C9A25D]">{qtyInUse} Out</span>
+                                    </div>
+                                    <div className={`w-full h-1 ${darkMode ? 'bg-stone-800' : 'bg-stone-200'} rounded-full overflow-hidden flex`}>
+                                        <div className="h-full bg-[#C9A25D] transition-all duration-1000" style={{ width: `${inUsePct}%` }}></div>
+                                    </div>
                                 </div>
-                                {qtyAvailable <= threshold && <p className="text-[10px] text-red-400 mt-1 flex items-center gap-1"><AlertTriangle size={10} /> Low Stock</p>}
-                                </div>
-                                <div className="col-span-4 md:col-span-2 flex justify-end items-center gap-2">
-                                <button onClick={() => handleOpenStock(item)} className={`p-1.5 rounded-sm hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors ${theme.subText}`}><ArrowRightLeft size={14} /></button>
-                                <button onClick={() => handleOpenEdit(item)} className={`p-1.5 rounded-sm hover:bg-[#C9A25D] hover:text-white transition-colors ${theme.subText}`}><Pencil size={14} /></button>
-                                <button onClick={() => deleteItem(item.id)} className={`p-1.5 rounded-sm hover:bg-red-500 hover:text-white transition-colors ${theme.subText}`}><Trash2 size={14} /></button>
+                                <div className="col-span-2 flex justify-end items-center gap-1">
+                                    <button onClick={() => handleOpenStock(item)} className={`p-1.5 rounded-sm hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors ${theme.subText}`} title="Move Stock"><ArrowRightLeft size={14} /></button>
+                                    <button onClick={() => handleOpenEdit(item)} className={`p-1.5 rounded-sm hover:bg-[#C9A25D] hover:text-white transition-colors ${theme.subText}`} title="Edit"><Pencil size={14} /></button>
+                                    <button onClick={() => deleteItem(item.id)} className={`p-1.5 rounded-sm hover:bg-red-500 hover:text-white transition-colors ${theme.subText}`} title="Delete"><Trash2 size={14} /></button>
                                 </div>
                             </div>
                             );
                         }))}
                     </div>
-                  </>
-              )}
+                </div>
+              </div>
 
-              {/* LOGS TABLE VIEW (NEW) */}
-              {viewMode === 'logs' && (
-                  <>
-                     <div className={`grid grid-cols-12 gap-4 px-8 py-5 border-y ${theme.border} ${darkMode ? 'bg-[#1c1c1c] text-stone-400' : 'bg-stone-100 text-stone-600'} text-[11px] uppercase tracking-[0.2em] font-semibold`}>
-                        <div className="col-span-3">Timestamp</div>
-                        <div className="col-span-3">Item</div>
-                        <div className="col-span-2">Action</div>
-                        <div className="col-span-2 text-right">Quantity</div>
-                        <div className="col-span-2 text-right">Loss/Waste</div>
-                    </div>
-                    <div className={`divide-y divide-stone-100 dark:divide-stone-800 flex-1`}>
-                        {safeLogs.length === 0 ? ( <div className="py-20 text-center"><History size={40} className="mx-auto text-stone-300 mb-4" /><p className="text-stone-400 italic">No history available.</p></div> ) 
-                        : ( safeLogs.map((log) => (
-                            <div key={log.id} className={`grid grid-cols-12 gap-4 px-8 py-5 items-center ${theme.hoverBg} border-b border-stone-100/50 dark:border-stone-800/50`}>
-                                <div className={`col-span-3 text-xs ${theme.subText}`}>{log.date ? log.date.toLocaleString() : 'Just now'}</div>
-                                <div className={`col-span-3 font-medium ${theme.text}`}>{log.itemName}</div>
-                                <div className="col-span-2">
-                                    <span className={`text-[10px] uppercase px-2 py-1 rounded-sm border ${log.action === 'checkout' ? 'border-[#C9A25D]/30 text-[#C9A25D]' : 'border-emerald-500/30 text-emerald-500'}`}>
-                                        {log.action}
-                                    </span>
+              {/* --- RIGHT: LOGS SIDEBAR (30%) --- */}
+              <div className={`lg:col-span-3 flex flex-col border ${theme.border} ${theme.cardBg} shadow-sm rounded-sm overflow-hidden`}>
+                 <div className="p-6 border-b border-stone-100 dark:border-stone-800">
+                    <h3 className="font-serif text-xl italic flex items-center gap-2"><History size={18} className="text-[#C9A25D]" /> Activity Log</h3>
+                 </div>
+                 
+                 <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                    {safeLogs.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
+                            <History size={32} className="mb-2" />
+                            <p className="text-xs">No recent activity</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-0 relative">
+                            {/* Vertical Line */}
+                            <div className={`absolute left-[13px] top-4 bottom-4 w-px ${darkMode ? 'bg-stone-800' : 'bg-stone-200'}`}></div>
+
+                            {safeLogs.map((log, i) => (
+                                <div key={log.id || i} className="pl-8 pb-6 relative group">
+                                    {/* Timeline Dot */}
+                                    <div className={`absolute left-[10px] top-1.5 w-[7px] h-[7px] rounded-full z-10 
+                                        ${log.action === 'checkout' ? 'bg-[#C9A25D]' : 'bg-emerald-500'}`}>
+                                    </div>
+
+                                    <div className="flex justify-between items-start mb-1">
+                                        <span className={`text-[10px] uppercase font-bold tracking-wider ${log.action === 'checkout' ? 'text-[#C9A25D]' : 'text-emerald-500'}`}>
+                                            {log.action === 'checkout' ? 'Checked Out' : 'Returned'}
+                                        </span>
+                                        <div className="flex items-center gap-1 opacity-50 text-[9px]">
+                                            <Clock size={10} />
+                                            {log.date ? new Date(log.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}
+                                        </div>
+                                    </div>
+                                    
+                                    <p className={`text-xs font-medium ${theme.text} mb-1 line-clamp-1`}>{log.itemName}</p>
+                                    
+                                    <div className="flex items-center gap-3 text-[10px]">
+                                        <span className={`${theme.subText} font-mono`}>
+                                            Qty: <span className={theme.text}>{log.quantityMoved}</span>
+                                        </span>
+                                        {log.quantityLost > 0 && (
+                                            <span className="text-red-400 font-bold flex items-center gap-1">
+                                                <AlertTriangle size={10} /> -{log.quantityLost} Lost
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className={`col-span-2 text-right font-mono text-xs ${theme.text}`}>{log.quantityMoved}</div>
-                                <div className={`col-span-2 text-right font-mono text-xs ${log.quantityLost > 0 ? 'text-red-500 font-bold' : theme.subText}`}>
-                                    {log.quantityLost > 0 ? `-${log.quantityLost}` : '-'}
-                                </div>
-                            </div>
-                        )))}
-                    </div>
-                  </>
-              )}
-              
+                            ))}
+                        </div>
+                    )}
+                 </div>
+              </div>
+
             </div>
           </FadeIn>
         </div>

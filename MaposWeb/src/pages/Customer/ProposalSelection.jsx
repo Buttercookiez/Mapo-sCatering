@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom"; // Import useSearchParams
 import { verifyProposalToken, confirmProposalSelection } from "../../api/bookingService";
 
-// Mock Payment API
+// Mock Payment API (Keep as is)
 const processPayment = async (type, amount) => {
   return new Promise((resolve) => {
     setTimeout(() => {
@@ -14,6 +14,7 @@ const processPayment = async (type, amount) => {
 const ProposalSelection = () => {
   const { token } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams(); // Hook to read URL params
 
   // --- State ---
   const [proposal, setProposal] = useState(null);
@@ -21,7 +22,7 @@ const ProposalSelection = () => {
   const [error, setError] = useState("");
   
   const [selectedPackage, setSelectedPackage] = useState(null);
-  const [view, setView] = useState("selection"); // 'selection' | 'summary' | 'payment'
+  const [view, setView] = useState("selection"); 
   const [processingPayment, setProcessingPayment] = useState(false);
   const [currentPaidAmount, setCurrentPaidAmount] = useState(0);
 
@@ -34,10 +35,23 @@ const ProposalSelection = () => {
         setProposal(data);
         
         if (data.amountPaid) setCurrentPaidAmount(data.amountPaid);
+
+        // 1. Check if already confirmed in DB
         if (data.selectedPackage) {
             setSelectedPackage(data.selectedPackage);
             setView("summary");
+        } 
+        // 2. NEW: Check if clicked from Email Button (URL Param)
+        else {
+            const pkgIndexParam = searchParams.get("pkgIndex");
+            // Validate if index exists and corresponds to a package
+            if (pkgIndexParam !== null && data.options && data.options[pkgIndexParam]) {
+                const preSelected = data.options[pkgIndexParam];
+                setSelectedPackage(preSelected);
+                setView("summary"); // Jump straight to summary
+            }
         }
+
       } catch (err) {
         setError(err.response?.data?.message || "Proposal not found");
       } finally {
@@ -45,7 +59,7 @@ const ProposalSelection = () => {
       }
     };
     if (token) fetchProposal();
-  }, [token]);
+  }, [token, searchParams]); // Add searchParams to dependency
 
   // --- Calculations ---
   const calculateTotals = () => {
@@ -53,6 +67,7 @@ const ProposalSelection = () => {
 
     const pax = parseInt(proposal.pax) || 0;
     const packageCost = (selectedPackage.pricePerHead || 0) * pax;
+    // Add null check for addOns
     const addOnsTotal = proposal.addOns?.reduce((sum, item) => sum + (item.price || 0), 0) || 0;
 
     const grandTotal = packageCost + addOnsTotal;
@@ -145,7 +160,7 @@ const ProposalSelection = () => {
                 <div className="p-8 text-center border-b border-gray-50">
                   <h3 className="text-xl font-bold text-gray-800 uppercase tracking-widest">{pkg.name}</h3>
                   <div className="mt-6 flex justify-center items-baseline text-yellow-600">
-                    <span className="text-5xl font-extrabold tracking-tight">₱{pkg.pricePerHead}</span>
+                    <span className="text-5xl font-extrabold tracking-tight">₱{pkg.pricePerHead.toLocaleString()}</span>
                     <span className="ml-2 text-sm text-gray-400 font-medium uppercase tracking-wide">/ per head</span>
                   </div>
                 </div>
@@ -180,7 +195,7 @@ const ProposalSelection = () => {
         )}
 
         {/* ================= VIEW 2 & 3: SUMMARY & PAYMENT ================= */}
-        {(view === "summary" || view === "payment") && (
+        {(view === "summary" || view === "payment") && selectedPackage && (
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 items-start">
             
             {/* LEFT COLUMN: DETAILS (Width 7/12) */}
