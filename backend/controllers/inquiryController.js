@@ -5,7 +5,7 @@ const nodemailer = require("nodemailer");
 
 // --- CONFIG: Email Transporter ---
 const transporter = nodemailer.createTransport({
-     service: 'gmail',
+    service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
@@ -213,6 +213,7 @@ const getBooking = async (req, res) => {
     }
 };
 
+
 // --- 4. SEND PROPOSAL EMAIL ---
 const sendProposalEmail = async (req, res) => {
     const {
@@ -223,14 +224,14 @@ const sendProposalEmail = async (req, res) => {
         details
     } = req.body;
 
-    // --- SECURITY FIX: Generate Token HERE, not globally ---
+    // --- SECURITY FIX: Generate Token HERE ---
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // Valid for 7 days
+    expiresAt.setDate(expiresAt.getDate() + 7);
     // ------------------------------------------------------
 
     const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
-    const selectionLink = `${FRONTEND_URL}/proposal-selection/${token}`;
+    const specificSelectionLink = `${FRONTEND_URL}/proposal-selection/${token}`;
     const eventDate = details?.date || "Date TBD";
 
     // 1. SAVE PROPOSAL TO DB
@@ -253,56 +254,101 @@ const sendProposalEmail = async (req, res) => {
         return res.status(500).json({ success: false, message: "Database save failed." });
     }
 
-    // 2. GENERATE EMAIL HTML
+
+    // 2. GENERATE EMAIL HTML (FIXED: Equal Height Columns)
     const cardsHtml = packageOptions.map((pkg, index) => {
-        const bgColor = index === 1 ? "#fffbf2" : "#ffffff";
-        const borderColor = index === 1 ? "#C9A25D" : "#e0e0e0";
+        // COLORS
+        const isHighlight = index === 1; // Middle package
+        const headerColor = "#333333";   // Dark Grey Header
+        const bodyBg = "#fdfdfd";        // Off-white body
+        const borderColor = "#e0e0e0";   // Light grey border
+        const btnBg = "#d8d8d8";         // Grey Button
+        const priceColor = "#C9A25D";    // Gold Price
 
         return `
-            <td width="33%" valign="top" style="padding: 5px;">
-                <div style="border: 1px solid ${borderColor}; background-color: ${bgColor}; border-radius: 4px; overflow: hidden; height: 100%;">
-                    <div style="background-color: ${index === 1 ? '#C9A25D' : '#333'}; color: white; padding: 8px; font-size: 10px; font-weight: bold; text-align: center; text-transform: uppercase;">
-                        ${pkg.tier}
-                    </div>
-                    <div style="padding: 15px; text-align: center;">
-                        <h4 style="margin: 0 0 5px 0; font-size: 14px; color: #333;">${pkg.name}</h4>
-                        <p style="margin: 0 0 10px 0; font-size: 18px; font-weight: bold; color: #C9A25D;">₱${pkg.pricePerHead}</p>
-                        <p style="font-size: 10px; color: #888; margin-bottom: 10px;">per head</p>
-                        <hr style="border: 0; border-top: 1px dashed #eee; margin: 10px 0;">
-                        <ul style="padding: 0; margin: 0; list-style-type: none; font-size: 11px; color: #555; text-align: left;">
-                            ${pkg.inclusions.map(inc => `<li style="margin-bottom: 4px;">✓ ${inc}</li>`).join("")}
-                        </ul>
-                    </div>
-                </div>
-            </td>
-        `;
+        <td width="33%" valign="top" style="padding: 0 5px;">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                
+                <!-- 1. CARD CONTENT (FIXED HEIGHT) -->
+                <tr>
+                    <td valign="top" style="border: 1px solid ${borderColor}; background-color: ${bodyBg};">
+                        
+                        <!-- Header -->
+                        <div style="background-color: ${headerColor}; color: white; padding: 12px 5px; font-size: 12px; font-weight: bold; text-align: center; text-transform: uppercase; letter-spacing: 1px;">
+                            PACKAGE
+                        </div>
+
+                        <!-- Body: IMPORTANT - Fixed Height here forces alignment -->
+                        <!-- Increase 'height' if your lists get longer -->
+                        <div style="padding: 15px; text-align: center; height: 320px; vertical-align: top; overflow: hidden;">
+                            
+                            <h4 style="margin: 10px 0 5px 0; font-size: 14px; color: #333; line-height: 1.4; height: 40px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+                                ${pkg.name}
+                            </h4>
+                            
+                            <p style="margin: 0 0 15px 0; font-size: 20px; font-weight: bold; color: ${priceColor};">
+                                ₱${pkg.pricePerHead}
+                            </p>
+                            
+                            <hr style="border: 0; border-top: 1px dashed #ccc; margin: 10px 0;">
+                            
+                            <ul style="padding: 0 0 0 10px; margin: 0; list-style-type: none; font-size: 12px; color: #555; text-align: left; line-height: 1.6;">
+                                ${pkg.inclusions.map(inc => `<li style="margin-bottom: 4px;">• ${inc}</li>`).join("")}
+                            </ul>
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- 2. GAP -->
+                <tr>
+                    <td height="8" style="font-size: 0; line-height: 0;">&nbsp;</td>
+                </tr>
+
+                <!-- 3. BUTTON (Uniform Position) -->
+                <tr>
+                    <td valign="top">
+                        <!-- Use specificSelectionLink here -->
+                        <a href="${specificSelectionLink}" target="_blank" style="display: block; background-color: ${btnBg}; color: #333; padding: 12px 0; text-align: center; text-decoration: none; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; border-radius: 2px;">
+                            SELECT
+                        </a>
+                    </td>
+                </tr>
+
+            </table>
+        </td>
+    `;
     }).join("");
 
     try {
         const htmlContent = `
-            <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; color: #333; background-color: #f9f9f9; padding: 20px;">
-                <div style="background-color: #1c1c1c; padding: 30px; text-align: center; border-radius: 4px 4px 0 0;">
-                    <h2 style="color: #C9A25D; margin: 0; text-transform: uppercase; letter-spacing: 2px;">Your Event Proposal</h2>
-                    <p style="color: #888; font-size: 12px; margin-top: 5px;">Ref: ${refId}</p>
-                </div>
-                <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e0e0e0;">
-                    <p>Hi <strong>${clientName || "Client"}</strong>,</p>
-                    <p>We are excited to host your event on <strong>${eventDate}</strong>! Based on your requirements, we have prepared three exclusive packages for you to choose from.</p>
-                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 20px; margin-bottom: 20px;">
-                        <tr>${cardsHtml}</tr>
-                    </table>
-                    <div style="text-align: center; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
-                        <a href="${selectionLink}" 
-                           style="background-color: #C9A25D; color: #ffffff; padding: 15px 30px; text-decoration: none; font-weight: bold; text-transform: uppercase; border-radius: 4px; display: inline-block;">
-                           Proceed to Selection
-                        </a>
-                        <p style="font-size: 12px; color: #777; margin-top: 15px; font-style: italic; line-height: 1.5;">
-                            If you would like to proceed with one of these packages, please click the button above to confirm your selection. Otherwise, you may disregard this email.
-                        </p>
-                    </div>
+        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; color: #333; background-color: #f9f9f9; padding: 20px;">
+            
+            <!-- HEADER -->
+            <div style="background-color: #1c1c1c; padding: 30px; text-align: center; border-radius: 4px 4px 0 0;">
+                <h2 style="color: #C9A25D; margin: 0; text-transform: uppercase; letter-spacing: 2px;">Your Event Proposal</h2>
+                <p style="color: #888; font-size: 12px; margin-top: 5px;">Ref: ${refId}</p>
+            </div>
+
+            <!-- BODY -->
+            <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e0e0e0;">
+                <p>Hi <strong>${clientName || "Client"}</strong>,</p>
+                <p>We are excited to host your event on <strong>${eventDate}</strong>! Based on your requirements, we have prepared three exclusive packages for you to choose from.</p>
+                
+                <!-- PACKAGES TABLE -->
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 30px; margin-bottom: 20px;">
+                    <tr>
+                        ${cardsHtml}
+                    </tr>
+                </table>
+
+                <div style="text-align: center; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                     <p style="font-size: 12px; color: #777; margin-top: 15px; font-style: italic; line-height: 1.5;">
+                        Click the "SELECT" button below your preferred package to proceed.
+                    </p>
                 </div>
             </div>
-        `;
+        </div>
+    `;
 
         const mailOptions = {
             from: `"Mapos Catering" <${process.env.EMAIL_USER}>`,
@@ -443,42 +489,89 @@ const verifyProposal = async (req, res) => {
 // This is called when the client clicks "Select" on the website
 const confirmSelection = async (req, res) => {
     try {
-        const { token, selectedPackage } = req.body;
+        // 1. Extract all new fields sent from Frontend
+        const { token, selectedPackage, paymentDetails, clientNotes } = req.body;
 
+        // 2. Verify Token
         const snapshot = await db.collection("proposals").where("token", "==", token).limit(1).get();
-
         if (snapshot.empty) return res.status(404).json({ message: "Invalid token" });
 
         const proposalDoc = snapshot.docs[0];
         const proposalData = proposalDoc.data();
+        const refId = proposalData.refId; // The Booking ID (e.g., BK-001)
 
-        // 1. Update Proposal Status
-        await proposalDoc.ref.update({
-            status: "Confirmed",
+        // Use a Batch Write to ensure all updates happen together (Atomicity)
+        const batch = db.batch();
+
+        // ---------------------------------------------------------
+        // A. UPDATE PROPOSAL DOC
+        // ---------------------------------------------------------
+        batch.update(proposalDoc.ref, {
+            status: "Payment Submitted", // Changed to indicate waiting for admin
             selectedPackage: selectedPackage,
             confirmedAt: new Date().toISOString()
         });
 
-        // 2. Update the Main Booking (so Admin sees it)
+        // ---------------------------------------------------------
+        // B. UPDATE MAIN BOOKING DOC
+        // ---------------------------------------------------------
         const bookingSnap = await db.collection("bookings")
-            .where("bookingId", "==", proposalData.refId)
+            .where("bookingId", "==", refId)
             .limit(1)
             .get();
 
         if (!bookingSnap.empty) {
-            await bookingSnap.docs[0].ref.update({
-                "eventDetails.package": selectedPackage.name,
-                bookingStatus: "Client Responded"
+            const bookingDoc = bookingSnap.docs[0];
+            const currentData = bookingDoc.data();
+            
+            // Logic to append new notes to existing notes
+            let updatedNotes = currentData.notes || "";
+            if (clientNotes) {
+                updatedNotes += `\n\n[Client Request - ${new Date().toLocaleDateString()}]: ${clientNotes}`;
+            }
+
+            batch.update(bookingDoc.ref, {
+                "eventDetails.package": selectedPackage.name, // Save selected package name
+                "billing.paymentStatus": "For Verification",  // Admin needs to check this
+                "bookingStatus": "For Verification",          // Update main status
+                "notes": updatedNotes,                        // Save the client's special requests
+                updatedAt: new Date().toISOString()
             });
         }
 
-        res.status(200).json({ success: true, message: "Package confirmed!" });
+        // ---------------------------------------------------------
+        // C. CREATE PAYMENT RECORD (For Admin Verification)
+        // ---------------------------------------------------------
+        // This creates a new document in the 'payments' collection
+        const newPaymentRef = db.collection("payments").doc();
+        
+        batch.set(newPaymentRef, {
+            bookingId: refId,
+            clientName: proposalData.clientName, // Useful for searching in Admin Panel
+            amount: paymentDetails?.amount || 5000,
+            accountName: paymentDetails?.accountName || "N/A",
+            accountNumber: paymentDetails?.accountNumber || "N/A",
+            referenceNumber: paymentDetails?.refNumber || "N/A",
+            // If you implemented file upload, save the URL here:
+            // proofUrl: paymentDetails?.proofUrl || null, 
+            notes: clientNotes || "",
+            status: "Pending Verification",
+            submittedAt: new Date().toISOString()
+        });
+
+        // ---------------------------------------------------------
+        // D. COMMIT CHANGES
+        // ---------------------------------------------------------
+        await batch.commit();
+
+        res.status(200).json({ success: true, message: "Package confirmed and sent for verification!" });
 
     } catch (error) {
         console.error("Error confirming selection:", error);
         res.status(500).json({ message: "Failed to confirm selection." });
     }
 };
+
 
 module.exports = {
     createInquiry,
