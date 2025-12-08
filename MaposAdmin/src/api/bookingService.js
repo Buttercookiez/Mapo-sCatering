@@ -46,3 +46,9 @@ export const getPackagesByEvent = async (eventType) => {
     return []; // Return empty array on error
   }
 };
+
+export const rejectBooking = async (payload) => {
+  // payload: { refId, clientEmail, clientName, reason }
+  const response = await api.post("/inquiries/reject", payload);
+  return response.data;
+};

@@ -12,7 +12,8 @@ const {
     verifyProposal,    
     confirmSelection  ,
     getAllPayments,
-    verifyPayment
+    verifyPayment,
+    rejectBooking
 } = require("../controllers/inquiryController");
 
 // ==============================================
@@ -22,6 +23,7 @@ const {
 // This MUST be before /:refId so "packages" isn't treated as an ID
 router.get("/packages", getPackagesByEventType); 
 router.post("/send-proposal", sendProposalEmail);
+router.post("/reject", rejectBooking)
 
 // 🚨 ADD THE PROPOSAL ROUTES HERE 🚨
 // This handles the link verification when the client clicks the email link

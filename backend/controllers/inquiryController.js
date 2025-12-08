@@ -664,6 +664,71 @@ const sendConfirmationEmail = async (clientEmail, clientName, refId, eventDate) 
     });
 };
 
+// --- 11. REJECT BOOKING & SEND EMAIL ---
+const rejectBooking = async (req, res) => {
+    const { refId, reason, clientEmail, clientName } = req.body;
+
+    try {
+        // 1. Find the booking document
+        const snapshot = await db.collection("bookings")
+            .where("bookingId", "==", refId)
+            .limit(1)
+            .get();
+
+        if (snapshot.empty) {
+            return res.status(404).json({ success: false, message: "Booking not found" });
+        }
+
+        const docId = snapshot.docs[0].id;
+
+        // 2. Update Firestore Status
+        await db.collection("bookings").doc(docId).update({
+            bookingStatus: "Rejected",
+            rejectionReason: reason, // Store the reason for records
+            updatedAt: new Date().toISOString()
+        });
+
+        // 3. Send Rejection Email
+        const htmlContent = `
+            <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; border: 1px solid #e0e0e0;">
+                <div style="background-color: #ef4444; padding: 20px; text-align: center; color: white;">
+                    <h2 style="margin:0;">Booking Status Update</h2>
+                </div>
+                <div style="padding: 30px;">
+                    <p>Dear <strong>${clientName}</strong>,</p>
+                    <p>Thank you for your interest in Mapos Catering.</p>
+                    <p>We have reviewed your inquiry (Ref: <strong>${refId}</strong>) for the requested date.</p>
+                    
+                    <p>We regret to inform you that we are unable to accommodate your booking at this time.</p>
+                    
+                    <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #ef4444; margin: 20px 0;">
+                        <strong>Reason:</strong><br/>
+                        ${reason}
+                    </div>
+
+                    <p>We apologize for any inconvenience this may cause and hope to have the opportunity to serve you in the future.</p>
+                    <br/>
+                    <p>Sincerely,</p>
+                    <p><strong>The Mapos Catering Team</strong></p>
+                </div>
+            </div>
+        `;
+
+        await transporter.sendMail({
+            from: `"Mapos Catering" <${process.env.EMAIL_USER}>`,
+            to: clientEmail,
+            subject: `Update Regarding Your Inquiry - ${refId}`,
+            html: htmlContent
+        });
+
+        res.status(200).json({ success: true, message: "Booking rejected and email sent." });
+
+    } catch (error) {
+        console.error("Rejection Error:", error);
+        res.status(500).json({ success: false, message: "Failed to process rejection." });
+    }
+};
+
 
 module.exports = {
     createInquiry,
@@ -676,5 +741,6 @@ module.exports = {
     confirmSelection,
     getAllPayments,
     verifyPayment,
-    sendConfirmationEmail
+    sendConfirmationEmail,
+    rejectBooking
 };

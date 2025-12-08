@@ -65,26 +65,35 @@ const EventInfoTab = ({
             </div>
           </div>
 
-          {rejectionSent ? (
-            <div className={`flex flex-col items-center justify-center py-12 border-t border-dashed ${theme.border}`}>
-              <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
-                <CheckCircle size={32} className="text-emerald-500" />
+            {rejectionSent ? (
+              <div className={`flex flex-col items-center justify-center py-12 border-t border-dashed ${theme.border}`}>
+                <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
+                  <CheckCircle size={32} className="text-emerald-500" />
+                </div>
+                <h4 className={`text-lg font-serif italic ${theme.text}`}>
+                  Notification Sent
+                </h4>
+                <p className={`text-xs uppercase tracking-widest ${theme.subText} mt-2`}>
+                  The client has been notified via email.
+                </p>
+
+                {/* --- ADD THIS BLOCK TO DISPLAY THE SAVED REASON --- */}
+                {rejectionReason && (
+                  <div className={`mt-6 p-4 bg-stone-50 dark:bg-stone-900/50 rounded-sm border ${theme.border} max-w-md w-full text-center`}>
+                    <span className="text-[10px] uppercase tracking-widest text-stone-400 block mb-2">Recorded Reason</span>
+                    <p className={`text-sm ${theme.text} italic`}>"{rejectionReason}"</p>
+                  </div>
+                )}
+                {/* ------------------------------------------------ */}
+                
+                <button
+                    onClick={() => handleUpdateStatus("Pending")}
+                    className={`mt-8 text-xs text-stone-500 underline hover:text-[#C9A25D] transition-colors`}
+                  >
+                    Undo Rejection (Restore to Pending)
+                </button>
               </div>
-              <h4 className={`text-lg font-serif italic ${theme.text}`}>
-                Notification Sent
-              </h4>
-              <p className={`text-xs uppercase tracking-widest ${theme.subText} mt-2`}>
-                The client has been notified via email.
-              </p>
-              
-              <button
-                  onClick={() => handleUpdateStatus("Pending")}
-                  className={`mt-8 text-xs text-stone-500 underline hover:text-[#C9A25D] transition-colors`}
-                >
-                  Undo Rejection (Restore to Pending)
-              </button>
-            </div>
-          ) : (
+            ) : (
             <div className="pl-0 md:pl-14">
               <label className={`text-[10px] uppercase tracking-widest ${theme.subText} mb-3 block`}>
                 Reason for Rejection <span className="text-red-500">*</span>
