@@ -514,7 +514,13 @@ const verifyProposal = async (req, res) => {
 // --- 8. CONFIRM SELECTION (UPDATED) ---
 const confirmSelection = async (req, res) => {
     try {
-        const { token, selectedPackage, paymentDetails, clientNotes } = req.body;
+        const { 
+            token, 
+            selectedPackage, 
+            selectedAddOns, // <--- Receive Add-ons
+            paymentDetails, 
+            clientNotes 
+        } = req.body;
 
         const snapshot = await db.collection("proposals").where("token", "==", token).limit(1).get();
         if (snapshot.empty) return res.status(404).json({ message: "Invalid token" });
@@ -523,23 +529,48 @@ const confirmSelection = async (req, res) => {
         const refId = proposalDoc.data().refId;
         const batch = db.batch();
 
-        // Update Booking
+        // 1. Get the Booking Document
         const bookingSnap = await db.collection("bookings").where("bookingId", "==", refId).limit(1).get();
+        
         if (!bookingSnap.empty) {
             const bookingDoc = bookingSnap.docs[0];
             const currentData = bookingDoc.data();
+            
+            // Format Notes: Append new client notes to existing notes without overwriting
             let updatedNotes = currentData.notes || "";
-            if (clientNotes) updatedNotes += `\n\n[Client Request]: ${clientNotes}`;
+            if (clientNotes) {
+                const timeStamp = new Date().toLocaleDateString();
+                updatedNotes += `\n\n[Client Note - ${timeStamp}]: ${clientNotes}`;
+            }
 
+            // Calculate New Total Cost (Package Price + Add-ons)
+            // Ensure inputs are numbers
+            const pkgPrice = Number(selectedPackage.pricePerHead) * Number(currentData.eventDetails.pax || 0);
+            const addOnsTotal = Array.isArray(selectedAddOns) 
+                ? selectedAddOns.reduce((sum, item) => sum + (Number(item.price) || 0), 0)
+                : 0;
+            const newTotalCost = pkgPrice + addOnsTotal;
+
+            // UPDATE THE BOOKING DOCUMENT
             batch.update(bookingDoc.ref, {
-                "eventDetails.package": selectedPackage.name,
                 "bookingStatus": "Verifying", 
                 "notes": updatedNotes,
+                
+                // Update Package Name
+                "eventDetails.package": selectedPackage.name,
+                
+                // --- SAVE ADD-ONS HERE ---
+                "eventDetails.addOns": selectedAddOns || [], 
+
+                // Update Billing
+                "billing.totalCost": newTotalCost,
+                "billing.remainingBalance": newTotalCost - (currentData.billing.amountPaid || 0), // Adjust logic if they just paid
+
                 updatedAt: new Date().toISOString()
             });
         }
 
-        // Create Payment
+        // 2. Create Payment Record
         const newPaymentRef = db.collection("payments").doc(); 
         batch.set(newPaymentRef, {
             paymentId: newPaymentRef.id,
@@ -551,15 +582,22 @@ const confirmSelection = async (req, res) => {
             accountNumber: paymentDetails?.accountNumber,
             referenceNumber: paymentDetails?.refNumber,
             status: "Pending",
-            notes: clientNotes || "",
+            notes: clientNotes || "", // Save notes in payment record too for easy reference
             submittedAt: new Date().toISOString()
+        });
+
+        // 3. Mark Proposal as Accepted (Optional but good for tracking)
+        batch.update(proposalDoc.ref, {
+            status: "Accepted",
+            selectedPackageName: selectedPackage.name,
+            acceptedAt: new Date().toISOString()
         });
 
         await batch.commit();
         res.status(200).json({ success: true, message: "Submitted for verification." });
 
     } catch (error) {
-        console.error(error);
+        console.error("Confirm Selection Error:", error);
         res.status(500).json({ message: "Failed to confirm." });
     }
 };
