@@ -130,21 +130,32 @@ const PackageEditor = () => {
       const payload = {
         ...data,
         pricePerHead: Number(data.pricePerHead),
+        inclusions: data.inclusions.filter(i => i.trim() !== '') // Remove empty lines
       };
 
       if (isEdit) {
-        await packageService.update(data.id, payload);
+        // Update logic
+        const { id, serviceType, ...updateData } = payload; // Remove metadata fields if not needed in DB
+        await packageService.update(id, updateData);
       } else {
-        // Create Logic
-        const cleanEvent = data.eventType.replace(/\s+/g, "").toLowerCase();
-        // Fallback for ID creation if selectionLabel is missing
-        const sType = data.selectionLabel === "Service Only" ? "service" : "full";
+        // Create Logic: [event]-[serviceType]-[category]-[selection]
+        const cleanEvent = data.eventType.replace(/\s+/g, "").toLowerCase(); // "Birthday" -> "birthday"
+        
+        // Use the serviceType selected in form ('full' or 'service')
+        const sType = data.serviceType || "full"; 
+        
         const newId = `${cleanEvent}-${sType}-${data.categoryId}-${data.selectionId}`;
 
         const newPackageData = {
           ...payload,
           id: newId,
+          packageId: newId,
+          createdAt: new Date().toISOString()
         };
+        
+        // Remove temporary form-only state before sending to DB if you want to keep DB clean
+        // But 'serviceType' might be useful to keep if you want to use it later, 
+        // otherwise rely on 'selectionLabel' which is already set in modal.
         await packageService.create(newPackageData);
       }
       setIsModalOpen(false);
