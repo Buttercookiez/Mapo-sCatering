@@ -7,7 +7,7 @@ import {
   Zap,
   Star,
   Crown,
-  AlertCircle,
+  Clock, // Import Clock icon
 } from "lucide-react";
 import { getPackagesByEvent } from "../../../../api/bookingService";
 
@@ -20,6 +20,7 @@ const ProposalTab = ({
 }) => {
   const [dbPackages, setDbPackages] = useState([]);
   const [isLoadingPackages, setIsLoadingPackages] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(null);
 
   // Store selections
   const [selections, setSelections] = useState({
@@ -27,6 +28,51 @@ const ProposalTab = ({
     mid: null,
     high: null,
   });
+
+  // --- NEW: COOLDOWN LOGIC ---
+  const isCoolingDown = useMemo(() => {
+    if (!details.lastProposalSentAt) return false;
+
+    const lastSent = new Date(details.lastProposalSentAt);
+    const now = new Date();
+    const diffInMs = now - lastSent;
+    const hoursPassed = diffInMs / (1000 * 60 * 60);
+
+    // If less than 24 hours passed AND status is still "Proposal Sent"
+    // (If they replied and status changed to 'Accepted', we might want to allow sending again)
+    return hoursPassed < 24 && details.status === "Proposal Sent";
+  }, [details.lastProposalSentAt, details.status]);
+
+  // --- NEW: COUNTDOWN TIMER DISPLAY ---
+  useEffect(() => {
+    if (!isCoolingDown || !details.lastProposalSentAt) {
+      setTimeRemaining(null);
+      return;
+    }
+
+    const updateTimer = () => {
+      const lastSent = new Date(details.lastProposalSentAt);
+      const now = new Date();
+      // 24 hours in milliseconds
+      const cooldownTime = 24 * 60 * 60 * 1000; 
+      const timePassed = now - lastSent;
+      const timeLeft = cooldownTime - timePassed;
+
+      if (timeLeft <= 0) {
+        setTimeRemaining(null); // Cooldown over
+      } else {
+        const hours = Math.floor((timeLeft / (1000 * 60 * 60)) % 24);
+        const minutes = Math.floor((timeLeft / (1000 * 60)) % 60);
+        setTimeRemaining(`${hours}h ${minutes}m`);
+      }
+    };
+
+    updateTimer(); // Run immediately
+    const interval = setInterval(updateTimer, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, [isCoolingDown, details.lastProposalSentAt]);
+
 
   // 1. FETCH PACKAGES FROM DB ON LOAD
   useEffect(() => {
@@ -101,7 +147,8 @@ const ProposalTab = ({
 
   return (
     <div className="max-w-6xl mx-auto pb-24">
-      <div className="flex justify-between items-end mb-8 border-b border-stone-200 dark:border-stone-800 pb-4">
+      {/* ... (Header and Package Grid Code remains the same) ... */}
+       <div className="flex justify-between items-end mb-8 border-b border-stone-200 dark:border-stone-800 pb-4">
         <div>
           <h3 className={`font-serif text-2xl ${theme.text}`}>
             Package Selection
@@ -117,7 +164,8 @@ const ProposalTab = ({
 
       {/* --- RENDER 3 COLUMNS --- */}
       {["budget", "mid", "high"].map((tierKey) => {
-        const tierTitle =
+          // ... (Existing Grid Code - No Changes needed here) ...
+          const tierTitle =
           tierKey === "budget"
             ? "Budget Friendly"
             : tierKey === "mid"
@@ -199,29 +247,58 @@ const ProposalTab = ({
         className={`fixed bottom-0 left-0 right-0 p-4 border-t ${theme.border} ${theme.cardBg} z-30 flex justify-center shadow-2xl`}
       >
         <div className="max-w-4xl w-full flex items-center justify-between gap-6">
-          <div className="hidden md:block"></div>
+          
+          {/* Left Side: Status Message */}
+          <div className="hidden md:block">
+             {isCoolingDown && (
+                <p className="text-xs text-stone-500 flex items-center gap-2">
+                    <Clock size={14} className="text-orange-400"/>
+                    Proposal sent. Re-send available in: <span className="font-mono font-bold text-orange-400">{timeRemaining}</span>
+                </p>
+             )}
+          </div>
 
+          {/* Right Side: Button */}
           <button
             onClick={() =>
               handleSendProposal({
                 options: [selections.budget, selections.mid, selections.high],
               })
             }
+            // --- UPDATED DISABLED LOGIC ---
             disabled={
-              isSending || emailStatus === "success" || !hasAllSelections
+              isSending || 
+              emailStatus === "success" || 
+              !hasAllSelections || 
+              isCoolingDown // Blocks click if within 24 hours
             }
             className={`px-8 py-3 rounded-sm text-sm uppercase tracking-wider font-bold transition-all shadow-lg flex items-center gap-2 ${
               emailStatus === "success"
                 ? "bg-emerald-600 text-white"
+                : isCoolingDown // Visually grey out if cooling down
+                ? "bg-stone-300 dark:bg-stone-700 text-stone-500 cursor-not-allowed"
                 : "bg-[#C9A25D] text-white hover:bg-[#b08d55]"
-            } disabled:opacity-50`}
+            } disabled:opacity-70`}
           >
             {isSending ? (
               <Loader2 className="animate-spin" size={16} />
+            ) : emailStatus === "success" ? (
+               <CheckCircle size={16} />
+            ) : isCoolingDown ? (
+               <Clock size={16} /> // Show Clock icon when cooling down
             ) : (
               <Send size={16} />
             )}
-            Send Options to Client
+            
+            {/* Button Text Logic */}
+            {isSending 
+                ? "Sending..." 
+                : emailStatus === "success" 
+                ? "Sent Successfully" 
+                : isCoolingDown 
+                ? `Wait ${timeRemaining || '24h'}` 
+                : "Send Options to Client"
+            }
           </button>
         </div>
       </div>

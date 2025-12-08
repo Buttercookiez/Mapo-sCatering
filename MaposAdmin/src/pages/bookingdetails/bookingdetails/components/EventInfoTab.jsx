@@ -238,7 +238,7 @@ const EventInfoTab = ({
                     <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Reservation Fee Status</p>
                     <div className="flex items-center gap-3">
                         <span className={`font-serif text-3xl font-medium ${theme.text}`}>
-                            ₱ {Number(details.reservationFee || 0).toLocaleString()}
+                            ₱ 5,000 
                         </span>
                         <StatusBadge status={details.reservationStatus || "Unpaid"} />
                     </div>
