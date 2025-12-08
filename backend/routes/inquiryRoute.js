@@ -13,7 +13,8 @@ const {
     confirmSelection  ,
     getAllPayments,
     verifyPayment,
-    rejectBooking
+    rejectBooking,
+    markFullPayment
 } = require("../controllers/inquiryController");
 
 // ==============================================
@@ -46,6 +47,8 @@ router.get("/", getBooking);
 router.patch("/:refId", updateInquiryStatus);
 router.get("/:refId", getInquiryDetails);
 router.patch("/payments/:paymentId/verify", verifyPayment);
+
+router.post("/mark-full-payment", markFullPayment);
 
 
 module.exports = router;
