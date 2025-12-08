@@ -8,10 +8,9 @@ import Menu from './pages/Customer/Menu';
 import Venue from './pages/Customer/Venue';
 import Booking from './pages/Customer/Booking';
 import Confirmation from './pages/Customer/Confirmation';
-import ClientProposal from './pages/Customer/ClientProposal'; // <--- Import the new page
-import ProposalSelection from './pages/Customer/ProposalSelection'; // <--- Import the new page
-
-
+import ClientProposal from './pages/Customer/ClientProposal'; 
+import ProposalSelection from './pages/Customer/ProposalSelection'; 
+import AboutUs from './pages/Customer/AboutUs';
 
 // Styles
 import './App.css';
@@ -38,16 +37,20 @@ function App() {
         <Route path="/venue" element={<Venue />} />
         <Route path="/booking" element={<Booking />} />
         <Route path="/confirmation" element={<Confirmation />} />
-        <Route path="/client-proposal/:refId" element={<ClientProposal />} /> {/* New Route */}
+        
+        {/* Specific Functional Routes */}
+        <Route path="/client-proposal/:refId" element={<ClientProposal />} />
+        <Route path="/proposal-selection/:token" element={<ProposalSelection />} /> 
+        
+        {/* --- FIX: Changed path from "/about-us" to "/about" to match Navbar --- */}
+        <Route path="/about" element={<AboutUs />} />
         
         
-        
-        {/* Placeholders for remaining Sidebar links */}
+        {/* Placeholders for remaining Sidebar links / Admin */}
         <Route path="/clients" element={<AdminPlaceholder title="Client Records" />} />
         <Route path="/tasks" element={<AdminPlaceholder title="Task Manager" />} />
         <Route path="/venue-status" element={<AdminPlaceholder title="Venue Status" />} />
         <Route path="/finance/reports" element={<AdminPlaceholder title="Profit Reports" />} />
-        <Route path="/proposal-selection/:token" element={<ProposalSelection />} /> 
       </Routes>
     </BrowserRouter>
   );

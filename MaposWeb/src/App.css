@@ -1,7 +1,45 @@
+/* --- 1. REQUIRED: Initialize Tailwind CSS --- */
+/* Without these 3 lines, bg-white and other classes will NOT work */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* --- 2. Global Resets --- */
 .App {
-  text-align: center;
+  /* text-align: center;  <-- REMOVED: This breaks form layouts */
+  min-height: 100vh;
 }
 
+/* --- 3. FORCE FIX FOR DROPDOWNS --- */
+/* This forces the browser to respect the white background in light mode */
+.bg-white {
+  background-color: #ffffff !important;
+}
+
+/* Ensure inputs don't have default gray backgrounds in some browsers */
+input, select, textarea, button {
+  background-color: transparent;
+}
+
+/* --- 4. Custom Scrollbar (Optional - matches your Gold theme) --- */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #C9A25D; /* Gold Color */
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #b08d4b;
+}
+
+/* --- 5. Legacy Styles (Kept these just in case you use the logo elsewhere) --- */
 .App-logo {
   height: 40vmin;
   pointer-events: none;
