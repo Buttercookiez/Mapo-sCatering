@@ -10,7 +10,7 @@ import {
 
 // Helper Components
 import FadeIn from "./components/FadeIn";
-import StatusBadge from "./components/StatusBadge";
+import StatusBadge from "./components/StatusBadge"; // Ensure this component handles the new strings
 import BookingSidebar from "./components/BookingSidebar";
 
 // Tab Components
@@ -22,6 +22,7 @@ const detailTabs = ["Event Info", "Proposal"];
 const BookingDetails = ({
   booking,
   onBack,
+  onUpdateBooking, // <--- NEW PROP: Callback to update parent list
   activeDetailTab,
   setActiveDetailTab,
   theme,
@@ -45,6 +46,7 @@ const BookingDetails = ({
     setActiveDetailTab("Event Info");
 
     const fetchBookingDetails = async () => {
+      // Use refId if available, otherwise fallback to id
       const idToFetch = booking?.refId || booking?.id;
       if (!idToFetch) return;
 
@@ -54,7 +56,9 @@ const BookingDetails = ({
         setBookingData(data);
       } catch (err) {
         console.error("Fetch error:", err);
-        setError("Could not sync with database. Showing list data.");
+        // Fallback: use the prop data if API fails so UI doesn't crash
+        setBookingData(booking);
+        setError("Could not sync with database. Showing cached data.");
       } finally {
         setIsLoading(false);
       }
@@ -75,7 +79,7 @@ const BookingDetails = ({
     }
   }, [bookingData]);
 
-  // 6. Data Merging & Preparation
+  // 3. Data Merging & Preparation
   const currentData = bookingData || booking || {};
   const paymentData = currentData.payment || {};
 
@@ -91,7 +95,7 @@ const BookingDetails = ({
     timeStart: currentData.startTime || "TBD",
     timeEnd: currentData.endTime || "TBD",
     serviceStyle: currentData.serviceStyle || "Plated",
-    status: currentData.status || "Pending",
+    status: currentData.status || "Pending", // Default to Pending
     budget: currentData.estimatedBudget || 0,
     reservationFee: paymentData.reservationFee || 5000,
     reservationStatus: paymentData.reservationFee ? "Paid" : "Unpaid",
@@ -103,7 +107,37 @@ const BookingDetails = ({
     history: paymentData.history?.length > 0 ? paymentData.history : [],
   };
 
-  // 3. Handle Send Proposal
+  // 4. Handle Booking Status Change
+  const handleUpdateStatus = async (newStatus) => {
+    // 1. Optimistic Update (Immediate UI reflection)
+    setBookingData((prev) => ({
+      ...prev,
+      status: newStatus,
+    }));
+
+    // If Rejected or Cancelled, force tab back to Info
+    if (newStatus === "Cancelled" || newStatus === "Rejected") {
+      setActiveDetailTab("Event Info");
+    }
+
+    try {
+      if (details.id) {
+        // 2. API Call
+        await updateBookingStatus(details.id, newStatus);
+        
+        // 3. Notify Parent Component (Fixes "Unknown" in List)
+        if (onUpdateBooking) {
+          onUpdateBooking({ ...currentData, status: newStatus });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to update status on server:", error);
+      alert("Failed to save status. Please check your connection.");
+      // Revert on failure if needed
+    }
+  };
+
+  // 5. Handle Send Proposal
   const handleSendProposal = async (payloadData) => {
     if (!details.email) {
       alert("No email address found for this client.");
@@ -114,7 +148,6 @@ const BookingDetails = ({
     setEmailStatus(null);
 
     const { options } = payloadData;
-    const midOption = options[1];
     
     const payload = {
       refId: details.id,
@@ -131,33 +164,16 @@ const BookingDetails = ({
     try {
       await sendProposalEmail(payload);
       setEmailStatus("success");
+      
+      // Update status to "Proposal Sent" automatically
+      await handleUpdateStatus("Proposal Sent"); 
+
       setTimeout(() => setEmailStatus(null), 3000);
     } catch (err) {
       console.error(err);
       setEmailStatus("error");
     } finally {
       setIsSending(false);
-    }
-  };
-
-  // 4. Handle Booking Status Change
-  const handleUpdateStatus = async (newStatus) => {
-    setBookingData((prev) => ({
-      ...prev,
-      status: newStatus,
-    }));
-
-    if (newStatus === "Cancelled" || newStatus === "Rejected") {
-      setActiveDetailTab("Event Info");
-    }
-
-    try {
-      if (details.id) {
-        await updateBookingStatus(details.id, newStatus);
-      }
-    } catch (error) {
-      console.error("Failed to update status on server:", error);
-      alert("Failed to save status. Please check your connection.");
     }
   };
 
@@ -170,14 +186,26 @@ const BookingDetails = ({
     }, 1500);
   };
 
-  // UPDATED: Now includes "Client Responded" to unlock the Proposal tab
-  const isBookingConfirmed =
-    details.status === "Confirmed" || 
-    details.status === "Paid" ||
-    details.status === "Client Responded";
-
-  const isBookingRejected =
-    details.status === "Cancelled" || details.status === "Rejected";
+  // --- WORKFLOW LOGIC ---
+  // The Proposal tab is unlocked if the Admin has Accepted the inquiry,
+  // or if we are already in a later stage (Proposal Sent, Verifying, Reserved).
+  const allowedProposalStages = [
+    "Accepted", 
+    "Proposal Sent", 
+    "No Response", 
+    "Verifying", 
+    "Reserved", 
+    "Confirmed", 
+    "Paid"
+  ];
+  
+  // Clean string comparison to avoid case sensitivity issues
+  const currentStatusNormalized = details.status ? details.status.trim() : "";
+  
+  // Check if current status allows unlocking the proposal tab
+  const isProposalUnlocked = allowedProposalStages.some(stage => 
+    stage.toLowerCase() === currentStatusNormalized.toLowerCase()
+  );
 
   return (
     <div className={`flex-1 overflow-y-auto scroll-smooth no-scrollbar h-full flex flex-col ${theme.bg}`}>
@@ -204,7 +232,9 @@ const BookingDetails = ({
           </div>
         </div>
         <div className="flex gap-3 items-center">
+          {/* Status Badge in Header */}
           <StatusBadge status={details.status} />
+          
           <button className={`p-2 hover:text-[#C9A25D] transition-colors ${theme.subText}`}>
             <MoreHorizontal size={18} />
           </button>
@@ -213,7 +243,7 @@ const BookingDetails = ({
 
       {error && (
         <div className="bg-red-500/10 border-b border-red-500/20 p-2 text-center text-xs text-red-500">
-          Warning: {error}
+          {error}
         </div>
       )}
 
@@ -240,25 +270,24 @@ const BookingDetails = ({
           {/* TABS HEADER */}
           <div className={`flex items-center border-b ${theme.border} ${theme.cardBg} px-6`}>
             {detailTabs.map((tab) => {
-              const isDisabled =
-                !isBookingConfirmed &&
-                (tab === "Proposal"); 
+              // Lock 'Proposal' tab if not yet Accepted/Confirmed
+              const isLocked = tab === "Proposal" && !isProposalUnlocked;
 
               return (
                 <button
                   key={tab}
-                  onClick={() => !isDisabled && setActiveDetailTab(tab)}
-                  disabled={isDisabled}
+                  onClick={() => !isLocked && setActiveDetailTab(tab)}
+                  disabled={isLocked}
                   className={`px-6 py-4 text-xs uppercase tracking-[0.2em] border-b-2 transition-colors font-medium flex items-center gap-2 ${
                     activeDetailTab === tab
                       ? "border-[#C9A25D] text-[#C9A25D]"
-                      : isDisabled
+                      : isLocked
                       ? "border-transparent text-stone-300 dark:text-stone-700 cursor-not-allowed"
                       : `border-transparent ${theme.subText} hover:text-stone-600 dark:hover:text-stone-300`
                   }`}
                 >
                   {tab}
-                  {isDisabled && <Lock size={10} />}
+                  {isLocked && <Lock size={10} />}
                 </button>
               );
             })}
@@ -272,8 +301,9 @@ const BookingDetails = ({
                   <EventInfoTab
                     details={details}
                     theme={theme}
-                    isBookingConfirmed={isBookingConfirmed}
-                    isBookingRejected={isBookingRejected}
+                    // Pass specific flags for UI controls
+                    isBookingAccepted={details.status === 'Accepted'}
+                    isBookingRejected={details.status === 'Rejected'}
                     rejectionSent={rejectionSent}
                     rejectionReason={rejectionReason}
                     setRejectionReason={setRejectionReason}
