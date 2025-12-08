@@ -25,7 +25,10 @@ const normalizeData = (doc) => {
 };
 
 export const subscribeToPackages = (onUpdate, onError) => {
-  const q = query(collection(db, "packages"), orderBy("lastUpdated", "desc"));
+  // CHANGED: Sort by 'createdAt' descending so the newest items come first from the server
+  // Note: You might need to create an index in Firestore console if this query fails initially.
+  // Check your browser console for a link to create the index.
+  const q = query(collection(db, "packages"), orderBy("createdAt", "desc"));
 
   return onSnapshot(q, (snapshot) => {
     const items = snapshot.docs.map(normalizeData);
