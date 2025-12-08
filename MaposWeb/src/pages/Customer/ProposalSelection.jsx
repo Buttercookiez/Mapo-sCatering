@@ -1,4 +1,3 @@
-// src/pages/Proposal/ProposalSelection.jsx
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import {
@@ -61,12 +60,9 @@ const ProposalSelection = () => {
                 // Verify Token with Backend
                 const data = await verifyProposalToken(token);
                 
-                // Debugging
-                console.log("Proposal API Data:", data); 
-
                 setProposal(data);
                 
-                // Set status if available
+                // Set status if available from backend
                 if (data.currentStatus) {
                     setBookingStatus(data.currentStatus);
                 }
@@ -93,8 +89,7 @@ const ProposalSelection = () => {
         init();
     }, [token, searchParams]);
 
-    // --- LOGIC FLAGS (The Fix for Missing Payment Section) ---
-    // These arrays determine what UI to show based on the status string from backend
+    // --- LOGIC FLAGS ---
     const showPaymentForm = ["Pending", "Accepted", "Proposal Sent", "Sent", "Open"].includes(bookingStatus);
     const isVerifying = ["Verifying", "For Verification", "Payment Submitted"].includes(bookingStatus);
     const isReserved = ["Reserved", "Confirmed", "Paid", "Booked"].includes(bookingStatus);
@@ -123,22 +118,37 @@ const ProposalSelection = () => {
 
         setIsSubmitting(true);
         try {
+            // MERGE FEATURE: Calculate Totals to send to backend for accurate billing
+            const currentTotals = getTotals();
+
             const payload = {
                 token,
                 selectedPackage: proposal.options[selectedPkgIndex], 
-                selectedAddOns: customSelections,
+                
+                // Pass structured add-ons
+                selectedAddOns: customSelections.map(item => ({
+                    name: item.name,
+                    price: item.price,
+                    category: item.category,
+                    id: item.id
+                })),
+                
                 clientNotes: paymentForm.notes,
+                
                 paymentDetails: {
-                    amount: 5000, 
+                    amount: 5000, // Downpayment
+                    totalEventCost: currentTotals.grandTotal, // <--- KEPT FEATURE: Send Grand Total
                     accountName: paymentForm.accountName,
                     accountNumber: paymentForm.accountNumber,
                     refNumber: paymentForm.refNumber,
                     timestamp: new Date().toISOString()
                 }
             };
+
             await confirmProposalSelection(payload);
             setBookingStatus("Verifying"); 
         } catch (err) {
+            console.error(err);
             alert("Submission failed. Please try again.");
         } finally {
             setIsSubmitting(false);

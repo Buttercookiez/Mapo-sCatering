@@ -12,7 +12,10 @@ const {
     verifyProposal,    
     confirmSelection  ,
     getAllPayments,
-    verifyPayment
+    verifyPayment,
+    rejectBooking,
+    markFullPayment,
+    sendPaymentReminder
 } = require("../controllers/inquiryController");
 
 // ==============================================
@@ -22,6 +25,7 @@ const {
 // This MUST be before /:refId so "packages" isn't treated as an ID
 router.get("/packages", getPackagesByEventType); 
 router.post("/send-proposal", sendProposalEmail);
+router.post("/reject", rejectBooking)
 
 // 🚨 ADD THE PROPOSAL ROUTES HERE 🚨
 // This handles the link verification when the client clicks the email link
@@ -44,6 +48,9 @@ router.get("/", getBooking);
 router.patch("/:refId", updateInquiryStatus);
 router.get("/:refId", getInquiryDetails);
 router.patch("/payments/:paymentId/verify", verifyPayment);
+
+router.post("/mark-full-payment", markFullPayment);
+router.post('/send-payment-reminder', sendPaymentReminder);
 
 
 module.exports = router;

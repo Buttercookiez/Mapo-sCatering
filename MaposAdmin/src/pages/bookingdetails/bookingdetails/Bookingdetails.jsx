@@ -1,28 +1,31 @@
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, MoreHorizontal, Lock, Loader2 } from "lucide-react";
 
-// API (Only write functions needed now)
+// --- API SERVICES ---
 import {
   sendProposalEmail,
   updateBookingStatus,
+  rejectBooking
 } from "../../../api/bookingService";
 
-// NEW: Import the Hook
+// --- HOOKS ---
 import { useBookingDetails } from "../../../hooks/useBookingDetails";
 
-// Helper Components
+// --- COMPONENTS ---
 import FadeIn from "./components/FadeIn";
 import StatusBadge from "./components/StatusBadge"; 
 import BookingSidebar from "./components/BookingSidebar";
 
-// Tab Components
+// --- TABS ---
 import EventInfoTab from "./components/EventInfoTab";
 import ProposalTab from "./components/ProposalTab";
+import AdditionalsTab from "./components/AdditionalsTab"; // <--- 1. IMPORT NEW TAB
 
-const detailTabs = ["Event Info", "Proposal"];
+// --- 2. UPDATE TABS LIST ---
+const detailTabs = ["Event Info", "Proposal", "Additionals"];
 
 const BookingDetails = ({
-  booking: initialBooking, // Renamed to initialBooking
+  booking: initialBooking,
   onBack,
   onUpdateBooking, 
   activeDetailTab,
@@ -30,46 +33,34 @@ const BookingDetails = ({
   theme,
   darkMode,
 }) => {
-  // --- 1. USE REALTIME HOOK ---
-  // We use the ID passed from the list to subscribe to the doc
   const { booking: realtimeBooking, loading: isSyncing, error } = useBookingDetails(initialBooking?.id);
-
-  // --- 2. MERGE DATA ---
-  // Prefer realtime data, fallback to initial prop, or empty object
   const details = realtimeBooking || initialBooking || {};
   
-  // Local UI States
   const [proposalTotal, setProposalTotal] = useState(0);
   const [isSending, setIsSending] = useState(false);
   const [emailStatus, setEmailStatus] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [rejectionSent, setRejectionSent] = useState(false);
 
-  // Proposal Calculation Effect
   useEffect(() => {
     if (details) {
-      // Check both nested (realtime) and flat (initial) structures
       const grandTotal = details.billing?.totalCost || details.budget || 0;
       setProposalTotal(grandTotal);
     }
   }, [details]);
 
   // --- HANDLERS ---
-
   const handleUpdateStatus = async (newStatus) => {
-    // Note: We don't strictly need to set local state because the Hook 
-    // will update 'details' automatically when the DB changes.
-    // But we can do it for instant UI feedback.
-    
     if (newStatus === "Cancelled" || newStatus === "Rejected") {
       setActiveDetailTab("Event Info");
     }
-
+    if (newStatus === "Pending" && details.status === "Rejected") {
+        setRejectionSent(false);
+        setRejectionReason("");
+    }
     try {
-      // CHANGE THIS LINE: Use details.refId instead of details.id
       if (details.refId) {
         await updateBookingStatus(details.refId, newStatus);
-        
         if (onUpdateBooking) {
           onUpdateBooking({ ...details, status: newStatus });
         }
@@ -85,12 +76,9 @@ const BookingDetails = ({
       alert("No email address found for this client.");
       return;
     }
-
     setIsSending(true);
     setEmailStatus(null);
-
     const { options } = payloadData;
-    
     const payload = {
       refId: details.refId,
       clientName: details.client,
@@ -102,14 +90,10 @@ const BookingDetails = ({
         venue: details.venue,
       },
     };
-
     try {
       await sendProposalEmail(payload);
       setEmailStatus("success");
-      
-      // Update status to "Proposal Sent"
       await handleUpdateStatus("Proposal Sent"); 
-
       setTimeout(() => setEmailStatus(null), 3000);
     } catch (err) {
       console.error(err);
@@ -119,16 +103,32 @@ const BookingDetails = ({
     }
   };
 
-  const handleSendRejection = () => {
+  const handleSendRejection = async () => {
+    if (!rejectionReason.trim()) {
+      alert("Please enter a reason for rejection.");
+      return;
+    }
     setIsSending(true);
-    setTimeout(() => {
-      setIsSending(false);
-      setRejectionSent(true);
-      handleUpdateStatus("Rejected");
-    }, 1500);
+    try {
+        await rejectBooking({
+            refId: details.refId,
+            clientEmail: details.email,
+            clientName: details.client,
+            reason: rejectionReason
+        });
+        setRejectionSent(true);
+        if (onUpdateBooking) {
+           onUpdateBooking({ ...details, status: "Rejected" });
+        }
+    } catch (error) {
+        console.error("Rejection failed:", error);
+        alert("Failed to send rejection email.");
+    } finally {
+        setIsSending(false);
+    }
   };
 
-  // --- WORKFLOW LOGIC ---
+  // --- WORKFLOW HELPERS ---
   const allowedProposalStages = [
     "Accepted", 
     "Proposal Sent", 
@@ -140,15 +140,20 @@ const BookingDetails = ({
   ];
   
   const currentStatusNormalized = details.status ? details.status.trim() : "";
-  
   const isProposalUnlocked = allowedProposalStages.some(stage => 
+    stage.toLowerCase() === currentStatusNormalized.toLowerCase()
+  );
+
+  // --- 3. LOGIC FOR ADDITIONALS TAB LOCK ---
+  // Only unlock Additionals if they have reached the "Verifying" stage or later (meaning they submitted choices)
+  const allowedAdditionalsStages = ["Verifying", "Reserved", "Confirmed", "Paid"];
+  const isAdditionalsUnlocked = allowedAdditionalsStages.some(stage => 
     stage.toLowerCase() === currentStatusNormalized.toLowerCase()
   );
 
   return (
     <div className={`flex-1 overflow-y-auto scroll-smooth no-scrollbar h-full flex flex-col ${theme.bg}`}>
       
-      {/* Top Bar */}
       <div className={`h-16 flex items-center justify-between px-6 md:px-8 border-b ${theme.border} ${theme.cardBg} sticky top-0 z-20`}>
         <div className="flex items-center gap-4">
           <button
@@ -183,29 +188,28 @@ const BookingDetails = ({
         </div>
       )}
 
-      {/* Content Layout */}
       <div className="flex flex-col lg:flex-row flex-1 overflow-hidden relative">
         
-        {/* --- SYNCING OVERLAY (Shows briefly when data updates) --- */}
         {isSyncing && (
            <div className={`absolute top-0 right-0 p-4 z-50`}>
                <Loader2 size={16} className="animate-spin text-[#C9A25D]" />
            </div>
         )}
 
-        {/* LEFT: Static Info Card (Sidebar) */}
         <BookingSidebar
           details={details}
           theme={theme}
           handleUpdateStatus={handleUpdateStatus}
         />
 
-        {/* RIGHT: Tabs Workspace */}
         <div className={`flex-1 flex flex-col ${theme.bg}`}>
-          {/* TABS HEADER */}
+          
           <div className={`flex items-center border-b ${theme.border} ${theme.cardBg} px-6`}>
             {detailTabs.map((tab) => {
-              const isLocked = tab === "Proposal" && !isProposalUnlocked;
+              // --- 4. DETERMINE LOCK STATE PER TAB ---
+              let isLocked = false;
+              if (tab === "Proposal") isLocked = !isProposalUnlocked;
+              if (tab === "Additionals") isLocked = !isAdditionalsUnlocked;
 
               return (
                 <button
@@ -228,16 +232,16 @@ const BookingDetails = ({
           </div>
 
           <div className="flex-1 overflow-y-auto p-8 lg:p-12 no-scrollbar">
-            {/* EVENT INFO */}
+            
             {activeDetailTab === "Event Info" && (
                 <FadeIn>
                   <EventInfoTab
                     details={details}
                     theme={theme}
                     isBookingAccepted={details.status === 'Accepted'}
-                    isBookingRejected={details.status === 'Rejected'}
-                    rejectionSent={rejectionSent}
-                    rejectionReason={rejectionReason}
+                    isBookingRejected={details.status === 'Rejected' || rejectionSent}
+                    rejectionSent={rejectionSent || (details.status === 'Rejected' && !!details.rejectionReason)}
+                    rejectionReason={rejectionReason || details.rejectionReason || ""}
                     setRejectionReason={setRejectionReason}
                     handleUpdateStatus={handleUpdateStatus}
                     handleSendRejection={handleSendRejection}
@@ -246,7 +250,6 @@ const BookingDetails = ({
                 </FadeIn>
             )}
 
-            {/* PROPOSAL */}
             {activeDetailTab === "Proposal" && (
                 <FadeIn>
                   <ProposalTab
@@ -256,6 +259,16 @@ const BookingDetails = ({
                     handleSendProposal={handleSendProposal}
                     isSending={isSending}
                     emailStatus={emailStatus}
+                  />
+                </FadeIn>
+            )}
+
+            {/* --- 5. RENDER ADDITIONALS TAB --- */}
+            {activeDetailTab === "Additionals" && (
+                <FadeIn>
+                  <AdditionalsTab
+                    details={details}
+                    theme={theme}
                   />
                 </FadeIn>
             )}

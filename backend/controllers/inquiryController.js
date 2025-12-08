@@ -2,6 +2,8 @@
 const crypto = require('crypto'); // Built-in Node library
 const db = require("../firestore/firebase").db;
 const nodemailer = require("nodemailer");
+const cron = require('node-cron'); // Import node-cron
+const { differenceInDays, parseISO, subDays, format } = require('date-fns'); 
 
 // --- CONFIG: Email Transporter ---
 const transporter = nodemailer.createTransport({
@@ -514,7 +516,13 @@ const verifyProposal = async (req, res) => {
 // --- 8. CONFIRM SELECTION (UPDATED) ---
 const confirmSelection = async (req, res) => {
     try {
-        const { token, selectedPackage, paymentDetails, clientNotes } = req.body;
+        const { 
+            token, 
+            selectedPackage, 
+            selectedAddOns, // <--- Receive Add-ons
+            paymentDetails, 
+            clientNotes 
+        } = req.body;
 
         const snapshot = await db.collection("proposals").where("token", "==", token).limit(1).get();
         if (snapshot.empty) return res.status(404).json({ message: "Invalid token" });
@@ -523,23 +531,48 @@ const confirmSelection = async (req, res) => {
         const refId = proposalDoc.data().refId;
         const batch = db.batch();
 
-        // Update Booking
+        // 1. Get the Booking Document
         const bookingSnap = await db.collection("bookings").where("bookingId", "==", refId).limit(1).get();
+        
         if (!bookingSnap.empty) {
             const bookingDoc = bookingSnap.docs[0];
             const currentData = bookingDoc.data();
+            
+            // Format Notes: Append new client notes to existing notes without overwriting
             let updatedNotes = currentData.notes || "";
-            if (clientNotes) updatedNotes += `\n\n[Client Request]: ${clientNotes}`;
+            if (clientNotes) {
+                const timeStamp = new Date().toLocaleDateString();
+                updatedNotes += `\n\n[Client Note - ${timeStamp}]: ${clientNotes}`;
+            }
 
+            // Calculate New Total Cost (Package Price + Add-ons)
+            // Ensure inputs are numbers
+            const pkgPrice = Number(selectedPackage.pricePerHead) * Number(currentData.eventDetails.pax || 0);
+            const addOnsTotal = Array.isArray(selectedAddOns) 
+                ? selectedAddOns.reduce((sum, item) => sum + (Number(item.price) || 0), 0)
+                : 0;
+            const newTotalCost = pkgPrice + addOnsTotal;
+
+            // UPDATE THE BOOKING DOCUMENT
             batch.update(bookingDoc.ref, {
-                "eventDetails.package": selectedPackage.name,
                 "bookingStatus": "Verifying", 
                 "notes": updatedNotes,
+                
+                // Update Package Name
+                "eventDetails.package": selectedPackage.name,
+                
+                // --- SAVE ADD-ONS HERE ---
+                "eventDetails.addOns": selectedAddOns || [], 
+
+                // Update Billing
+                "billing.totalCost": newTotalCost,
+                "billing.remainingBalance": newTotalCost - (currentData.billing.amountPaid || 0), // Adjust logic if they just paid
+
                 updatedAt: new Date().toISOString()
             });
         }
 
-        // Create Payment
+        // 2. Create Payment Record
         const newPaymentRef = db.collection("payments").doc(); 
         batch.set(newPaymentRef, {
             paymentId: newPaymentRef.id,
@@ -551,15 +584,22 @@ const confirmSelection = async (req, res) => {
             accountNumber: paymentDetails?.accountNumber,
             referenceNumber: paymentDetails?.refNumber,
             status: "Pending",
-            notes: clientNotes || "",
+            notes: clientNotes || "", // Save notes in payment record too for easy reference
             submittedAt: new Date().toISOString()
+        });
+
+        // 3. Mark Proposal as Accepted (Optional but good for tracking)
+        batch.update(proposalDoc.ref, {
+            status: "Accepted",
+            selectedPackageName: selectedPackage.name,
+            acceptedAt: new Date().toISOString()
         });
 
         await batch.commit();
         res.status(200).json({ success: true, message: "Submitted for verification." });
 
     } catch (error) {
-        console.error(error);
+        console.error("Confirm Selection Error:", error);
         res.status(500).json({ message: "Failed to confirm." });
     }
 };
@@ -664,6 +704,269 @@ const sendConfirmationEmail = async (clientEmail, clientName, refId, eventDate) 
     });
 };
 
+// --- 11. REJECT BOOKING & SEND EMAIL ---
+const rejectBooking = async (req, res) => {
+    const { refId, reason, clientEmail, clientName } = req.body;
+
+    try {
+        // 1. Find the booking document
+        const snapshot = await db.collection("bookings")
+            .where("bookingId", "==", refId)
+            .limit(1)
+            .get();
+
+        if (snapshot.empty) {
+            return res.status(404).json({ success: false, message: "Booking not found" });
+        }
+
+        const docId = snapshot.docs[0].id;
+
+        // 2. Update Firestore Status
+        await db.collection("bookings").doc(docId).update({
+            bookingStatus: "Rejected",
+            rejectionReason: reason, // Store the reason for records
+            updatedAt: new Date().toISOString()
+        });
+
+        // 3. Send Rejection Email
+        const htmlContent = `
+            <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; border: 1px solid #e0e0e0;">
+                <div style="background-color: #ef4444; padding: 20px; text-align: center; color: white;">
+                    <h2 style="margin:0;">Booking Status Update</h2>
+                </div>
+                <div style="padding: 30px;">
+                    <p>Dear <strong>${clientName}</strong>,</p>
+                    <p>Thank you for your interest in Mapos Catering.</p>
+                    <p>We have reviewed your inquiry (Ref: <strong>${refId}</strong>) for the requested date.</p>
+                    
+                    <p>We regret to inform you that we are unable to accommodate your booking at this time.</p>
+                    
+                    <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #ef4444; margin: 20px 0;">
+                        <strong>Reason:</strong><br/>
+                        ${reason}
+                    </div>
+
+                    <p>We apologize for any inconvenience this may cause and hope to have the opportunity to serve you in the future.</p>
+                    <br/>
+                    <p>Sincerely,</p>
+                    <p><strong>The Mapos Catering Team</strong></p>
+                </div>
+            </div>
+        `;
+
+        await transporter.sendMail({
+            from: `"Mapos Catering" <${process.env.EMAIL_USER}>`,
+            to: clientEmail,
+            subject: `Update Regarding Your Inquiry - ${refId}`,
+            html: htmlContent
+        });
+
+        res.status(200).json({ success: true, message: "Booking rejected and email sent." });
+
+    } catch (error) {
+        console.error("Rejection Error:", error);
+        res.status(500).json({ success: false, message: "Failed to process rejection." });
+    }
+};
+
+// --- NEW: MARK FULL PAYMENT ---
+const markFullPayment = async (req, res) => {
+    try {
+        const { refId } = req.body;
+
+        const snapshot = await db.collection("bookings")
+            .where("bookingId", "==", refId)
+            .limit(1)
+            .get();
+
+        if (snapshot.empty) {
+            return res.status(404).json({ success: false, message: "Booking not found" });
+        }
+
+        const doc = snapshot.docs[0];
+
+        // Update Database
+        await db.collection("bookings").doc(doc.id).update({
+            // 1. Set the specific Full Payment flag
+            "billing.fullPaymentStatus": "Paid",
+            
+            // 2. Clear the remaining balance
+            "billing.remainingBalance": 0,
+            
+            // 3. Ensure paymentStatus remains "Paid" (to keep reservation valid)
+            "billing.paymentStatus": "Paid",
+
+            updatedAt: new Date().toISOString()
+        });
+
+        res.status(200).json({ success: true, message: "Full payment recorded." });
+
+    } catch (error) {
+        console.error("Full Payment Error:", error);
+        res.status(500).json({ success: false, message: "Failed to update payment." });
+    }
+};
+const getConfirmedEvents = async (req, res) => {
+    try {
+        // Fetch bookings where status is "Reserved" (which happens after Payment Verification)
+        const snapshot = await db.collection("bookings")
+            .where("bookingStatus", "==", "Reserved") 
+            .get();
+
+        const events = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: data.bookingId,
+                // Combine date string to a usable format
+                date: data.eventDetails?.date, 
+                title: `${data.profile?.name} - ${data.eventDetails?.eventType}`, // e.g., "John Doe - Wedding"
+                type: data.eventDetails?.eventType || "Social",
+                time: data.eventDetails?.startTime || "TBD",
+                guests: data.eventDetails?.pax || 0,
+                location: data.eventDetails?.venue || "TBD"
+            };
+        });
+
+        res.status(200).json(events);
+
+    } catch (error) {
+        console.error("Error fetching calendar events:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch events" });
+    }
+};
+
+// --- SEND PAYMENT REMINDER (Manual Trigger) ---
+const sendPaymentReminder = async (req, res) => {
+    try {
+        const { refId } = req.body;
+
+        const snapshot = await db.collection("bookings").where("bookingId", "==", refId).limit(1).get();
+        if (snapshot.empty) return res.status(404).json({ message: "Booking not found" });
+
+        const data = snapshot.docs[0].data();
+        
+        // Calculate Balance
+        const total = data.billing?.totalCost || 0;
+        const paid = data.billing?.amountPaid || 0; // Likely 5000 reservation fee
+        const balance = total - paid;
+        
+        // Calculate Deadline (5 Days before event)
+        const eventDate = new Date(data.eventDetails.date);
+        const deadlineDate = subDays(eventDate, 5); 
+        const formattedDeadline = format(deadlineDate, 'MMMM dd, yyyy');
+
+        // Email Content
+        const htmlContent = `
+            <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; border: 1px solid #ddd; max-width: 600px;">
+                <h2 style="color: #C9A25D;">Payment Reminder</h2>
+                <p>Dear <strong>${data.profile.name}</strong>,</p>
+                <p>This is a friendly reminder regarding your upcoming event on <strong>${data.eventDetails.date}</strong>.</p>
+                
+                <div style="background-color: #f9f9f9; padding: 15px; margin: 20px 0; border-left: 4px solid #C9A25D;">
+                    <p style="margin: 0;"><strong>Remaining Balance:</strong> ₱${balance.toLocaleString()}</p>
+                    <p style="margin: 10px 0 0;"><strong>Payment Deadline:</strong> ${formattedDeadline}</p>
+                </div>
+
+                <p style="color: #ef4444; font-size: 12px; font-style: italic;">
+                    <strong>Important:</strong> As per our policy, full payment must be settled 5 days before the event (${formattedDeadline}). 
+                    Failure to settle may result in automatic cancellation of your booking.
+                </p>
+
+                <p>Please contact us immediately if you have already sent payment.</p>
+            </div>
+        `;
+
+        await transporter.sendMail({
+            from: `"Mapos Catering" <${process.env.EMAIL_USER}>`,
+            to: data.profile.email,
+            subject: `Payment Reminder: Due ${formattedDeadline}`,
+            html: htmlContent
+        });
+
+        res.status(200).json({ success: true, message: "Reminder sent successfully." });
+
+    } catch (error) {
+        console.error("Reminder Error:", error);
+        res.status(500).json({ success: false, message: "Failed to send reminder." });
+    }
+};
+
+// --- AUTOMATED CRON JOB: CHECK OVERDUE PAYMENTS ---
+// This function doesn't take req/res, it runs internally
+const checkOverdueBookings = async () => {
+    console.log("Running Auto-Cancellation Check...");
+    try {
+        const today = new Date();
+        
+        // Get all bookings that are Reserved but NOT Fully Paid
+        // Note: You might need to adjust query based on your exact status strings
+        const snapshot = await db.collection("bookings")
+            .where("bookingStatus", "in", ["Reserved", "Confirmed"]) 
+            .get();
+
+        const batch = db.batch();
+        let cancelCount = 0;
+
+        for (const doc of snapshot.docs) {
+            const data = doc.data();
+            
+            // Skip if already fully paid
+            if (data.billing?.fullPaymentStatus === "Paid") continue;
+
+            const eventDate = new Date(data.eventDetails.date);
+            const daysUntilEvent = differenceInDays(eventDate, today);
+
+            // LOGIC: If less than 5 days left AND not paid
+            if (daysUntilEvent < 5 && daysUntilEvent >= 0) {
+                console.log(`Cancelling Booking ${data.bookingId} (Event in ${daysUntilEvent} days)`);
+                
+                // 1. Update DB to Cancelled
+                batch.update(doc.ref, {
+                    bookingStatus: "Cancelled",
+                    cancellationReason: "System Auto-Cancel: Payment not settled 5 days before event.",
+                    updatedAt: new Date().toISOString()
+                });
+
+                // 2. Send Cancellation Email
+                const htmlContent = `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+                        <h2 style="color: #ef4444;">Booking Cancelled</h2>
+                        <p>Dear ${data.profile.name},</p>
+                        <p>We regret to inform you that your booking (Ref: <strong>${data.bookingId}</strong>) has been automatically cancelled.</p>
+                        <p><strong>Reason:</strong> Failure to settle remaining balance 5 days prior to the event date.</p>
+                        <p>If you believe this is an error, please contact us immediately.</p>
+                    </div>
+                `;
+
+                // We don't await email inside loop to prevent blocking, just fire it
+                transporter.sendMail({
+                    from: `"Mapos Catering" <${process.env.EMAIL_USER}>`,
+                    to: data.profile.email,
+                    subject: `Booking Cancelled - ${data.bookingId}`,
+                    html: htmlContent
+                }).catch(e => console.error("Email fail", e));
+
+                cancelCount++;
+            }
+        }
+
+        if (cancelCount > 0) {
+            await batch.commit();
+            console.log(`Auto-cancelled ${cancelCount} bookings.`);
+        } else {
+            console.log("No bookings require cancellation.");
+        }
+
+    } catch (error) {
+        console.error("Cron Job Error:", error);
+    }
+};
+
+// --- INITIALIZE CRON JOB ---
+// Schedule to run every day at 12:00 AM (Midnight)
+cron.schedule('0 0 * * *', () => {
+    checkOverdueBookings();
+});
 
 module.exports = {
     createInquiry,
@@ -676,5 +979,9 @@ module.exports = {
     confirmSelection,
     getAllPayments,
     verifyPayment,
-    sendConfirmationEmail
+    sendConfirmationEmail,
+    rejectBooking,
+    markFullPayment,
+    sendPaymentReminder,
+    checkOverdueBookings 
 };

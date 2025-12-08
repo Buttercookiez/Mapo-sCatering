@@ -122,77 +122,193 @@ const ItemModal = ({ isOpen, onClose, onSave, theme, categories, initialData }) 
   );
 };
 
-// --- MODAL: STOCK MOVEMENT ---
+// --- UPDATED MODAL: STOCK MOVEMENT (Fixed UI) ---
 const StockMovementModal = ({ isOpen, onClose, onSave, item, theme }) => {
-  const [action, setAction] = useState('checkout');
+  const [action, setAction] = useState('checkout'); // 'checkout' or 'return'
   const [amount, setAmount] = useState('');
   const [lostAmount, setLostAmount] = useState('');
   const [error, setError] = useState('');
 
-  useEffect(() => { setAmount(''); setLostAmount(''); setError(''); setAction('checkout'); }, [isOpen, item]);
+  useEffect(() => { 
+    setAmount(''); 
+    setLostAmount(''); 
+    setError(''); 
+    setAction('checkout'); 
+  }, [isOpen, item]);
 
   if (!isOpen || !item) return null;
 
+  // Stock Calculations
   const total = item.stock?.quantityTotal || 0;
   const inUse = item.stock?.quantityInUse || 0;
   const available = total - inUse;
+
+  // Helper to set max amount
+  const handleSetMax = () => {
+    setAmount(action === 'checkout' ? available.toString() : inUse.toString());
+    setError('');
+  };
 
   const handleSubmit = () => {
     const val = parseInt(amount) || 0;
     const lostVal = parseInt(lostAmount) || 0;
 
-    if (val <= 0 && lostVal <= 0) { setError("Please enter a valid quantity."); return; }
+    if (val <= 0 && lostVal <= 0) { 
+      setError("Please enter a quantity greater than 0."); 
+      return; 
+    }
 
     if (action === 'checkout') {
-      if (val > available) { setError(`Only ${available} available.`); return; }
+      if (val > available) { 
+        setError(`Only ${available} items are available.`); 
+        return; 
+      }
       onSave(item.id, 'checkout', val, 0);
     } else {
       const totalReturning = val + lostVal;
-      if (totalReturning > inUse) { setError(`Only ${inUse} are currently out.`); return; }
+      if (totalReturning > inUse) { 
+        setError(`Only ${inUse} are currently out.`); 
+        return; 
+      }
       onSave(item.id, 'return', val, lostVal);
     }
     onClose();
   };
 
+  // UI Colors
+  const accentColor = action === 'checkout' ? 'text-[#C9A25D]' : 'text-emerald-500';
+  const borderColor = action === 'checkout' ? 'focus:border-[#C9A25D]' : 'focus:border-emerald-500';
+  const btnBg = action === 'checkout' ? 'bg-[#C9A25D] hover:bg-[#b08d4d]' : 'bg-emerald-600 hover:bg-emerald-700';
+
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className="absolute inset-0" onClick={onClose}></div>
-      <div className={`w-full max-w-md ${theme.cardBg} rounded-sm shadow-2xl border ${theme.border} relative z-50 animate-in fade-in zoom-in duration-200`}>
-        <div className={`p-6 border-b ${theme.border} flex justify-between items-center`}>
-          <div><h3 className={`font-serif text-2xl ${theme.text}`}>Stock Movement</h3><p className={`text-xs ${theme.subText} mt-1`}>{item.name}</p></div>
-          <button onClick={onClose}><X size={18} className="text-stone-500 hover:text-stone-800 dark:hover:text-stone-200"/></button>
+
+      {/* Main Modal Card */}
+      <div className={`w-full max-w-md ${theme.cardBg} rounded-xl shadow-2xl border ${theme.border} relative z-50 animate-in fade-in zoom-in duration-200 flex flex-col overflow-hidden`}>
+        
+        {/* Header */}
+        <div className="p-6 pb-2 text-center">
+          <h3 className={`font-serif text-2xl ${theme.text}`}>Manage Stock</h3>
+          <p className={`text-sm ${theme.subText} mt-1 font-medium`}>{item.name}</p>
         </div>
-        <div className="p-6 space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div className={`p-3 border ${theme.border} bg-stone-50 dark:bg-stone-900/50 text-center rounded-sm`}>
-              <span className="text-[10px] uppercase tracking-widest text-stone-400">Available</span><p className={`text-xl font-medium ${theme.text} mt-1`}>{available}</p>
+
+        <div className="px-6 py-4 space-y-8">
+          
+          {/* 1. Toggle Switch */}
+          <div className={`flex p-1 rounded-lg border ${theme.border} ${theme.bg}`}>
+            <button 
+              onClick={() => setAction('checkout')}
+              className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${action === 'checkout' ? 'bg-[#C9A25D] text-white shadow-md' : 'text-stone-500 hover:text-stone-300'}`}
+            >
+              Release
+            </button>
+            <button 
+              onClick={() => setAction('return')}
+              className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${action === 'return' ? 'bg-emerald-600 text-white shadow-md' : 'text-stone-500 hover:text-stone-300'}`}
+            >
+              Restock
+            </button>
+          </div>
+
+          {/* 2. Context Stats */}
+          <div className="flex justify-between text-sm px-2">
+            <div className="text-center w-1/2 border-r border-stone-800">
+              <span className="block text-[10px] uppercase tracking-widest text-stone-500">Available</span>
+              <span className={`block text-lg font-bold mt-1 ${theme.text}`}>{available}</span>
             </div>
-            <div className={`p-3 border ${theme.border} bg-[#C9A25D]/10 text-center rounded-sm`}>
-              <span className="text-[10px] uppercase tracking-widest text-[#C9A25D]">In Use</span><p className="text-xl font-medium text-[#C9A25D] mt-1">{inUse}</p>
+            <div className="text-center w-1/2">
+              <span className="block text-[10px] uppercase tracking-widest text-stone-500">In Use</span>
+              <span className={`block text-lg font-bold mt-1 ${action === 'return' ? 'text-white' : 'text-stone-500'}`}>{inUse}</span>
             </div>
           </div>
-          <div className={`flex p-1 border ${theme.border} rounded-sm`}>
-            <button onClick={() => setAction('checkout')} className={`flex-1 py-2 text-xs uppercase tracking-wider transition-colors ${action === 'checkout' ? 'bg-[#C9A25D] text-white' : 'text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800'}`}>Check Out</button>
-            <button onClick={() => setAction('return')} className={`flex-1 py-2 text-xs uppercase tracking-wider transition-colors ${action === 'return' ? 'bg-emerald-600 text-white' : 'text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800'}`}>Return</button>
-          </div>
+
+          {/* 3. Hero Input Section */}
           <div className="space-y-4">
-            <div className="space-y-2">
-              <label className={`text-[10px] uppercase tracking-widest ${theme.subText}`}>{action === 'checkout' ? 'Quantity to Deploy' : 'Returned (Good)'}</label>
-              <input type="number" value={amount} onChange={(e) => { setAmount(e.target.value); setError(''); }} className={`w-full bg-transparent border-b ${theme.border} py-2 text-lg ${theme.text} focus:outline-none focus:border-[#C9A25D]`} placeholder="0" autoFocus />
+            
+            {/* CSS to hide ugly browser spinners */}
+            <style>
+              {`
+                input[type=number]::-webkit-inner-spin-button, 
+                input[type=number]::-webkit-outer-spin-button { 
+                  -webkit-appearance: none; 
+                  margin: 0; 
+                }
+                input[type=number] {
+                  -moz-appearance: textfield;
+                }
+              `}
+            </style>
+
+            <div className="relative group">
+              <label className={`block text-center text-[10px] uppercase tracking-widest mb-2 ${accentColor}`}>
+                {action === 'checkout' ? 'Quantity to Release' : 'Quantity Returning'}
+              </label>
+              
+              <div className="relative w-3/4 mx-auto flex items-center justify-center">
+                <input 
+                  type="number" 
+                  value={amount} 
+                  onChange={(e) => { setAmount(e.target.value); setError(''); }} 
+                  className={`w-full bg-transparent border-b-2 border-stone-700 ${borderColor} py-2 text-center text-4xl font-bold ${theme.text} focus:outline-none transition-colors placeholder-stone-700`} 
+                  placeholder="0" 
+                  autoFocus 
+                />
+                
+                {/* Fixed "MAX" Button - Vertically Centered & Spinner Free */}
+                <button 
+                  onClick={handleSetMax}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 text-[9px] uppercase font-extrabold text-stone-500 hover:text-white bg-stone-800 hover:bg-stone-700 px-2 py-1 rounded-sm transition-all shadow-sm"
+                  title="Select All Available"
+                >
+                  MAX
+                </button>
+              </div>
             </div>
+
+            {/* Lost/Damaged Input (Only for Returns) */}
             {action === 'return' && (
-              <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                <label className="text-[10px] uppercase tracking-widest text-red-400 flex items-center gap-2"><AlertTriangle size={12}/> Damaged / Lost</label>
-                <input type="number" value={lostAmount} onChange={(e) => { setLostAmount(e.target.value); setError(''); }} className="w-full bg-red-500/5 border-b border-red-500/30 py-2 text-lg text-red-500 placeholder-red-500/30 focus:outline-none focus:border-red-500" placeholder="0" />
+              <div className="pt-2 animate-in fade-in slide-in-from-top-2">
+                <div className="w-3/4 mx-auto flex items-center justify-center gap-4">
+                  <label className="text-[10px] uppercase tracking-widest text-red-400 whitespace-nowrap">Lost / Damaged:</label>
+                  <input 
+                    type="number" 
+                    value={lostAmount} 
+                    onChange={(e) => { setLostAmount(e.target.value); setError(''); }} 
+                    className="w-16 bg-transparent border-b border-red-900 focus:border-red-500 py-1 text-center text-lg font-bold text-red-500 focus:outline-none placeholder-red-900/50" 
+                    placeholder="0" 
+                  />
+                </div>
               </div>
             )}
-            {error && <p className="text-xs text-red-400 mt-2 flex items-center gap-1"><AlertTriangle size={12}/> {error}</p>}
+
+            {/* Error Message */}
+            {error && (
+              <div className="text-center">
+                <span className="inline-flex items-center gap-1.5 text-xs text-red-400 bg-red-900/20 px-3 py-1.5 rounded-full border border-red-900/50">
+                  <AlertTriangle size={12} /> {error}
+                </span>
+              </div>
+            )}
           </div>
         </div>
-        <div className={`p-6 pt-0 flex justify-end gap-3`}>
-           <button onClick={onClose} className={`px-4 py-2 text-xs uppercase ${theme.subText} hover:underline`}>Cancel</button>
-           <button onClick={handleSubmit} className={`px-6 py-2 text-xs uppercase text-white transition-colors ${action === 'checkout' ? 'bg-[#C9A25D]' : 'bg-emerald-600'}`}>Confirm</button>
+
+        {/* Footer Actions */}
+        <div className={`p-6 border-t ${theme.border} flex justify-between items-center gap-4`}>
+           <button 
+             onClick={onClose} 
+             className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider rounded-md border ${theme.border} ${theme.text} hover:bg-stone-800 transition-colors`}
+           >
+             Cancel
+           </button>
+           <button 
+             onClick={handleSubmit} 
+             className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider rounded-md text-white shadow-lg transition-transform active:scale-95 ${btnBg}`}
+           >
+             Confirm
+           </button>
         </div>
+
       </div>
     </div>
   );
@@ -276,13 +392,10 @@ const Inventory = () => {
         .font-serif { font-family: 'Cormorant Garamond', serif; }
         .font-sans { font-family: 'Inter', sans-serif; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        
-        /* Custom Scrollbar */
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #57534e; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #C9A25D; }
-        /* Firefox fallback */
         .custom-scrollbar { scrollbar-width: thin; scrollbar-color: #57534e transparent; }
       `}</style>
 
@@ -291,10 +404,9 @@ const Inventory = () => {
       <main className="flex-1 flex flex-col relative overflow-hidden">
         <DashboardNavbar activeTab="Inventory Management" theme={theme} darkMode={darkMode} setDarkMode={setDarkMode} searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
 
-        {/* 1. FIXED PARENT CONTAINER: h-full, flex-col, overflow-hidden */}
         <div className="flex-1 flex flex-col p-6 md:p-12 pb-12 overflow-hidden gap-8">
           
-          {/* 2. STATS ROW (Fixed Height) */}
+          {/* STATS ROW */}
           <div className="flex-none">
             <FadeIn>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -316,65 +428,34 @@ const Inventory = () => {
             </FadeIn>
           </div>
 
-          {/* 3. TABLES CONTAINER (Fills Remaining Height) */}
+          {/* TABLES CONTAINER */}
           <div className="flex-1 min-h-0">
             <FadeIn delay={300} className="h-full">
-              {/* GRID LAYOUT: 70% ASSETS / 30% LOGS */}
               <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 h-full">
                 
-                {/* --- LEFT: ASSETS TABLE (70%) --- */}
+                {/* ASSETS TABLE */}
                 <div className={`lg:col-span-7 flex flex-col border ${theme.border} ${theme.cardBg} shadow-sm rounded-sm overflow-hidden h-full`}>
-                  
-                  {/* Fixed Header */}
                   <div className="flex-none p-6 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center">
-                      <div>
-                          <h3 className="font-serif text-2xl italic">Asset Overview</h3>
-                          <p className={`text-xs ${theme.subText} mt-1`}>Manage equipment & supplies.</p>
-                      </div>
-                      
+                      <div><h3 className="font-serif text-2xl italic">Asset Overview</h3><p className={`text-xs ${theme.subText} mt-1`}>Manage equipment & supplies.</p></div>
                       <div className="flex gap-2 relative">
-                          {/* FILTER DROPDOWN */}
                           <div className="relative" ref={dropdownRef}>
-                              <button 
-                                  onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
-                                  className={`flex items-center gap-2 px-4 py-2.5 border ${theme.border} text-[10px] uppercase tracking-widest hover:text-[#C9A25D] hover:border-[#C9A25D] transition-all bg-transparent ${theme.subText}`}
-                              >
-                                  <Filter size={14} /> 
-                                  {categoryFilter === "All" ? "Filter" : categoryFilter}
-                              </button>
+                              <button onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)} className={`flex items-center gap-2 px-4 py-2.5 border ${theme.border} text-[10px] uppercase tracking-widest hover:text-[#C9A25D] hover:border-[#C9A25D] transition-all bg-transparent ${theme.subText}`}><Filter size={14} /> {categoryFilter === "All" ? "Filter" : categoryFilter}</button>
                               {isFilterDropdownOpen && (
                                   <div className={`absolute top-full right-0 mt-2 w-48 ${theme.cardBg} border ${theme.border} shadow-xl z-20 py-2 rounded-sm`}>
                                       <div className="px-4 py-2 border-b border-stone-100 dark:border-stone-800 text-[10px] uppercase tracking-widest text-stone-400 font-bold">Category</div>
-                                      {categories.map((cat) => (
-                                          <button 
-                                              key={cat}
-                                              onClick={() => { setCategoryFilter(cat); setIsFilterDropdownOpen(false); }}
-                                              className={`w-full text-left px-4 py-2 text-xs hover:bg-[#C9A25D] hover:text-white flex justify-between items-center ${categoryFilter === cat ? 'text-[#C9A25D] font-bold' : theme.text}`}
-                                          >
-                                              {cat}
-                                              {categoryFilter === cat && <Check size={12} />}
-                                          </button>
-                                      ))}
+                                      {categories.map((cat) => (<button key={cat} onClick={() => { setCategoryFilter(cat); setIsFilterDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-xs hover:bg-[#C9A25D] hover:text-white flex justify-between items-center ${categoryFilter === cat ? 'text-[#C9A25D] font-bold' : theme.text}`}>{cat}{categoryFilter === cat && <Check size={12} />}</button>))}
                                   </div>
                               )}
                           </div>
-
-                          {/* ADD BUTTON */}
-                          <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-[#1c1c1c] text-white px-4 py-2.5 text-[10px] uppercase tracking-widest hover:bg-[#C9A25D] transition-colors shadow-md">
-                              <Plus size={14} /> Add Item
-                          </button>
+                          <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-[#1c1c1c] text-white px-4 py-2.5 text-[10px] uppercase tracking-widest hover:bg-[#C9A25D] transition-colors shadow-md"><Plus size={14} /> Add Item</button>
                       </div>
                   </div>
-
-                  {/* Fixed Column Header */}
                   <div className={`flex-none grid grid-cols-12 gap-4 px-6 py-4 border-b ${theme.border} ${darkMode ? 'bg-[#1c1c1c] text-stone-400' : 'bg-stone-50 text-stone-600'} text-[10px] uppercase tracking-[0.2em] font-semibold sticky top-0`}>
                       <div className="col-span-4">Item Name</div>
                       <div className="col-span-3 hidden md:block">Category</div>
                       <div className="col-span-3">Stock</div>
                       <div className="col-span-2 text-right">Actions</div>
                   </div>
-
-                  {/* Scrollable Table Body */}
                   <div className={`flex-1 overflow-y-auto custom-scrollbar divide-y divide-stone-100 dark:divide-stone-800`}>
                       {loading ? ( <div className="h-full flex flex-col items-center justify-center text-stone-400"><Loader2 size={32} className="animate-spin mb-4 text-[#C9A25D]" /><p className="text-xs uppercase">Loading Assets...</p></div> ) 
                       : filteredItems.length === 0 ? ( <div className="h-full flex flex-col items-center justify-center text-center"><Package size={40} className="mx-auto text-stone-300 mb-4" /><p className="text-stone-400 italic">No items found.</p></div> ) 
@@ -385,22 +466,13 @@ const Inventory = () => {
                           const qtyAvailable = qtyTotal - qtyInUse;
                           const threshold = stock.threshold || 0;
                           const inUsePct = qtyTotal > 0 ? (qtyInUse / qtyTotal) * 100 : 0;
-
                           return (
                           <div key={item.id} className={`grid grid-cols-12 gap-4 px-6 py-4 items-center group ${theme.hoverBg} transition-colors`}>
-                              <div className="col-span-4">
-                                  <span className={`font-serif text-base block leading-tight ${theme.text}`}>{item.name}</span>
-                                  <span className="text-[10px] text-stone-400 font-mono">{item.sku}</span>
-                              </div>
+                              <div className="col-span-4"><span className={`font-serif text-base block leading-tight ${theme.text}`}>{item.name}</span><span className="text-[10px] text-stone-400 font-mono">{item.sku}</span></div>
                               <div className="col-span-3 hidden md:block"><span className={`text-[9px] uppercase px-2 py-1 border rounded-sm ${theme.border} text-stone-500`}>{item.category}</span></div>
                               <div className="col-span-3">
-                                  <div className="flex justify-between text-[10px] mb-1">
-                                      <span className={qtyAvailable <= threshold ? 'text-red-400 font-bold' : theme.text}>{qtyAvailable} Avail</span>
-                                      <span className="text-[#C9A25D]">{qtyInUse} Out</span>
-                                  </div>
-                                  <div className={`w-full h-1 ${darkMode ? 'bg-stone-800' : 'bg-stone-200'} rounded-full overflow-hidden flex`}>
-                                      <div className="h-full bg-[#C9A25D] transition-all duration-1000" style={{ width: `${inUsePct}%` }}></div>
-                                  </div>
+                                  <div className="flex justify-between text-[10px] mb-1"><span className={qtyAvailable <= threshold ? 'text-red-400 font-bold' : theme.text}>{qtyAvailable} Avail</span><span className="text-[#C9A25D]">{qtyInUse} Out</span></div>
+                                  <div className={`w-full h-1 ${darkMode ? 'bg-stone-800' : 'bg-stone-200'} rounded-full overflow-hidden flex`}><div className="h-full bg-[#C9A25D] transition-all duration-1000" style={{ width: `${inUsePct}%` }}></div></div>
                               </div>
                               <div className="col-span-2 flex justify-end items-center gap-1">
                                   <button onClick={() => handleOpenStock(item)} className={`p-1.5 rounded-sm hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors ${theme.subText}`} title="Move Stock"><ArrowRightLeft size={14} /></button>
@@ -413,52 +485,19 @@ const Inventory = () => {
                   </div>
                 </div>
 
-                {/* --- RIGHT: LOGS SIDEBAR (30%) --- */}
+                {/* LOGS SIDEBAR */}
                 <div className={`lg:col-span-3 flex flex-col border ${theme.border} ${theme.cardBg} shadow-sm rounded-sm overflow-hidden h-full`}>
-                   <div className="flex-none p-6 border-b border-stone-100 dark:border-stone-800">
-                      <h3 className="font-serif text-xl italic flex items-center gap-2"><History size={18} className="text-[#C9A25D]" /> Activity Log</h3>
-                   </div>
-                   
+                   <div className="flex-none p-6 border-b border-stone-100 dark:border-stone-800"><h3 className="font-serif text-xl italic flex items-center gap-2"><History size={18} className="text-[#C9A25D]" /> Activity Log</h3></div>
                    <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                      {safeLogs.length === 0 ? (
-                          <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
-                              <History size={32} className="mb-2" />
-                              <p className="text-xs">No recent activity</p>
-                          </div>
-                      ) : (
+                      {safeLogs.length === 0 ? ( <div className="h-full flex flex-col items-center justify-center text-center opacity-50"><History size={32} className="mb-2" /><p className="text-xs">No recent activity</p></div> ) : (
                           <div className="space-y-0 relative">
-                              {/* Vertical Line */}
                               <div className={`absolute left-[13px] top-4 bottom-4 w-px ${darkMode ? 'bg-stone-800' : 'bg-stone-200'}`}></div>
-
                               {safeLogs.map((log, i) => (
                                   <div key={log.id || i} className="pl-8 pb-6 relative group">
-                                      {/* Timeline Dot */}
-                                      <div className={`absolute left-[10px] top-1.5 w-[7px] h-[7px] rounded-full z-10 
-                                          ${log.action === 'checkout' ? 'bg-[#C9A25D]' : 'bg-emerald-500'}`}>
-                                      </div>
-
-                                      <div className="flex justify-between items-start mb-1">
-                                          <span className={`text-[10px] uppercase font-bold tracking-wider ${log.action === 'checkout' ? 'text-[#C9A25D]' : 'text-emerald-500'}`}>
-                                              {log.action === 'checkout' ? 'Checked Out' : 'Returned'}
-                                          </span>
-                                          <div className="flex items-center gap-1 opacity-50 text-[9px]">
-                                              <Clock size={10} />
-                                              {log.date ? new Date(log.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}
-                                          </div>
-                                      </div>
-                                      
+                                      <div className={`absolute left-[10px] top-1.5 w-[7px] h-[7px] rounded-full z-10 ${log.action === 'checkout' ? 'bg-[#C9A25D]' : 'bg-emerald-500'}`}></div>
+                                      <div className="flex justify-between items-start mb-1"><span className={`text-[10px] uppercase font-bold tracking-wider ${log.action === 'checkout' ? 'text-[#C9A25D]' : 'text-emerald-500'}`}>{log.action === 'checkout' ? 'Checked Out' : 'Returned'}</span><div className="flex items-center gap-1 opacity-50 text-[9px]"><Clock size={10} />{log.date ? new Date(log.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</div></div>
                                       <p className={`text-xs font-medium ${theme.text} mb-1 line-clamp-1`}>{log.itemName}</p>
-                                      
-                                      <div className="flex items-center gap-3 text-[10px]">
-                                          <span className={`${theme.subText} font-mono`}>
-                                              Qty: <span className={theme.text}>{log.quantityMoved}</span>
-                                          </span>
-                                          {log.quantityLost > 0 && (
-                                              <span className="text-red-400 font-bold flex items-center gap-1">
-                                                  <AlertTriangle size={10} /> -{log.quantityLost} Lost
-                                              </span>
-                                          )}
-                                      </div>
+                                      <div className="flex items-center gap-3 text-[10px]"><span className={`${theme.subText} font-mono`}>Qty: <span className={theme.text}>{log.quantityMoved}</span></span>{log.quantityLost > 0 && (<span className="text-red-400 font-bold flex items-center gap-1"><AlertTriangle size={10} /> -{log.quantityLost} Lost</span>)}</div>
                                   </div>
                               ))}
                           </div>

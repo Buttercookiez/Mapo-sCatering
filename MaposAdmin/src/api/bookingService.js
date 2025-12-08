@@ -46,3 +46,30 @@ export const getPackagesByEvent = async (eventType) => {
     return []; // Return empty array on error
   }
 };
+
+export const rejectBooking = async (payload) => {
+  // payload: { refId, clientEmail, clientName, reason }
+  const response = await api.post("/inquiries/reject", payload);
+  return response.data;
+};
+
+export const markBookingAsFullyPaid = async (refId) => {
+  try {
+    // Adjust the URL if your routes are different (e.g. /inquiries/mark-full-payment)
+    const response = await api.post("/inquiries/mark-full-payment", { refId });
+    return response.data;
+  } catch (error) {
+    console.error("Error marking full payment:", error);
+    throw error;
+  }
+};
+
+export const sendPaymentReminder = async (refId) => {
+  try {
+    const response = await api.post("/inquiries/send-payment-reminder", { refId });
+    return response.data;
+  } catch (error) {
+    console.error("Error sending reminder:", error);
+    throw error;
+  }
+};
