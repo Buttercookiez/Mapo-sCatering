@@ -12,7 +12,7 @@ export const subscribeToBookings = (onUpdate, onError) => {
     collection(db, "bookings"), 
     orderBy("createdAt", "desc") 
   );
-
+  
   return onSnapshot(q, (snapshot) => {
     const bookings = snapshot.docs.map((doc) => {
       const data = doc.data();

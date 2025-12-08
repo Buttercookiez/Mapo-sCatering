@@ -74,3 +74,4 @@ export const subscribeToBookingDetails = (id, onUpdate, onError) => {
 
   return unsubscribe;
 };
+
