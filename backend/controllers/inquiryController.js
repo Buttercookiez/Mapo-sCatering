@@ -767,6 +767,7 @@ const rejectBooking = async (req, res) => {
     }
 };
 
+<<<<<<< HEAD
 // --- NEW: MARK FULL PAYMENT ---
 const markFullPayment = async (req, res) => {
     try {
@@ -804,6 +805,37 @@ const markFullPayment = async (req, res) => {
         res.status(500).json({ success: false, message: "Failed to update payment." });
     }
 };
+=======
+const getConfirmedEvents = async (req, res) => {
+    try {
+        // Fetch bookings where status is "Reserved" (which happens after Payment Verification)
+        const snapshot = await db.collection("bookings")
+            .where("bookingStatus", "==", "Reserved") 
+            .get();
+
+        const events = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: data.bookingId,
+                // Combine date string to a usable format
+                date: data.eventDetails?.date, 
+                title: `${data.profile?.name} - ${data.eventDetails?.eventType}`, // e.g., "John Doe - Wedding"
+                type: data.eventDetails?.eventType || "Social",
+                time: data.eventDetails?.startTime || "TBD",
+                guests: data.eventDetails?.pax || 0,
+                location: data.eventDetails?.venue || "TBD"
+            };
+        });
+
+        res.status(200).json(events);
+
+    } catch (error) {
+        console.error("Error fetching calendar events:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch events" });
+    }
+};
+
+>>>>>>> 9e59b011ac468e3dfc160bbbc5dc07a58baf9358
 
 module.exports = {
     createInquiry,
