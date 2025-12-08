@@ -767,7 +767,6 @@ const rejectBooking = async (req, res) => {
     }
 };
 
-<<<<<<< HEAD
 // --- NEW: MARK FULL PAYMENT ---
 const markFullPayment = async (req, res) => {
     try {
@@ -805,7 +804,6 @@ const markFullPayment = async (req, res) => {
         res.status(500).json({ success: false, message: "Failed to update payment." });
     }
 };
-=======
 const getConfirmedEvents = async (req, res) => {
     try {
         // Fetch bookings where status is "Reserved" (which happens after Payment Verification)
@@ -835,7 +833,6 @@ const getConfirmedEvents = async (req, res) => {
     }
 };
 
->>>>>>> 9e59b011ac468e3dfc160bbbc5dc07a58baf9358
 
 module.exports = {
     createInquiry,
