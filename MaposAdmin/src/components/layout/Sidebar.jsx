@@ -1,3 +1,4 @@
+// src/components/layout/Sidebar.jsx
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom'; 
 import { 
@@ -82,8 +83,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, theme }) => {
             <div className="space-y-1">
               {group.items.map((item) => {
                 const active = isActive(item.path);
-                // Check if label is long (like Transaction Records) to adjust styling
-                const isLongLabel = item.label.length > 18; 
 
                 return (
                   <button
@@ -99,14 +98,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, theme }) => {
                     <item.icon strokeWidth={1.5} size={20} className={active ? 'text-[#C9A25D] flex-shrink-0' : 'text-stone-400 group-hover:text-[#C9A25D] flex-shrink-0'} />
                     
                     {sidebarOpen && (
-                      <span className={`
-                        uppercase font-medium whitespace-nowrap transition-all duration-200
-                        ${/* Logic: If active AND long text, shrink font size and tracking slightly */
-                          active && isLongLabel 
-                            ? 'text-[10px] tracking-wider' 
-                            : 'text-xs tracking-widest'
-                        }
-                      `}>
+                      <span className="uppercase font-medium whitespace-nowrap transition-all duration-200 text-xs tracking-widest truncate">
                         {item.label}
                       </span>
                     )}

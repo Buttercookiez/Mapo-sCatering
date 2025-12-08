@@ -2,15 +2,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { 
-  Filter, Download, CreditCard, Check, X, Search, Loader2 
+  Filter, Download, CreditCard, Check, X, Search, Loader2, AlertTriangle, CheckCircle, XCircle 
 } from 'lucide-react';
 
-// FIREBASE IMPORTS FOR REAL-TIME
+// FIREBASE IMPORTS
 import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
-import { db } from '../../config/firebase'; // Point this to your CLIENT-SIDE firebase config
+import { db } from '../../config/firebase'; 
 
 import Sidebar from '../../components/layout/Sidebar';
 import DashboardNavbar from '../../components/layout/Navbar';
+
+// --- UI COMPONENTS ---
 
 const FadeIn = ({ children, delay = 0 }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -33,16 +35,95 @@ const FadeIn = ({ children, delay = 0 }) => {
   );
 };
 
+// 1. CUSTOM MODAL COMPONENT
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, theme, isLoading }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all duration-300">
+      <div className={`w-full max-w-md p-6 rounded-sm border shadow-2xl transform scale-100 ${theme.cardBg} ${theme.border} ${theme.text}`}>
+        
+        <div className="flex items-start gap-4">
+          <div className="p-3 bg-[#C9A25D]/10 rounded-full">
+            <AlertTriangle className="text-[#C9A25D]" size={24} />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-serif font-medium mb-2">Confirm Verification</h3>
+            <p className={`text-sm ${theme.subText} mb-6 leading-relaxed`}>
+              Are you sure you want to verify this payment? This will mark the transaction as complete and send a confirmation email to the client.
+            </p>
+            
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={onClose}
+                disabled={isLoading}
+                className={`px-4 py-2 text-xs uppercase tracking-widest font-semibold border ${theme.border} hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors rounded-sm`}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={onConfirm}
+                disabled={isLoading}
+                className="px-4 py-2 bg-[#C9A25D] text-white text-xs uppercase tracking-widest font-semibold hover:bg-[#b08d4d] transition-colors rounded-sm flex items-center gap-2"
+              >
+                {isLoading && <Loader2 size={12} className="animate-spin" />}
+                {isLoading ? "Processing..." : "Confirm Verify"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 2. TOAST NOTIFICATION COMPONENT
+const ToastNotification = ({ show, message, type, onClose }) => {
+  useEffect(() => {
+    if (show) {
+      const timer = setTimeout(() => { onClose(); }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [show, onClose]);
+
+  if (!show) return null;
+
+  const isSuccess = type === 'success';
+  
+  return (
+    <div className={`fixed bottom-8 right-8 z-50 flex items-center gap-3 px-6 py-4 rounded-sm shadow-xl border animate-in slide-in-from-right duration-300 
+      ${isSuccess ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-200' 
+                  : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200'}`}>
+      {isSuccess ? <CheckCircle size={20} /> : <XCircle size={20} />}
+      <div>
+        <h4 className="font-semibold text-sm">{isSuccess ? "Success" : "Error"}</h4>
+        <p className="text-xs opacity-90">{message}</p>
+      </div>
+      <button onClick={onClose} className="ml-4 opacity-50 hover:opacity-100">
+        <X size={14} />
+      </button>
+    </div>
+  );
+};
+
+
+// --- MAIN PAGE COMPONENT ---
+
 const Transactions = () => {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState('All');
   
-  // Real-time State
+  // Real-time & Data State
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [processingId, setProcessingId] = useState(null); // To show loading on specific button
+  
+  // UI Action State
+  const [processingId, setProcessingId] = useState(null); 
+  
+  // Modal & Toast State
+  const [modalState, setModalState] = useState({ isOpen: false, targetId: null });
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   // Theme Management
   useEffect(() => {
@@ -61,7 +142,6 @@ const Transactions = () => {
 
   // --- 1. REAL-TIME LISTENER ---
   useEffect(() => {
-    // 1. Fetch Realtime Data
     const q = query(collection(db, "payments"), orderBy("submittedAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const liveData = snapshot.docs.map(doc => {
@@ -83,20 +163,34 @@ const Transactions = () => {
   }, []);
 
 
-  // --- 2. ACTION HANDLER (Calls Backend) ---
-  const handleVerify = async (id, e) => {
+  // --- 2. ACTION HANDLERS ---
+  
+  // Step A: Trigger the Modal
+  const requestVerification = (id, e) => {
     e.stopPropagation();
-    if(window.confirm("Verify payment and send confirmation email to client?")) {
-        setProcessingId(id);
-        try {
-            // Updated Endpoint
-            await axios.patch(`http://localhost:5000/api/inquiries/payments/${id}/verify`);
-        } catch (error) {
-            console.error(error);
-            alert("Failed to verify.");
-        } finally {
-            setProcessingId(null);
-        }
+    setModalState({ isOpen: true, targetId: id });
+  };
+
+  // Step B: Execute Logic (Called by Modal)
+  const confirmVerification = async () => {
+    const id = modalState.targetId;
+    if(!id) return;
+
+    setProcessingId(id); // Show loader on button (optional, since modal covers it)
+    
+    try {
+        await axios.patch(`http://localhost:5000/api/inquiries/payments/${id}/verify`);
+        
+        // Success Toast
+        setToast({ show: true, message: 'Payment verified and email sent successfully.', type: 'success' });
+        
+    } catch (error) {
+        console.error(error);
+        // Error Toast
+        setToast({ show: true, message: 'Failed to verify payment. Please try again.', type: 'error' });
+    } finally {
+        setProcessingId(null);
+        setModalState({ isOpen: false, targetId: null });
     }
   };
 
@@ -125,7 +219,7 @@ const Transactions = () => {
           <FadeIn>
             <div className={`border ${theme.border} ${theme.cardBg} rounded-sm min-h-[400px] overflow-x-auto`}>
               
-              {/* TABLE HEADER - Removed Status & Amount */}
+              {/* TABLE HEADER */}
               <div className={`grid grid-cols-12 gap-4 px-6 py-4 min-w-[800px] border-y ${theme.border} ${darkMode ? 'bg-[#1c1c1c] text-stone-400' : 'bg-stone-100 text-stone-600'} text-[10px] uppercase tracking-[0.15em] font-semibold`}>
                 <div className="col-span-3">Email</div>
                 <div className="col-span-3">Account Name</div>
@@ -153,13 +247,13 @@ const Transactions = () => {
                         <span className="text-[9px] text-stone-400">{trx.date}</span>
                       </div>
 
-                      {/* ACTION COLUMN - Verify Button Only */}
+                      {/* ACTION COLUMN */}
                       <div className="col-span-1 flex justify-center">
                         {processingId === trx.id ? (
                             <Loader2 size={16} className="animate-spin text-[#C9A25D]" />
                         ) : trx.status === 'Pending' ? (
                           <button 
-                            onClick={(e) => handleVerify(trx.id, e)}
+                            onClick={(e) => requestVerification(trx.id, e)}
                             className="flex items-center gap-2 px-3 py-1.5 bg-[#C9A25D] text-white hover:bg-[#b08d4d] transition-colors rounded-sm shadow-sm"
                           >
                             <span className="text-[9px] uppercase tracking-widest font-semibold">Verify</span>
@@ -180,6 +274,23 @@ const Transactions = () => {
             </div>
           </FadeIn>
         </div>
+
+        {/* --- MODAL & TOAST RENDER --- */}
+        <ConfirmationModal 
+          isOpen={modalState.isOpen} 
+          theme={theme}
+          onClose={() => setModalState({ ...modalState, isOpen: false })}
+          onConfirm={confirmVerification}
+          isLoading={processingId !== null}
+        />
+
+        <ToastNotification 
+          show={toast.show}
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ ...toast, show: false })}
+        />
+
       </main>
     </div>
   );
