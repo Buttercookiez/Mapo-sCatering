@@ -2,12 +2,14 @@ import React, { useState, useEffect } from "react";
 import Sidebar from "../../components/layout/Sidebar";
 import DashboardNavbar from "../../components/layout/Navbar";
 import BookingList from "./BookingList";
-import api from "../../api/api";
 import NewBookingModal from "./NewBookingModal";
 import BookingDetails from "./bookingdetails/Bookingdetails";
 
-// --- MAIN PAGE COMPONENT ---
+// --- IMPORT THE HOOK ---
+import { useBookings } from "../../hooks/useBooking";
+
 const Bookings = () => {
+  // --- STATE ---
   const [darkMode, setDarkMode] = useState(
     () => localStorage.getItem("theme") === "dark"
   );
@@ -17,7 +19,6 @@ const Bookings = () => {
   });
 
   const [currentView, setCurrentView] = useState("list");
-
   const [activeDetailTab, setActiveDetailTab] = useState(
     () => localStorage.getItem("bookingActiveTab") || "Event Info"
   );
@@ -26,38 +27,12 @@ const Bookings = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
 
-  const [bookings, setBookings] = useState([]);
+  // --- USE THE HOOK (Replaces manual API useEffect) ---
+  const { bookings, isLoading, addBooking } = useBookings();
+
+  // --- HANDLERS ---
   
-  // --- FIX: ADD THIS LINE ---
-  const [isLoading, setIsLoading] = useState(true); 
-
-  // --- FIX: UPDATE THIS USE EFFECT ---
-  useEffect(() => {
-    setIsLoading(true); // Start loading
-    api
-      .get("/inquiries")
-      .then((res) => {
-        setBookings(res.data);
-      })
-      .catch((err) => {
-        console.error("Error fetching bookings:", err);
-      })
-      .finally(() => {
-        setIsLoading(false); // Stop loading regardless of success/error
-      });
-  }, []);
-
-  // Safety Check
-  useEffect(() => {
-    if (currentView === "details" && !selectedBooking) {
-      setCurrentView("list");
-    }
-  }, [currentView, selectedBooking]);
-
-  const handleSaveBooking = (newBooking) => {
-    setBookings((prev) => [newBooking, ...prev]);
-  };
-
+  // Update theme
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add("dark");
@@ -68,9 +43,24 @@ const Bookings = () => {
     }
   }, [darkMode]);
 
+  // View safety check
   useEffect(() => {
-    localStorage.setItem("bookingActiveTab", activeDetailTab);
-  }, [activeDetailTab]);
+    if (currentView === "details" && !selectedBooking) {
+      setCurrentView("list");
+    }
+  }, [currentView, selectedBooking]);
+
+  const handleSaveBooking = async (newBookingData) => {
+    // Call the API wrapper from our hook
+    const result = await addBooking(newBookingData);
+    if (result.success) {
+      // No need to manually update state; the onSnapshot listener 
+      // in useBookings will see the new DB entry and update 'bookings' automatically.
+      setIsNewBookingOpen(false);
+    } else {
+      alert("Failed to create booking. Please try again.");
+    }
+  };
 
   const theme = {
     bg: darkMode ? "bg-[#0c0c0c]" : "bg-[#FAFAFA]",
@@ -83,9 +73,7 @@ const Bookings = () => {
   };
 
   return (
-    <div
-      className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text} selection:bg-[#C9A25D] selection:text-white`}
-    >
+    <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text} selection:bg-[#C9A25D] selection:text-white`}>
       <style>
         {`
           @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap');
@@ -113,8 +101,8 @@ const Bookings = () => {
 
         {currentView === "list" || !selectedBooking ? (
           <BookingList
-            bookings={bookings}
-            isLoading={isLoading} // Now this variable exists!
+            bookings={bookings} // <--- REAL-TIME DATA
+            isLoading={isLoading} 
             onSelectBooking={(booking) => {
               setSelectedBooking(booking);
               setCurrentView("details");
