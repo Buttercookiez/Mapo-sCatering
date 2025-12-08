@@ -229,7 +229,7 @@ const sendProposalEmail = async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // Expires in 7 days
-    
+
     // Base URL for the selection page
     const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
     const baseSelectionLink = `${FRONTEND_URL}/proposal-selection/${token}`;
@@ -427,135 +427,227 @@ const getPackagesByEventType = async (req, res) => {
     }
 };
 
-// --- 7. VERIFY PROPOSAL TOKEN ---
+
+//  7. VERIFY PROPOSAL TOKEN 
 const verifyProposal = async (req, res) => {
     try {
         const { token } = req.params;
 
-        // 1. Get Proposal
-        const proposalSnap = await db.collection("proposals")
-            .where("token", "==", token)
-            .limit(1)
-            .get();
-
-        if (proposalSnap.empty) {
-            return res.status(404).json({ success: false, message: "Invalid proposal link." });
-        }
+        // 1. Get Proposal Data
+        const proposalSnap = await db.collection("proposals").where("token", "==", token).limit(1).get();
+        if (proposalSnap.empty) return res.status(404).json({ success: false, message: "Invalid link." });
 
         const proposalData = proposalSnap.docs[0].data();
 
-        if (new Date(proposalData.expiresAt) < new Date()) {
-            return res.status(410).json({ success: false, message: "This link has expired." });
-        }
-
-        // 2. Get Linked Booking Data (For Add-ons, Pax, and Payment Status)
-        const bookingSnap = await db.collection("bookings")
-            .where("bookingId", "==", proposalData.refId)
-            .limit(1)
-            .get();
-
-        let bookingDetails = {};
+        // 2. Get Booking Data
+        const bookingSnap = await db.collection("bookings").where("bookingId", "==", proposalData.refId).limit(1).get();
+        
+        let bookingDetails = {
+            pax: 0,
+            venue: "TBD",
+            startTime: "-",
+            endTime: "-",
+            eventType: "TBD",
+            serviceStyle: "TBD",
+            bookingStatus: "Pending"
+        };
+        
         if (!bookingSnap.empty) {
             const bData = bookingSnap.docs[0].data();
             bookingDetails = {
                 pax: bData.eventDetails?.pax || 0,
                 venue: bData.eventDetails?.venue || "TBD",
-                startTime: bData.eventDetails?.startTime,
-                endTime: bData.eventDetails?.endTime,
-                addOns: bData.eventDetails?.addOns || [],
-                amountPaid: bData.billing?.amountPaid || 0,
-                paymentStatus: bData.billing?.paymentStatus || "Unpaid"
+                startTime: bData.eventDetails?.startTime || "-",
+                endTime: bData.eventDetails?.endTime || "-",
+                eventType: bData.eventDetails?.eventType || "TBD",
+                serviceStyle: bData.eventDetails?.serviceStyle || "TBD",
+                bookingStatus: bData.bookingStatus || "Pending"
             };
         }
 
+        // 3. Send combined data
         res.json({
             success: true,
+            // Proposal Data
             clientName: proposalData.clientName,
+            clientEmail: proposalData.clientEmail, 
             eventDate: proposalData.eventDate,
             options: proposalData.options,
             refId: proposalData.refId,
-            status: proposalData.status,
-            selectedPackage: proposalData.selectedPackage, 
-            ...bookingDetails 
+            selectedPackage: proposalData.selectedPackage,
+            
+            // Booking Details (These are required for the invoice)
+            pax: bookingDetails.pax,
+            venue: bookingDetails.venue,
+            startTime: bookingDetails.startTime,
+            endTime: bookingDetails.endTime,
+            eventType: bookingDetails.eventType,
+            serviceStyle: bookingDetails.serviceStyle,
+            
+            // Status
+            currentStatus: bookingDetails.bookingStatus 
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("Verify Proposal Error:", error);
         res.status(500).json({ success: false, message: "Server Error" });
     }
 };
 
-// --- 8. CONFIRM SELECTION (CLIENT SIDE) ---
+
+// --- 8. CONFIRM SELECTION (UPDATED) ---
 const confirmSelection = async (req, res) => {
     try {
-        // 1. Extract all new fields sent from Frontend
         const { token, selectedPackage, paymentDetails, clientNotes } = req.body;
 
-        // 2. Verify Token
         const snapshot = await db.collection("proposals").where("token", "==", token).limit(1).get();
         if (snapshot.empty) return res.status(404).json({ message: "Invalid token" });
 
         const proposalDoc = snapshot.docs[0];
-        const proposalData = proposalDoc.data();
-        const refId = proposalData.refId; 
-
+        const refId = proposalDoc.data().refId;
         const batch = db.batch();
 
-        // A. UPDATE PROPOSAL DOC
-        batch.update(proposalDoc.ref, {
-            status: "Payment Submitted", 
-            selectedPackage: selectedPackage,
-            confirmedAt: new Date().toISOString()
-        });
-
-        // B. UPDATE MAIN BOOKING DOC
-        const bookingSnap = await db.collection("bookings")
-            .where("bookingId", "==", refId)
-            .limit(1)
-            .get();
-
+        // Update Booking
+        const bookingSnap = await db.collection("bookings").where("bookingId", "==", refId).limit(1).get();
         if (!bookingSnap.empty) {
             const bookingDoc = bookingSnap.docs[0];
             const currentData = bookingDoc.data();
-            
             let updatedNotes = currentData.notes || "";
-            if (clientNotes) {
-                updatedNotes += `\n\n[Client Request - ${new Date().toLocaleDateString()}]: ${clientNotes}`;
-            }
+            if (clientNotes) updatedNotes += `\n\n[Client Request]: ${clientNotes}`;
 
             batch.update(bookingDoc.ref, {
-                "eventDetails.package": selectedPackage.name, 
-                "billing.paymentStatus": "For Verification",  
-                "bookingStatus": "For Verification",          
-                "notes": updatedNotes,                        
+                "eventDetails.package": selectedPackage.name,
+                "bookingStatus": "Verifying", 
+                "notes": updatedNotes,
                 updatedAt: new Date().toISOString()
             });
         }
 
-        // C. CREATE PAYMENT RECORD
-        const newPaymentRef = db.collection("payments").doc();
-        
+        // Create Payment
+        const newPaymentRef = db.collection("payments").doc(); 
         batch.set(newPaymentRef, {
+            paymentId: newPaymentRef.id,
             bookingId: refId,
-            clientName: proposalData.clientName,
-            amount: paymentDetails?.amount || 5000,
-            accountName: paymentDetails?.accountName || "N/A",
-            accountNumber: paymentDetails?.accountNumber || "N/A",
-            referenceNumber: paymentDetails?.refNumber || "N/A",
+            clientName: proposalDoc.data().clientName,
+            clientEmail: proposalDoc.data().clientEmail,
+            amount: 5000, 
+            accountName: paymentDetails?.accountName,
+            accountNumber: paymentDetails?.accountNumber,
+            referenceNumber: paymentDetails?.refNumber,
+            status: "Pending",
             notes: clientNotes || "",
-            status: "Pending Verification",
             submittedAt: new Date().toISOString()
         });
 
         await batch.commit();
-
-        res.status(200).json({ success: true, message: "Package confirmed and sent for verification!" });
+        res.status(200).json({ success: true, message: "Submitted for verification." });
 
     } catch (error) {
-        console.error("Error confirming selection:", error);
-        res.status(500).json({ message: "Failed to confirm selection." });
+        console.error(error);
+        res.status(500).json({ message: "Failed to confirm." });
     }
 };
+
+// --- 9. GET ALL PAYMENTS (For Admin Transaction.jsx) ---
+const getAllPayments = async (req, res) => {
+    try {
+        const snapshot = await db.collection("payments")
+            .orderBy("submittedAt", "desc")
+            .get();
+
+        const payments = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                bookingId: data.bookingId,
+                clientName: data.clientName,
+                email: data.clientEmail || "", // Fallback
+                accountName: data.accountName,
+                accountNumber: data.accountNumber,
+                refNumber: data.referenceNumber,
+                amount: data.amount,
+                date: data.submittedAt, // Formatted in frontend
+                status: data.status // 'Pending', 'Verified', 'Rejected'
+            };
+        });
+
+        res.status(200).json(payments);
+    } catch (error) {
+        console.error("Error fetching payments:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch transactions." });
+    }
+};
+
+// --- 10. VERIFY PAYMENT (Sends Email) ---
+const verifyPayment = async (req, res) => {
+    try {
+        const { paymentId } = req.params;
+        
+        const paymentDocRef = db.collection("payments").doc(paymentId);
+        const paymentDoc = await paymentDocRef.get();
+        
+        if (!paymentDoc.exists) return res.status(404).json({ message: "Payment not found" });
+        
+        const payData = paymentDoc.data();
+
+        // 1. Update Payment
+        await paymentDocRef.update({ status: "Verified" });
+
+        // 2. Update Booking
+        const bookingSnap = await db.collection("bookings").where("bookingId", "==", payData.bookingId).limit(1).get();
+        
+        if (!bookingSnap.empty) {
+            const bookingDoc = bookingSnap.docs[0];
+            const bookingData = bookingDoc.data();
+            
+            // Calculate balance
+            // Note: In real app, you should recalculate based on pax * package + addOns
+            // Here we just mark as Paid/Reserved
+            
+            await bookingDoc.ref.update({
+                bookingStatus: "Reserved",
+                "billing.paymentStatus": "Paid"
+            });
+
+            // 3. Send Email
+            const eventDate = bookingData.eventDetails?.date || "TBD";
+            await sendConfirmationEmail(payData.clientEmail, payData.clientName, payData.bookingId, eventDate);
+        }
+
+        res.status(200).json({ success: true, message: "Verified & Email Sent" });
+
+    } catch (error) {
+        console.error("Verification Error:", error);
+        res.status(500).json({ success: false, message: "Update failed" });
+    }
+};
+
+// --- EMAIL HELPER ---
+const sendConfirmationEmail = async (clientEmail, clientName, refId, eventDate) => {
+    const htmlContent = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+            <div style="background-color: #1c1c1c; padding: 20px; text-align: center; color: #C9A25D;">
+                <h2 style="margin:0;">RESERVATION CONFIRMED</h2>
+            </div>
+            <div style="border: 1px solid #ddd; padding: 20px; background-color: #fff;">
+                <p>Dear <strong>${clientName}</strong>,</p>
+                <p>We have successfully received your reservation fee.</p>
+                <p>Your event on <strong>${eventDate}</strong> is now officially <strong>BOOKED</strong> and secured.</p>
+                <br/>
+                <p><strong>Reference ID:</strong> ${refId}</p>
+                <p>Thank you for choosing Mapos Catering.</p>
+            </div>
+        </div>
+    `;
+
+    await transporter.sendMail({
+        from: `"Mapos Catering" <${process.env.EMAIL_USER}>`,
+        to: clientEmail,
+        subject: `Booking Confirmed - ${refId}`,
+        html: htmlContent
+    });
+};
+
 
 module.exports = {
     createInquiry,
@@ -565,5 +657,8 @@ module.exports = {
     updateInquiryStatus,
     getPackagesByEventType,
     verifyProposal,
-    confirmSelection
+    confirmSelection,
+    getAllPayments,
+    verifyPayment,
+    sendConfirmationEmail
 };
