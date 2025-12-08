@@ -11,22 +11,16 @@ import {
   Eye,
   Filter,
   ChevronDown,
-  ChevronRight, // Required for the arrow
+  ChevronRight, 
   Check,
 } from "lucide-react";
 
-// --- CUSTOM IMPORTS ---
 import Sidebar from "../../components/layout/Sidebar";
 import DashboardNavbar from "../../components/layout/Navbar";
-
-// --- SERVICES & HOOKS ---
 import usePackages from "../../hooks/usePackage";
 import { packageService } from "../../services/packageService";
-
-// --- MODAL IMPORT ---
 import PackageFormModal from "./PackageFormModal";
 
-// --- CONFIG ---
 const EVENT_TYPES = ["Wedding", "Corporate Gala", "Private Dinner", "Birthday", "Other"];
 
 // --- ANIMATION COMPONENT ---
@@ -60,7 +54,6 @@ const FadeIn = ({ children, delay = 0 }) => {
   );
 };
 
-// --- MAIN COMPONENT ---
 const PackageEditor = () => {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("theme") === "dark");
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -71,7 +64,6 @@ const PackageEditor = () => {
   const { packages, loading, error } = usePackages();
 
   const [searchQuery, setSearchQuery] = useState("");
-  // Filter state can be: "All", "Wedding", "Wedding: Full Service", etc.
   const [activeFilter, setActiveFilter] = useState("All"); 
   const [activeCategory, setActiveCategory] = useState("All");
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
@@ -119,6 +111,7 @@ const PackageEditor = () => {
       const payload = {
         ...data,
         pricePerHead: Number(data.pricePerHead),
+        lastUpdated: new Date().toISOString() // Always update this
       };
 
       if (isEdit) {
@@ -128,7 +121,12 @@ const PackageEditor = () => {
         const sType = data.selectionLabel === "Service Only" ? "service" : "full";
         const newId = `${cleanEvent}-${sType}-${data.categoryId}-${data.selectionId}`;
 
-        await packageService.create({ ...payload, id: newId });
+        await packageService.create({ 
+            ...payload, 
+            id: newId,
+            // 1. ADD CREATED AT TIMESTAMP
+            createdAt: new Date().toISOString() 
+        });
       }
       setIsModalOpen(false);
     } catch (err) {
@@ -153,45 +151,43 @@ const PackageEditor = () => {
   const openEditModal = (pkg) => { setCurrentPackage(pkg); setModalMode("edit"); setIsModalOpen(true); };
   const openViewModal = (pkg) => { setCurrentPackage(pkg); setModalMode("view"); setIsModalOpen(true); };
 
-  // --- FILTER LOGIC (RESTORED SUB-FILTERING) ---
-  const filteredPackages = (packages || []).filter((pkg) => {
-    const pkgName = pkg.name || "";
-    const pkgId = pkg.id || "";
+  // --- FILTER & SORT LOGIC ---
+  const filteredPackages = (packages || [])
+    // 2. SORT BY DATE (Newest First)
+    // This ensures that even if Firestore returns mixed order, the UI fixes it.
+    .sort((a, b) => {
+        const dateA = new Date(a.createdAt || a.lastUpdated || 0);
+        const dateB = new Date(b.createdAt || b.lastUpdated || 0);
+        return dateB - dateA;
+    })
+    .filter((pkg) => {
+        const pkgName = pkg.name || "";
+        const pkgId = pkg.id || "";
 
-    // 1. Search
-    const matchesSearch =
-      pkgName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pkgId.includes(searchQuery.toLowerCase());
-    
-    // 2. Event Type & Service Type
-    let matchesType = true;
-    if (activeFilter !== "All") {
-        if (activeFilter.includes(":")) {
-            // Case A: User selected sub-option (e.g. "Wedding: Service Only")
-            const [type, subtype] = activeFilter.split(":").map(s => s.trim());
-            
-            // Check Main Event Type
-            const eventMatch = pkg.eventType === type;
-            
-            // Check Service Type (using selectionLabel field)
-            const serviceMatch = pkg.selectionLabel === subtype;
-            
-            matchesType = eventMatch && serviceMatch;
-        } else {
-            // Case B: User selected main event (e.g. "Wedding")
-            matchesType = pkg.eventType === activeFilter;
+        // Search
+        const matchesSearch =
+        pkgName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        pkgId.includes(searchQuery.toLowerCase());
+        
+        // Event Type
+        let matchesType = true;
+        if (activeFilter !== "All") {
+            if (activeFilter.includes(":")) {
+                const [type, subtype] = activeFilter.split(":").map(s => s.trim());
+                matchesType = (pkg.eventType === type) && (pkg.selectionLabel === subtype);
+            } else {
+                matchesType = pkg.eventType === activeFilter;
+            }
         }
-    }
 
-    // 3. Category
-    const matchesCategory = activeCategory === "All" || pkg.categoryId === activeCategory;
-    
-    return matchesSearch && matchesType && matchesCategory;
-  });
+        // Category
+        const matchesCategory = activeCategory === "All" || pkg.categoryId === activeCategory;
+        
+        return matchesSearch && matchesType && matchesCategory;
+    });
 
-  // Handle Sub-menu Selection
   const handleSubSelection = (type, subtype, e) => {
-    e.stopPropagation(); // Stop parent click
+    e.stopPropagation(); 
     setActiveFilter(`${type}: ${subtype}`);
     setIsFilterDropdownOpen(false);
   };
@@ -232,7 +228,7 @@ const PackageEditor = () => {
 
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
             
-            {/* EVENT FILTER (WITH HOVER SUB-MENUS) */}
+            {/* EVENT FILTER */}
             <div className="relative z-30" ref={dropdownRef}>
               <button
                 onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
@@ -240,7 +236,6 @@ const PackageEditor = () => {
               >
                 <span className="flex items-center gap-2">
                   <Filter size={14} className="text-[#C9A25D]" />
-                  {/* Display Clean Name */}
                   {activeFilter === "All" ? "All Events" : activeFilter.split(":")[0]}
                 </span>
                 <ChevronDown size={14} className={`transition-transform duration-300 ${isFilterDropdownOpen ? "rotate-180" : ""}`}/>
@@ -248,8 +243,6 @@ const PackageEditor = () => {
 
               {isFilterDropdownOpen && (
                 <div className={`absolute top-full left-0 mt-1 w-full min-w-[200px] ${theme.cardBg} border ${theme.border} shadow-xl rounded-sm py-2 animate-in fade-in slide-in-from-top-2 duration-200 z-50`}>
-                  
-                  {/* Option: ALL EVENTS */}
                   <button
                     onClick={() => { setActiveFilter("All"); setIsFilterDropdownOpen(false); }}
                     className={`w-full text-left px-4 py-2 text-xs uppercase tracking-widest hover:bg-[#C9A25D]/10 hover:text-[#C9A25D] transition-colors flex justify-between items-center ${activeFilter === "All" ? "text-[#C9A25D]" : theme.text}`}
@@ -257,44 +250,33 @@ const PackageEditor = () => {
                     All Events
                     {activeFilter === "All" && <Check size={12} />}
                   </button>
-                  
                   <div className={`h-[1px] my-1 mx-4 ${theme.border} bg-stone-100 dark:bg-stone-800`}></div>
-                  
-                  {/* EVENT TYPES LIST */}
                   {EVENT_TYPES.map((type) => (
                     <div key={type} className="group relative w-full">
-                      
-                      {/* Main Event Item */}
                       <button
                         onClick={() => { setActiveFilter(type); setIsFilterDropdownOpen(false); }}
                         className={`w-full text-left px-4 py-2 text-xs uppercase tracking-widest hover:bg-[#C9A25D]/10 hover:text-[#C9A25D] transition-colors flex justify-between items-center ${activeFilter === type ? "text-[#C9A25D]" : theme.subText}`}
                       >
                         {type}
                         <div className="flex items-center">
-                          {/* Checkmark if main category matches */}
                           {activeFilter === type && <Check size={12} className="mr-2" />}
                           <ChevronRight size={12} />
                         </div>
                       </button>
-
-                      {/* --- NESTED SUB-MENU (Restored) --- */}
                       <div className="absolute left-full top-0 ml-1 w-48 hidden group-hover:block z-50">
                         <div className={`rounded-sm border ${theme.border} ${theme.cardBg} shadow-xl py-2`}>
-                          
                           <button
                             onClick={(e) => handleSubSelection(type, "Full Service", e)}
                             className={`w-full text-left px-4 py-2 text-xs uppercase tracking-widest hover:bg-[#C9A25D]/10 hover:text-[#C9A25D] transition-colors ${theme.subText}`}
                           >
                             Full Service
                           </button>
-                          
                           <button
                             onClick={(e) => handleSubSelection(type, "Service Only", e)}
                             className={`w-full text-left px-4 py-2 text-xs uppercase tracking-widest hover:bg-[#C9A25D]/10 hover:text-[#C9A25D] transition-colors ${theme.subText}`}
                           >
                             Service Only
                           </button>
-
                         </div>
                       </div>
                     </div>
@@ -347,11 +329,9 @@ const PackageEditor = () => {
                       <div key={pkg.id} className={`group relative border ${borderColor} ${theme.cardBg} rounded-sm p-6 flex flex-col justify-between transition-all duration-300 hover:shadow-lg hover:-translate-y-1`}>
                         <div className="flex justify-between items-start mb-4">
                           <div className="flex gap-2">
-                             {/* SELECTION LABEL (Full Service / Service Only) */}
                              <span className="text-[10px] uppercase tracking-widest py-1 bg-transparent text-stone-500 dark:text-white font-bold">
                                {pkg.selectionLabel || "Standard"}
                              </span>
-                             {/* PAX LABEL */}
                              {pkg.paxLabel && (
                                <span className="text-[10px] uppercase tracking-widest py-1 text-stone-400">
                                  ({pkg.paxLabel})
