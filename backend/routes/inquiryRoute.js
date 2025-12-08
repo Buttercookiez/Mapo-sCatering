@@ -14,7 +14,8 @@ const {
     getAllPayments,
     verifyPayment,
     rejectBooking,
-    markFullPayment
+    markFullPayment,
+    sendPaymentReminder
 } = require("../controllers/inquiryController");
 
 // ==============================================
@@ -49,6 +50,7 @@ router.get("/:refId", getInquiryDetails);
 router.patch("/payments/:paymentId/verify", verifyPayment);
 
 router.post("/mark-full-payment", markFullPayment);
+router.post('/send-payment-reminder', sendPaymentReminder);
 
 
 module.exports = router;

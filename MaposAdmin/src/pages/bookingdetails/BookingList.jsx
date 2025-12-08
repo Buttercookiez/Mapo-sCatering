@@ -26,14 +26,21 @@ const STATUS_CONFIG = {
     icon: <AlertCircle size={10} />
   },
   
-  // Admin Decisions
+  // Admin Decisions (Negative)
   REJECTED: {
     label: 'Rejected',
     color: 'text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20',
     icon: <XCircle size={10} />
   },
   
-  // --- UPDATED: Back to Emerald (Green) ---
+  // --- NEW: CANCELLED STATUS ---
+  CANCELLED: {
+    label: 'Cancelled',
+    color: 'text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20',
+    icon: <XCircle size={10} />
+  },
+  
+  // Admin Decisions (Positive)
   ACCEPTED: {
     label: 'Accepted',
     color: 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/20',
