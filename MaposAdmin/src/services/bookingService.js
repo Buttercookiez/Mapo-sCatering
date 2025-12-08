@@ -18,7 +18,7 @@ export const subscribeToBookings = (onUpdate, onError) => {
       const data = doc.data();
       
       return {
-        id: doc.id,
+        id: doc.id, 
         refId: data.bookingId || doc.id,
         status: data.bookingStatus || "Pending",
         
@@ -54,4 +54,20 @@ export const subscribeToBookings = (onUpdate, onError) => {
   });
 };
 
+export const updateBookingStatus = async (refId, status) => {
+  // CRITICAL FIX: 
+  // 1. Your server route is mounted at "/inquiries" (not /bookings)
+  // 2. Your router uses .patch() (not .put)
+  // 3. Your controller expects the Readable ID (BK-001) in the URL
+  
+  const response = await api.patch(`/inquiries/${refId}`, { status });
+  return response.data;
+};
+
+// 2. SEND PROPOSAL
+export const sendProposalEmail = async (payload) => {
+  // Matching router.post("/send-proposal", ...) inside inquiryRoute
+  const response = await api.post("/inquiries/send-proposal", payload);
+  return response.data;
+};
 // ... keep your WRITE functions (apiCreateBooking, etc.) the same below
