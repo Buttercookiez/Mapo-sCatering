@@ -1,19 +1,37 @@
-// src/services/packageService.js
 import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
-import { db } from "../config/firebase"; // Ensure this is your CLIENT-SIDE firebase config
-import api from "../api/api"; // Your custom axios instance
+import { db } from "../config/firebase"; 
+import api from "../api/api"; 
 
-// --- READ: Realtime Listener ---
-// We export this separately so hooks can use it easily
+// Helper to normalize data from Firestore to App
+const normalizeData = (doc) => {
+  const data = doc.data();
+  
+  // FIX: The Screenshot shows inclusions as an Object/Map {0: "...", 1: "..."}
+  // We must convert this to an Array for the UI to render it.
+  let inclusions = [];
+  if (data.inclusions) {
+    if (Array.isArray(data.inclusions)) {
+      inclusions = data.inclusions;
+    } else if (typeof data.inclusions === 'object') {
+      inclusions = Object.values(data.inclusions);
+    }
+  }
+
+  return {
+    id: doc.id,
+    ...data,
+    inclusions, // Normalized to Array
+  };
+};
+
 export const subscribeToPackages = (onUpdate, onError) => {
-  const q = query(collection(db, "packages"), orderBy("lastUpdated", "desc"));
+  // CHANGED: Sort by 'createdAt' descending so the newest items come first from the server
+  // Note: You might need to create an index in Firestore console if this query fails initially.
+  // Check your browser console for a link to create the index.
+  const q = query(collection(db, "packages"), orderBy("createdAt", "desc"));
 
-  // Returns the unsubscribe function
   return onSnapshot(q, (snapshot) => {
-    const items = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const items = snapshot.docs.map(normalizeData);
     onUpdate(items);
   }, (error) => {
     console.error("Firestore Error:", error);
@@ -21,21 +39,15 @@ export const subscribeToPackages = (onUpdate, onError) => {
   });
 };
 
-// --- WRITES: REST API Calls (Mutations) ---
 export const packageService = {
-  // CREATE
   create: async (packageData) => {
     const response = await api.post('/packages', packageData);
     return response.data;
   },
-
-  // UPDATE
   update: async (id, packageData) => {
     const response = await api.put(`/packages/${id}`, packageData);
     return response.data;
   },
-
-  // DELETE
   delete: async (id) => {
     const response = await api.delete(`/packages/${id}`);
     return response.data;

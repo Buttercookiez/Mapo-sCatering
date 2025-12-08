@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   Calendar,
   MapPin,
@@ -9,9 +9,7 @@ import {
   CheckCircle,
   Loader2,
   Send,
-  Wallet,
-  Bell,
-  XCircle
+  Wallet
 } from "lucide-react";
 
 import StatusBadge from "./StatusBadge"; 
@@ -28,25 +26,10 @@ const EventInfoTab = ({
   isSending,
 }) => {
   
-  // Local state for the Reminder Email button
-  const [isReminderSending, setIsReminderSending] = useState(false);
-  const [reminderSent, setReminderSent] = useState(false);
-
-  const handleSendReminder = () => {
-    setIsReminderSending(true);
-    // Simulate API call for payment reminder
-    setTimeout(() => {
-        setIsReminderSending(false);
-        setReminderSent(true);
-        // Reset success message after 3 seconds
-        setTimeout(() => setReminderSent(false), 3000);
-    }, 1500);
-  };
-
   return (
     <div className="max-w-4xl mx-auto">
       {isBookingRejected ? (
-        // --- REDESIGNED REJECTION VIEW ---
+        // --- REJECTION VIEW ---
         <div className={`relative p-8 border ${theme.border} ${theme.cardBg} rounded-sm shadow-sm overflow-hidden transition-colors duration-500`}>
           
           {/* Decorative Left Accent */}
@@ -76,6 +59,14 @@ const EventInfoTab = ({
               <p className={`text-xs uppercase tracking-widest ${theme.subText} mt-2`}>
                 The client has been notified via email.
               </p>
+
+              {/* Display Saved Reason */}
+              {rejectionReason && (
+                <div className={`mt-6 p-4 bg-stone-50 dark:bg-stone-900/50 rounded-sm border ${theme.border} max-w-md w-full text-center`}>
+                  <span className="text-[10px] uppercase tracking-widest text-stone-400 block mb-2">Recorded Reason</span>
+                  <p className={`text-sm ${theme.text} italic`}>"{rejectionReason}"</p>
+                </div>
+              )}
               
               <button
                   onClick={() => handleUpdateStatus("Pending")}
@@ -131,7 +122,7 @@ const EventInfoTab = ({
           )}
         </div>
       ) : (
-        // --- EVENT INFO VIEW (Unchanged) ---
+        // --- EVENT INFO VIEW ---
         <>
           <div className="flex justify-between items-end mb-6">
             <h3 className={`font-serif text-2xl ${theme.text}`}>
@@ -204,7 +195,7 @@ const EventInfoTab = ({
               className={`col-span-1 md:col-span-2 border-t border-dashed ${theme.border} my-2`}
             ></div>
             
-            <div>
+            <div className="col-span-1 md:col-span-2">
               <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">
                 Primary Contact
               </p>
@@ -213,23 +204,10 @@ const EventInfoTab = ({
               </p>
               <p className={`text-xs ${theme.subText}`}>{details.email}</p>
             </div>
-            
-            <div className="col-span-1 md:col-span-2">
-              <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-2">
-                Special Requests / Dietary Restrictions
-              </p>
-              <div
-                className={`p-4 border ${theme.border} rounded-sm bg-transparent`}
-              >
-                <p className={`text-sm ${theme.text}`}>
-                    {details.dietary || "No special requests indicated."}
-                </p>
-              </div>
-            </div>
           </div>
 
-          {/* Reservation Fee Block */}
-          <div className={`mt-8 mb-8 border ${theme.border} ${theme.cardBg} rounded-sm p-6 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 transition-colors duration-500`}>
+          {/* Reservation Fee Block (Simplified) */}
+          <div className={`mt-8 mb-8 border ${theme.border} ${theme.cardBg} rounded-sm p-6 shadow-sm flex flex-col md:flex-row justify-start items-center gap-6 transition-colors duration-500`}>
              <div className="flex items-start gap-4">
                 <div className="p-3 bg-[#C9A25D]/10 rounded-full text-[#C9A25D]">
                     <Wallet size={24} strokeWidth={1.5} />
@@ -243,37 +221,6 @@ const EventInfoTab = ({
                         <StatusBadge status={details.reservationStatus || "Unpaid"} />
                     </div>
                 </div>
-             </div>
-
-             {/* Notification Button Action */}
-             <div>
-                {details.reservationStatus !== "Paid" ? (
-                    <button 
-                        onClick={handleSendReminder}
-                        disabled={isReminderSending || reminderSent}
-                        className={`
-                            flex items-center gap-2 px-5 py-2.5 rounded-sm text-xs uppercase tracking-widest font-bold transition-all
-                            ${reminderSent 
-                                ? 'bg-emerald-600 text-white cursor-default' 
-                                : `border border-[#C9A25D] text-[#C9A25D] hover:bg-[#C9A25D] hover:text-white bg-transparent`
-                            }
-                        `}
-                    >
-                        {isReminderSending ? (
-                            <Loader2 size={14} className="animate-spin" />
-                        ) : reminderSent ? (
-                            <CheckCircle size={14} />
-                        ) : (
-                            <Bell size={14} />
-                        )}
-                        {reminderSent ? "Reminder Sent" : "Send Payment Reminder"}
-                    </button>
-                ) : (
-                    <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 px-4 py-2 rounded-sm border border-emerald-200 dark:border-emerald-900/30">
-                        <CheckCircle size={16} />
-                        <span className="text-xs font-bold uppercase tracking-wide">Payment Verified</span>
-                    </div>
-                )}
              </div>
           </div>
         </>

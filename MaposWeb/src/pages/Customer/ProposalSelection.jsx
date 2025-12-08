@@ -1,11 +1,9 @@
-// src/pages/Proposal/ProposalSelection.jsx
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import {
     Loader2, Check, ShieldCheck, UploadCloud,
     Search, Plus, Trash2, MapPin, Calendar, Clock,
-    Utensils, Grid, Music, Info, ArrowLeft, MessageSquare, 
-    User, Mail, Tag, UtensilsCrossed, MailCheck, Star
+    Utensils, Grid, Music, Info, ArrowLeft
 } from "lucide-react";
 import html2pdf from "html2pdf.js";
 import { verifyProposalToken, confirmProposalSelection } from "../../api/bookingService";
@@ -34,16 +32,18 @@ const ProposalSelection = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [proposal, setProposal] = useState(null);
-    const [bookingStatus, setBookingStatus] = useState("Pending"); 
     
-    // Package & Selection
+    // CRITICAL: This determines which package renders based on the email link
     const [selectedPkgIndex, setSelectedPkgIndex] = useState(0);
+
+    // Filter & Selection State
     const [searchTerm, setSearchTerm] = useState("");
     const [activeCategory, setActiveCategory] = useState("All");
     const [customSelections, setCustomSelections] = useState([]);
     const [hoveredItem, setHoveredItem] = useState(null);
 
-    // Payment Form
+    // Payment & Form State
+    const [paymentStep, setPaymentStep] = useState(1);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const invoiceRef = useRef(null);
     const [paymentForm, setPaymentForm] = useState({
@@ -60,28 +60,23 @@ const ProposalSelection = () => {
             try {
                 // Verify Token with Backend
                 const data = await verifyProposalToken(token);
-                
-                // Debugging
-                console.log("Proposal API Data:", data); 
-
                 setProposal(data);
-                
-                // Set status if available
-                if (data.currentStatus) {
-                    setBookingStatus(data.currentStatus);
-                }
 
-                // Check URL for "?pkgIndex=X"
+                // --- LOGIC: READ PACKAGE INDEX FROM URL ---
                 const indexParam = searchParams.get("pkgIndex");
+
                 if (indexParam !== null && !isNaN(indexParam)) {
                     const idx = parseInt(indexParam);
+                    // Security Check: Ensure index exists in the options array
                     if (idx >= 0 && idx < data.options.length) {
                         setSelectedPkgIndex(idx);
                     }
                 } else if (data.selectedPackage) {
+                    // Fallback: If client is revisiting and already confirmed a package
                     const idx = data.options.findIndex(p => p.name === data.selectedPackage.name);
                     setSelectedPkgIndex(idx !== -1 ? idx : 0);
                 } 
+                // Default remains 0 (Package 1) if no param is found
 
             } catch (err) {
                 console.error(err);
@@ -93,17 +88,8 @@ const ProposalSelection = () => {
         init();
     }, [token, searchParams]);
 
-    // --- LOGIC FLAGS (The Fix for Missing Payment Section) ---
-    // These arrays determine what UI to show based on the status string from backend
-    const showPaymentForm = ["Pending", "Accepted", "Proposal Sent", "Sent", "Open"].includes(bookingStatus);
-    const isVerifying = ["Verifying", "For Verification", "Payment Submitted"].includes(bookingStatus);
-    const isReserved = ["Reserved", "Confirmed", "Paid", "Booked"].includes(bookingStatus);
-
     // --- HANDLERS ---
     const toggleItem = (item) => {
-        // Prevent editing if in verification or reserved state
-        if (isVerifying || isReserved) return;
-
         const exists = customSelections.find(i => i.id === item.id);
         if (exists) {
             setCustomSelections(customSelections.filter(i => i.id !== item.id));
@@ -123,22 +109,38 @@ const ProposalSelection = () => {
 
         setIsSubmitting(true);
         try {
+            // 1. Calculate the real-time total to send to backend for double-verification
+            const totals = getTotals();
+
+            // 2. Prepare Payload
             const payload = {
                 token,
                 selectedPackage: proposal.options[selectedPkgIndex], 
-                selectedAddOns: customSelections,
+                
+                // --- NEW: Pass the add-ons array ---
+                selectedAddOns: customSelections.map(item => ({
+                    name: item.name,
+                    price: item.price,
+                    category: item.category
+                })),
+
+                // --- NEW: Pass the notes ---
                 clientNotes: paymentForm.notes,
+                
                 paymentDetails: {
-                    amount: 5000, 
+                    amount: 5000, // Downpayment
+                    totalEventCost: totals.grandTotal, // Useful for backend to update billing
                     accountName: paymentForm.accountName,
                     accountNumber: paymentForm.accountNumber,
                     refNumber: paymentForm.refNumber,
                     timestamp: new Date().toISOString()
                 }
             };
+
             await confirmProposalSelection(payload);
-            setBookingStatus("Verifying"); 
+            setPaymentStep(3);
         } catch (err) {
+            console.error(err);
             alert("Submission failed. Please try again.");
         } finally {
             setIsSubmitting(false);
@@ -161,9 +163,9 @@ const ProposalSelection = () => {
     const getTotals = () => {
         if (!proposal || !proposal.options) return null;
 
+        // Get the specific package object based on the URL index
         const pkg = proposal.options[selectedPkgIndex]; 
         
-        // Use parseInt to ensure math works even if backend sends strings
         const pax = parseInt(proposal.pax) || 0;
         const pricePerHead = parseInt(pkg.pricePerHead) || 0;
 
@@ -191,99 +193,94 @@ const ProposalSelection = () => {
     return (
         <div className="flex flex-col h-screen bg-stone-50 font-sans text-stone-800 overflow-hidden">
 
-            {/* --- TOP NAV --- */}
+            {/* --- TOP NAV (CLEAN, NO TABS) --- */}
             <div className="bg-[#1c1c1c] text-white py-0 px-6 flex justify-between items-center z-50 shadow-md shrink-0 h-16 border-b border-[#333]">
                 <div className="flex items-center gap-4">
                      <div className="font-serif text-xl tracking-widest font-bold flex items-center gap-1">
                         MAPOS<span className="text-[#C9A25D]">.</span>
                     </div>
-                    {/* Only show selected package if still pending/unpaid */}
-                    {showPaymentForm && (
-                        <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-[#333] rounded-full border border-stone-700 ml-4">
-                            <span className="text-[10px] uppercase text-stone-400">Selected Package:</span>
-                            <span className="text-xs font-bold text-[#C9A25D] uppercase tracking-wider">{totals.pkg.name}</span>
-                        </div>
-                    )}
+                    {/* Visual Badge showing the Selected Package */}
+                    <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-[#333] rounded-full border border-stone-700 ml-4">
+                        <span className="text-[10px] uppercase text-stone-400">Selected Package:</span>
+                        <span className="text-xs font-bold text-[#C9A25D] uppercase tracking-wider">{totals.pkg.name}</span>
+                    </div>
                 </div>
             </div>
 
             {/* --- MAIN CONTENT LAYOUT --- */}
             <div className="flex flex-1 overflow-hidden relative">
 
-                {/* LEFT SIDEBAR (INCLUSIONS + MENU) - HIDE IF VERIFYING OR RESERVED */}
-                {!isVerifying && !isReserved && (
-                    <aside className="w-[320px] bg-white border-r border-stone-200 flex flex-col shrink-0 z-40 relative">
-                        {/* 1. CURRENT PACKAGE INCLUSIONS */}
-                        <div className="p-5 bg-stone-50 border-b border-stone-200 overflow-y-auto max-h-[35%]">
-                            <div className="flex items-center gap-2 mb-3">
-                                <Info size={14} className="text-[#C9A25D]" />
-                                <h4 className="text-xs font-bold uppercase text-stone-500 tracking-wide">
-                                    Included in {totals.pkg.name}
-                                </h4>
-                            </div>
-                            <ul className="space-y-2">
-                                {totals.pkg.inclusions.map((inc, i) => (
-                                    <li key={i} className="text-xs text-stone-700 flex items-start gap-2 leading-relaxed">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-stone-300 mt-1.5 shrink-0"></div>
-                                        {inc}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
+                {/* LEFT SIDEBAR (INCLUSIONS + MENU) */}
+                <aside className="w-[320px] bg-white border-r border-stone-200 flex flex-col shrink-0 z-40 relative">
 
-                        {/* 2. SEARCH & FILTER */}
-                        <div className="p-4 border-b border-stone-100 bg-white shadow-sm z-10">
-                            <h3 className="font-serif text-md text-stone-900 mb-3">Add Extras & Upgrades</h3>
-                            <div className="relative mb-3">
-                                <Search className="absolute left-2.5 top-2.5 text-stone-400" size={14} />
-                                <input 
-                                    type="text" 
-                                    placeholder="Search inventory..." 
-                                    value={searchTerm} 
-                                    onChange={(e) => setSearchTerm(e.target.value)} 
-                                    className="w-full pl-8 pr-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded focus:border-[#C9A25D] outline-none" 
-                                />
-                            </div>
-                            <div className="flex gap-1">
-                                {CATEGORIES.map(cat => (
-                                    <button key={cat.id} onClick={() => setActiveCategory(cat.id)} className={`px-2 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-colors border ${activeCategory === cat.id ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-500 border-stone-200 hover:bg-stone-50'}`}>
-                                        {cat.label}
-                                    </button>
-                                ))}
-                            </div>
+                    {/* 1. CURRENT PACKAGE INCLUSIONS */}
+                    <div className="p-5 bg-stone-50 border-b border-stone-200 overflow-y-auto max-h-[35%]">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Info size={14} className="text-[#C9A25D]" />
+                            <h4 className="text-xs font-bold uppercase text-stone-500 tracking-wide">
+                                Included in {totals.pkg.name}
+                            </h4>
                         </div>
+                        <ul className="space-y-2">
+                            {totals.pkg.inclusions.map((inc, i) => (
+                                <li key={i} className="text-xs text-stone-700 flex items-start gap-2 leading-relaxed">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-stone-300 mt-1.5 shrink-0"></div>
+                                    {inc}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
 
-                        {/* 3. ADD-ON ITEMS LIST */}
-                        <div className="overflow-y-auto p-3 space-y-2 bg-white flex-1">
-                            {filteredItems.map(item => {
-                                const isSelected = customSelections.find(i => i.id === item.id);
-                                return (
-                                    <div
-                                        key={item.id}
-                                        onClick={() => toggleItem(item)}
-                                        onMouseEnter={() => setHoveredItem(item)}
-                                        onMouseLeave={() => setHoveredItem(null)}
-                                        className={`p-3 rounded border cursor-pointer transition-all hover:shadow-sm flex justify-between items-start relative
-                                        ${isSelected ? 'bg-[#C9A25D]/5 border-[#C9A25D]' : 'bg-white border-stone-100 hover:border-stone-300'}
-                                        ${!showPaymentForm ? 'opacity-50 cursor-not-allowed' : ''}
-                                        `}
-                                    >
-                                        <div>
-                                            <h4 className={`text-xs font-bold ${isSelected ? 'text-[#C9A25D]' : 'text-stone-800'}`}>{item.name}</h4>
-                                            <p className="text-[10px] text-stone-400 mt-0.5">{item.description}</p>
-                                        </div>
-                                        <div className={`mt-0.5 ml-2 p-1 rounded-full ${isSelected ? 'bg-[#C9A25D] text-white' : 'bg-stone-100 text-stone-300'}`}>
-                                            {isSelected ? <Check size={10} /> : <Plus size={10} />}
-                                        </div>
+                    {/* 2. SEARCH & FILTER */}
+                    <div className="p-4 border-b border-stone-100 bg-white shadow-sm z-10">
+                        <h3 className="font-serif text-md text-stone-900 mb-3">Add Extras & Upgrades</h3>
+                        <div className="relative mb-3">
+                            <Search className="absolute left-2.5 top-2.5 text-stone-400" size={14} />
+                            <input 
+                                type="text" 
+                                placeholder="Search inventory..." 
+                                value={searchTerm} 
+                                onChange={(e) => setSearchTerm(e.target.value)} 
+                                className="w-full pl-8 pr-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded focus:border-[#C9A25D] outline-none" 
+                            />
+                        </div>
+                        <div className="flex gap-1">
+                            {CATEGORIES.map(cat => (
+                                <button key={cat.id} onClick={() => setActiveCategory(cat.id)} className={`px-2 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-colors border ${activeCategory === cat.id ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-500 border-stone-200 hover:bg-stone-50'}`}>
+                                    {cat.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* 3. ADD-ON ITEMS LIST */}
+                    <div className="overflow-y-auto p-3 space-y-2 bg-white flex-1">
+                        {filteredItems.map(item => {
+                            const isSelected = customSelections.find(i => i.id === item.id);
+                            return (
+                                <div
+                                    key={item.id}
+                                    onClick={() => toggleItem(item)}
+                                    onMouseEnter={() => setHoveredItem(item)}
+                                    onMouseLeave={() => setHoveredItem(null)}
+                                    className={`p-3 rounded border cursor-pointer transition-all hover:shadow-sm flex justify-between items-start relative
+                                    ${isSelected ? 'bg-[#C9A25D]/5 border-[#C9A25D]' : 'bg-white border-stone-100 hover:border-stone-300'}`}
+                                >
+                                    <div>
+                                        <h4 className={`text-xs font-bold ${isSelected ? 'text-[#C9A25D]' : 'text-stone-800'}`}>{item.name}</h4>
+                                        <p className="text-[10px] text-stone-400 mt-0.5">{item.description}</p>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    </aside>
-                )}
+                                    <div className={`mt-0.5 ml-2 p-1 rounded-full ${isSelected ? 'bg-[#C9A25D] text-white' : 'bg-stone-100 text-stone-300'}`}>
+                                        {isSelected ? <Check size={10} /> : <Plus size={10} />}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </aside>
 
                 {/* HOVER PREVIEW CARD (FLOATING) */}
-                {hoveredItem && showPaymentForm && (
+                {hoveredItem && (
                     <div className="fixed left-[340px] top-40 z-50 w-64 bg-white p-3 rounded-lg shadow-2xl border border-stone-200 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
                         <div className="w-full h-32 bg-stone-100 rounded-md mb-3 overflow-hidden">
                             <img src={hoveredItem.image} alt={hoveredItem.name} className="w-full h-full object-cover" />
@@ -300,11 +297,11 @@ const ProposalSelection = () => {
                 <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#f5f5f4]">
                     <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-                        {/* COLUMN 1: INVOICE / EVENT PROPOSAL */}
+                        {/* COLUMN 1: INVOICE */}
                         <div className="lg:col-span-7">
                             <div ref={invoiceRef} className="bg-white p-8 rounded-sm shadow-sm border border-stone-200 flex flex-col min-h-[600px]">
                                 
-                                {/* 1. HEADER */}
+                                {/* Header */}
                                 <div className="flex justify-between items-start border-b border-stone-100 pb-6 mb-6">
                                     <div>
                                         <h2 className="font-serif text-3xl text-stone-900 mb-2">Event Proposal</h2>
@@ -317,64 +314,26 @@ const ProposalSelection = () => {
                                     </div>
                                 </div>
 
-                                {/* 2. CLIENT INFO SECTION */}
-                                <div className="mb-6 pb-6 border-b border-stone-100">
-                                    <div className="flex flex-col gap-2">
-                                        <p className="text-[10px] font-bold uppercase text-stone-400 tracking-wider flex items-center gap-1">
-                                            Prepared For
-                                        </p>
-                                        <div>
-                                            <span className="font-serif text-xl text-stone-900 flex items-center gap-2">
-                                                <User size={16} className="text-[#C9A25D]" /> 
-                                                {proposal.clientName || "Client"}
-                                            </span>
-                                            {proposal.clientEmail && (
-                                                <span className="text-sm text-stone-500 flex items-center gap-2 mt-1">
-                                                    <Mail size={14} className="text-stone-400"/>
-                                                    {proposal.clientEmail}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* 3. EVENT GRID DETAILS */}
+                                {/* Event Details */}
                                 <div className="grid grid-cols-2 gap-4 mb-6 bg-stone-50 p-4 rounded border border-stone-100 text-xs text-stone-600">
-                                    <div className="flex items-center gap-2">
-                                        <Calendar size={14} className="text-[#C9A25D]" /> 
-                                        <span className="font-bold text-stone-800">{proposal.eventDate}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Clock size={14} className="text-[#C9A25D]" /> 
-                                        <span>{proposal.startTime} - {proposal.endTime}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Tag size={14} className="text-[#C9A25D]" />
-                                        <span>{proposal.eventType || "Event Type TBD"}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <UtensilsCrossed size={14} className="text-[#C9A25D]" />
-                                        <span>{proposal.serviceStyle || "Service Style TBD"}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 col-span-2 border-t border-stone-200 pt-3 mt-1">
-                                        <MapPin size={14} className="text-[#C9A25D]" /> 
-                                        <span>{proposal.venue}</span>
-                                    </div>
+                                    <div className="flex items-center gap-2"><Calendar size={14} className="text-[#C9A25D]" /> <span className="font-bold text-stone-800">{proposal.eventDate}</span></div>
+                                    <div className="flex items-center gap-2"><Clock size={14} className="text-[#C9A25D]" /> <span>{proposal.startTime} - {proposal.endTime}</span></div>
+                                    <div className="flex items-center gap-2 col-span-2"><MapPin size={14} className="text-[#C9A25D]" /> <span>{proposal.venue}</span></div>
                                 </div>
 
-                                {/* 4. BASE COST ITEM */}
+                                {/* Line Items */}
                                 <div className="mb-4">
                                     <div className="flex justify-between items-center mb-1">
                                         <h3 className="font-bold text-sm text-stone-800">{totals.pkg.name} Base Cost</h3>
                                         <p className="font-mono text-stone-800">₱ {totals.packageTotal.toLocaleString()}</p>
                                     </div>
                                     <p className="text-[10px] text-stone-500 uppercase tracking-wide">
-                                        ₱{totals.pkg.pricePerHead.toLocaleString()} x {parseInt(proposal.pax) || 0} Guests
+                                        ₱{totals.pkg.pricePerHead.toLocaleString()} x {proposal.pax} Guests
                                     </p>
                                 </div>
 
-                                {/* 5. SELECTED ADD-ONS */}
-                                <div>
+                                {/* Selected Add-ons */}
+                                <div className="flex-1">
                                     {customSelections.length > 0 && (
                                         <div className="mt-4 border-t border-stone-100 pt-4">
                                             <p className="text-[10px] font-bold uppercase text-stone-400 mb-3">Add-ons & Upgrades</p>
@@ -382,9 +341,7 @@ const ProposalSelection = () => {
                                                 {customSelections.map((item, idx) => (
                                                     <div key={idx} className="flex justify-between items-center text-xs group hover:bg-stone-50 p-1 rounded">
                                                         <div className="flex items-center gap-2">
-                                                            {showPaymentForm && (
-                                                                <button onClick={() => toggleItem(item)} className="text-stone-300 hover:text-red-500 transition-colors"><Trash2 size={12} /></button>
-                                                            )}
+                                                            <button onClick={() => toggleItem(item)} className="text-stone-300 hover:text-red-500 transition-colors"><Trash2 size={12} /></button>
                                                             <span className="text-stone-700">{item.name}</span>
                                                         </div>
                                                         <span className="font-mono text-stone-600">
@@ -397,31 +354,7 @@ const ProposalSelection = () => {
                                     )}
                                 </div>
 
-                                {/* 6. NOTES SECTION */}
-                                <div className="mt-8 mb-4 border-t border-stone-100 pt-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <MessageSquare size={14} className="text-[#C9A25D]" />
-                                        <label className="text-xs font-bold uppercase text-stone-500 tracking-wider">
-                                            Special Requests / Dietary Restrictions
-                                        </label>
-                                    </div>
-                                    {showPaymentForm ? (
-                                        <textarea 
-                                            name="notes" 
-                                            value={paymentForm.notes} 
-                                            onChange={handleInputChange} 
-                                            rows="3" 
-                                            placeholder="E.g. No pork, Allergies to peanuts, Request for round tables..." 
-                                            className="w-full bg-stone-50 border border-stone-200 p-3 rounded text-sm focus:border-[#C9A25D] outline-none resize-none transition-colors"
-                                        ></textarea>
-                                    ) : (
-                                        <div className="bg-stone-50 p-3 rounded text-sm text-stone-600 italic border border-stone-100">
-                                            {paymentForm.notes || "No additional notes."}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* 7. TOTAL CALCULATION */}
+                                {/* Total Calculation */}
                                 <div className="mt-auto space-y-3 pt-6 border-t-2 border-stone-100">
                                     <div className="flex justify-between items-center">
                                         <span className="font-serif text-xl font-bold">Grand Total</span>
@@ -439,33 +372,23 @@ const ProposalSelection = () => {
                             </div>
                         </div>
 
-                        {/* COLUMN 2: PAYMENT / STATUS PANEL */}
+                        {/* COLUMN 2: PAYMENT FORM */}
                         <div className="lg:col-span-5">
                             <div className="sticky top-4 bg-white rounded-sm shadow-lg border border-stone-200 overflow-hidden">
                                 
-                                {/* 1. HEADER */}
                                 <div className="bg-[#1c1c1c] p-6 text-white text-center">
-                                    {showPaymentForm ? (
-                                        <>
-                                            <p className="text-[10px] uppercase tracking-widest opacity-60 mb-1">To Secure This Date</p>
-                                            <h2 className="text-3xl font-serif text-[#C9A25D]">₱ 5,000.00</h2>
-                                        </>
-                                    ) : isVerifying ? (
-                                        <h2 className="text-xl font-serif text-[#C9A25D] tracking-wider">VERIFICATION PENDING</h2>
-                                    ) : (
-                                        <h2 className="text-xl font-serif text-[#C9A25D] tracking-wider">BOOKING CONFIRMED</h2>
-                                    )}
+                                    <p className="text-[10px] uppercase tracking-widest opacity-60 mb-1">To Secure This Date</p>
+                                    <h2 className="text-3xl font-serif text-[#C9A25D]">₱ 5,000.00</h2>
                                 </div>
 
-                                {/* --- STATE 1: UNPAID (SHOW FORM) --- */}
-                                {showPaymentForm && (
+                                {paymentStep === 1 && (
                                     <div className="p-6">
                                         <div className="bg-stone-50 rounded border border-stone-200 p-4 text-center mb-6">
                                             <p className="text-[10px] font-bold uppercase text-stone-400 mb-3 tracking-[0.2em]">Scan to Pay</p>
                                             <div className="bg-white p-2 rounded shadow-sm border border-stone-100 inline-block w-[180px]">
-                                                {/* DYNAMIC QR CODE */}
+                                                {/* DYNAMIC QR CODE WITH BOOKING ID */}
                                                 <img 
-                                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=PAY-MAPOS-${proposal?.refId}`} 
+                                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=PAY-MAPOS-${proposal.refId}`} 
                                                     alt="Scan" 
                                                     className="w-full h-auto object-contain" 
                                                 />
@@ -473,12 +396,14 @@ const ProposalSelection = () => {
                                             <p className="text-[10px] text-stone-400 mt-2">GCash / Maya / Bank Transfer</p>
                                         </div>
 
-                                        <div className="space-y-4">
+                                        <div className="space-y-3">
                                             <input name="accountName" value={paymentForm.accountName} onChange={handleInputChange} type="text" placeholder="Sender Name / Account Name" className="w-full bg-stone-50 border border-stone-200 p-3 rounded text-sm focus:border-[#C9A25D] outline-none" />
                                             <input name="accountNumber" value={paymentForm.accountNumber} onChange={handleInputChange} type="text" placeholder="Sender Account Number" className="w-full bg-stone-50 border border-stone-200 p-3 rounded text-sm focus:border-[#C9A25D] outline-none" />
                                             <input name="refNumber" value={paymentForm.refNumber} onChange={handleInputChange} type="text" placeholder="Transaction Reference No." className="w-full bg-stone-50 border border-stone-200 p-3 rounded text-sm focus:border-[#C9A25D] outline-none" />
                                             
-                                            <div className="relative border-2 border-dashed border-stone-200 rounded bg-stone-50 p-4 cursor-pointer hover:bg-stone-100 hover:border-[#C9A25D] transition-colors mt-2">
+                                            <textarea name="notes" value={paymentForm.notes} onChange={handleInputChange} rows="2" placeholder="Special Requests or Dietary Restrictions..." className="w-full bg-stone-50 border border-stone-200 p-3 rounded text-sm focus:border-[#C9A25D] outline-none resize-none"></textarea>
+                                            
+                                            <div className="relative border-2 border-dashed border-stone-200 rounded bg-stone-50 p-4 cursor-pointer hover:bg-stone-100 hover:border-[#C9A25D] transition-colors">
                                                 <input type="file" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                                                 <div className="flex flex-col items-center gap-1 text-stone-400">
                                                     <UploadCloud size={20} />
@@ -497,50 +422,20 @@ const ProposalSelection = () => {
                                     </div>
                                 )}
 
-                                {/* --- STATE 2: VERIFYING (SHOW WAITING) --- */}
-                                {isVerifying && (
-                                    <div className="p-10 text-center min-h-[400px] flex flex-col items-center justify-center animate-in zoom-in-95">
-                                        <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                                {paymentStep === 3 && (
+                                    <div className="p-10 text-center min-h-[400px] flex flex-col items-center justify-center">
+                                        <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-in zoom-in">
                                             <ShieldCheck size={40} />
                                         </div>
-                                        <h3 className="font-serif text-2xl mb-2 text-stone-800">Payment Submitted</h3>
-                                        <p className="text-sm text-stone-500 mb-8 px-4 leading-relaxed">
-                                            Thank you, <strong>{proposal?.clientName}</strong>. We have received your payment details. Our team is currently verifying the transaction.
+                                        <h3 className="font-serif text-2xl mb-2 text-stone-800">Booking Submitted!</h3>
+                                        <p className="text-sm text-stone-500 mb-8 px-4">
+                                            Thank you, <strong>{proposal.clientName}</strong>. We have received your selection and payment proof. Our team will verify this shortly.
                                         </p>
-                                        <div className="text-xs text-stone-400 border border-dashed border-stone-300 p-3 rounded bg-stone-50">
-                                            Please check back later or wait for our email confirmation.
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* --- STATE 3: RESERVED (SHOW SUCCESS) --- */}
-                                {isReserved && (
-                                    <div className="p-10 text-center min-h-[400px] flex flex-col items-center justify-center animate-in zoom-in-95">
-                                        <div className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                                            <MailCheck size={48} />
-                                        </div>
-                                        <h3 className="font-serif text-2xl mb-2 text-stone-800">Verified & Booked!</h3>
-                                        <p className="text-sm text-stone-500 mb-8 px-4 leading-relaxed">
-                                            Your payment has been successfully verified. We have sent a formal confirmation email to <strong>{proposal?.clientEmail}</strong> with your official receipt and next steps.
-                                        </p>
-                                        
-                                        <div className="bg-stone-50 p-5 rounded border border-stone-200 text-sm text-stone-600 w-full">
-                                            <div className="flex items-center justify-center gap-2 mb-2 text-[#C9A25D]">
-                                                <Star size={16} fill="#C9A25D"/>
-                                                <span className="font-bold uppercase tracking-widest text-xs">Date Secured</span>
-                                                <Star size={16} fill="#C9A25D"/>
-                                            </div>
-                                            <div className="font-serif text-xl text-stone-900 font-bold">
-                                                {proposal?.eventDate}
-                                            </div>
-                                        </div>
-
-                                        <button onClick={downloadPDF} className="mt-8 flex items-center gap-2 mx-auto text-xs font-bold uppercase tracking-widest text-[#C9A25D] hover:underline">
+                                        <button onClick={downloadPDF} className="flex items-center gap-2 mx-auto text-xs font-bold uppercase tracking-widest text-[#C9A25D] hover:underline">
                                             <ArrowLeft size={14} /> Download Receipt PDF
                                         </button>
                                     </div>
                                 )}
-
                             </div>
                         </div>
 
