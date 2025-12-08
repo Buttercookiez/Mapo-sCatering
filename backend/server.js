@@ -15,11 +15,13 @@
   const inquiryRoute = require("./routes/inquiryRoute");
   const inventoryRoute = require("./routes/inventoryRoute");
   const packageRoute = require("./routes/packageRoute")
+  const calendarRoutes = require('./routes/calendarRoutes');
 
   // Use routes
   app.use("/api/inquiries", inquiryRoute);
   app.use("/api/inventory", inventoryRoute);
   app.use("/api/packages", packageRoute);
+  app.use('/api/calendar', calendarRoutes);
 
   // Start server
   const PORT = 5000;
