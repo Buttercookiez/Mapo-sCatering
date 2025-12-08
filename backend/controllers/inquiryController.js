@@ -221,7 +221,7 @@ const sendProposalEmail = async (req, res) => {
         clientEmail,
         clientName,
         refId,
-        packageOptions,
+        packageOptions, 
         details
     } = req.body;
 
@@ -253,6 +253,22 @@ const sendProposalEmail = async (req, res) => {
     } catch (dbError) {
         console.error("Failed to save proposal to DB:", dbError);
         return res.status(500).json({ success: false, message: "Database save failed." });
+    }
+
+    try {
+        const bookingRef = db.collection("bookings").where("bookingId", "==", refId);
+        const snapshot = await bookingRef.get();
+        
+        if (!snapshot.empty) {
+            const docId = snapshot.docs[0].id;
+            await db.collection("bookings").doc(docId).update({
+                bookingStatus: "Proposal Sent", // You likely already have this
+                lastProposalSentAt: new Date().toISOString(), // <--- ADD THIS LINE
+                updatedAt: new Date().toISOString()
+            });
+        }
+    } catch (err) {
+        console.error("Failed to update booking timestamp", err);
     }
 
 
