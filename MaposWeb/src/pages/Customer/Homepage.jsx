@@ -287,9 +287,10 @@ const Homepage = () => {
             
             <FadeIn delay={2000}>
               <div className="max-w-md mx-auto">
-                <p className="text-white/90 text-sm md:text-base font-light leading-relaxed tracking-wide mb-10">
-                  Bespoke culinary experiences tailored to the finest detail. 
-                  From intimate gatherings to grand celebrations.
+                <p className="text-white/90 text-sm md:text-base font-light leading-relaxed tracking-wide mb-10 max-w-4xl mx-auto">
+                 Delicious moments, unforgettable memories.
+                  <br />
+                 We cater to your cravings, big or small.
                 </p>
                 
                 <button 
@@ -330,9 +331,8 @@ const Homepage = () => {
             <FadeIn>
               <div className="w-[1px] h-20 bg-[#C9A25D] mx-auto mb-8"></div>
               <p className={`${theme.subText} font-light text-lg leading-relaxed max-w-2xl mx-auto`}>
-                Mapo's brings a symphony of flavors to your most cherished moments. 
-                Rejecting the ordinary, we source exclusively from local artisans to craft 
-                menus that are as sustainable as they are exquisite.
+                "Mapo’s adds amazing flavor to your special moments.
+                We use fresh, local ingredients to create menus that are sustainable and delicious."
               </p>
             </FadeIn>
           </div>
@@ -347,9 +347,9 @@ const Homepage = () => {
           <div className="max-w-screen-xl mx-auto px-6 w-full">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-8">
               {[
-                { icon: Users, title: "Consultation", desc: "We listen to your story to craft a proposal that is uniquely yours." },
-                { icon: ChefHat, title: "Tasting", desc: "Experience your menu in our private kitchen before the big day." },
-                { icon: Calendar, title: "Execution", desc: "Flawless service, ensuring you are a guest at your own event." }
+                { icon: Users, title: "Let's Plan", desc: "Share your ideas with us. We will listen and help you create the perfect menu for your budget." },
+                { icon: ChefHat, title:  "We Create", desc: "Our chefs get to work. We prepare your dishes using the freshest local ingredients." },
+                { icon: Calendar, title: "You Celebrate", desc: "Relax on your big day. We handle all the service so you can be a guest at your own party." }
               ].map((step, idx) => (
                 <FadeIn key={idx} delay={idx * 150}>
                   <div className="text-center group">
@@ -378,17 +378,17 @@ const Homepage = () => {
           <div className="max-w-screen-xl mx-auto px-6 w-full">
             <div className={`flex flex-col md:flex-row justify-between items-end mb-12 md:mb-20 border-b ${theme.border} pb-6`}>
               <h2 className={`font-serif text-4xl md:text-6xl ${theme.text}`}>
-                <StaggeredText text="Curated Menus" />
+                <StaggeredText text="Our Services" />
               </h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-8">
               {[
                 { title: "The Classic", img: "/images/mapo3.png", sub: "Buffet Favorites" },
-                { title: "The Executive", img: "/images/mapo4.png", sub: "Premium Dining" },
+                { title: "Premium Dining", img: "/images/mapo4.png", sub: "Elegant dishes" },
                 { title: "Event Styling", img: "/images/mapo5.png", sub: "Decor & Ambiance" }
               ].map((item, idx) => (
                 <FadeIn key={idx} delay={idx * 150}>
-                  <div className="group cursor-pointer" onClick={() => navigate('/menu')}>
+                  <div className="group cursor-pointer" >
                     <div className={`relative overflow-hidden aspect-[3/4] mb-6 ${darkMode ? 'bg-stone-800' : 'bg-stone-200'}`}>
                       <img 
                         src={item.img} 
@@ -416,10 +416,10 @@ const Homepage = () => {
         >
           <div className="group/gallery flex flex-wrap md:flex-nowrap h-full w-full">
             {[
-              { src: "/images/mapo1.png", caption: "Table Settings" },
-              { src: "/images/mapo2.png", caption: "Signature Dishes" },
-              { src: "/images/mapo6.png", caption: "Floral Arrangements" },
-              { src: "/images/mapo7.png", caption: "Cocktail Hour" }
+              { src: "/images/mapo1.png", caption: "Birthday" },
+              { src: "/images/mapo2.png", caption: "Wedding" },
+              { src: "/images/mapo6.png", caption: "Corporate Gala" },
+              { src: "/images/mapo7.png", caption: "Private Dinner" }
             ].map((item, i) => (
               <div 
                 key={i} 
@@ -437,9 +437,7 @@ const Homepage = () => {
                 />
                 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-8">
-                  <span className="text-[#C9A25D] text-xs uppercase tracking-[0.2em] mb-2 translate-y-4 group-hover/item:translate-y-0 transition-transform duration-500 delay-100">
-                     View Gallery
-                  </span>
+                  
                   <h3 className="text-white font-serif text-3xl translate-y-4 group-hover/item:translate-y-0 transition-transform duration-500">
                     {item.caption}
                   </h3>
@@ -461,9 +459,9 @@ const Homepage = () => {
             </h2>
             <div className={`divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
               {[
-                { q: "What is the booking lead time?", a: "We recommend securing your date 6-12 months in advance, especially for weekends during peak season." },
+                { q: "What is the booking lead time?", a: "We recommend securing your date 2-4 weeks in advance, especially for weekends during peak season." },
                 { q: "Do you handle dietary restrictions?", a: "Our culinary team is well-versed in gluten-free, vegan, and allergen-sensitive preparations without compromising on flavor." },
-                { q: "Is staff included?", a: "Yes, our white-glove service team manages setup, service, and breakdown to ensure a seamless experience." }
+                { q: "Is staff included?", a: "Yes, we take care of the setup, serving, and cleaning up so you have nothing to worry about." }
               ].map((item, idx) => (
                 <FadeIn key={idx} delay={idx * 100}>
                   <div className="group py-6 cursor-pointer" onClick={() => setOpenFaq(openFaq === idx ? null : idx)}>
