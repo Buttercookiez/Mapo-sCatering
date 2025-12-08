@@ -132,6 +132,7 @@ const createInquiry = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
 // --- 2. GET INQUIRY DETAILS ---
 const getInquiryDetails = async (req, res) => {
     try {
@@ -214,7 +215,7 @@ const getBooking = async (req, res) => {
 };
 
 
-// --- 4. SEND PROPOSAL EMAIL ---
+// --- 4. SEND PROPOSAL EMAIL (UPDATED FOR INDEX SELECTION) ---
 const sendProposalEmail = async (req, res) => {
     const {
         clientEmail,
@@ -224,14 +225,14 @@ const sendProposalEmail = async (req, res) => {
         details
     } = req.body;
 
-    // --- SECURITY FIX: Generate Token HERE ---
+    // --- Generate Security Token ---
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-    // ------------------------------------------------------
-
+    expiresAt.setDate(expiresAt.getDate() + 7); // Expires in 7 days
+    
+    // Base URL for the selection page
     const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
-    const specificSelectionLink = `${FRONTEND_URL}/proposal-selection/${token}`;
+    const baseSelectionLink = `${FRONTEND_URL}/proposal-selection/${token}`;
     const eventDate = details?.date || "Date TBD";
 
     // 1. SAVE PROPOSAL TO DB
@@ -255,21 +256,24 @@ const sendProposalEmail = async (req, res) => {
     }
 
 
-    // 2. GENERATE EMAIL HTML (FIXED: Equal Height Columns)
+    // 2. GENERATE EMAIL HTML
     const cardsHtml = packageOptions.map((pkg, index) => {
         // COLORS
-        const isHighlight = index === 1; // Middle package
         const headerColor = "#333333";   // Dark Grey Header
         const bodyBg = "#fdfdfd";        // Off-white body
         const borderColor = "#e0e0e0";   // Light grey border
         const btnBg = "#d8d8d8";         // Grey Button
         const priceColor = "#C9A25D";    // Gold Price
 
+        // --- UPDATED LOGIC: Append index to URL ---
+        // This creates links like: .../proposal-selection/TOKEN?pkgIndex=0
+        const specificLink = `${baseSelectionLink}?pkgIndex=${index}`;
+
         return `
         <td width="33%" valign="top" style="padding: 0 5px;">
             <table width="100%" border="0" cellspacing="0" cellpadding="0">
                 
-                <!-- 1. CARD CONTENT (FIXED HEIGHT) -->
+                <!-- 1. CARD CONTENT -->
                 <tr>
                     <td valign="top" style="border: 1px solid ${borderColor}; background-color: ${bodyBg};">
                         
@@ -278,8 +282,7 @@ const sendProposalEmail = async (req, res) => {
                             PACKAGE
                         </div>
 
-                        <!-- Body: IMPORTANT - Fixed Height here forces alignment -->
-                        <!-- Increase 'height' if your lists get longer -->
+                        <!-- Body: Fixed Height for Alignment -->
                         <div style="padding: 15px; text-align: center; height: 320px; vertical-align: top; overflow: hidden;">
                             
                             <h4 style="margin: 10px 0 5px 0; font-size: 14px; color: #333; line-height: 1.4; height: 40px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
@@ -304,11 +307,11 @@ const sendProposalEmail = async (req, res) => {
                     <td height="8" style="font-size: 0; line-height: 0;">&nbsp;</td>
                 </tr>
 
-                <!-- 3. BUTTON (Uniform Position) -->
+                <!-- 3. BUTTON -->
                 <tr>
                     <td valign="top">
-                        <!-- Use specificSelectionLink here -->
-                        <a href="${specificSelectionLink}" target="_blank" style="display: block; background-color: ${btnBg}; color: #333; padding: 12px 0; text-align: center; text-decoration: none; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; border-radius: 2px;">
+                        <!-- UPDATED HREF TO USE 'specificLink' -->
+                        <a href="${specificLink}" target="_blank" style="display: block; background-color: ${btnBg}; color: #333; padding: 12px 0; text-align: center; text-decoration: none; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; border-radius: 2px;">
                             SELECT
                         </a>
                     </td>
@@ -424,7 +427,7 @@ const getPackagesByEventType = async (req, res) => {
     }
 };
 
-// --- 7. VERIFY PROPOSAL TOKEN (UPDATED) ---
+// --- 7. VERIFY PROPOSAL TOKEN ---
 const verifyProposal = async (req, res) => {
     try {
         const { token } = req.params;
@@ -459,10 +462,7 @@ const verifyProposal = async (req, res) => {
                 venue: bData.eventDetails?.venue || "TBD",
                 startTime: bData.eventDetails?.startTime,
                 endTime: bData.eventDetails?.endTime,
-                // Assuming addOns in DB is an array of objects like [{name: "Lechon", price: 8000}]
-                // If it's just strings, you'll need to assign prices in frontend or backend.
                 addOns: bData.eventDetails?.addOns || [],
-                // Get current payment status
                 amountPaid: bData.billing?.amountPaid || 0,
                 paymentStatus: bData.billing?.paymentStatus || "Unpaid"
             };
@@ -472,11 +472,11 @@ const verifyProposal = async (req, res) => {
             success: true,
             clientName: proposalData.clientName,
             eventDate: proposalData.eventDate,
-            options: proposalData.options, // The packages
+            options: proposalData.options,
             refId: proposalData.refId,
             status: proposalData.status,
-            selectedPackage: proposalData.selectedPackage, // In case they revisit
-            ...bookingDetails // Spread the booking details (pax, addons, billing)
+            selectedPackage: proposalData.selectedPackage, 
+            ...bookingDetails 
         });
 
     } catch (error) {
@@ -486,7 +486,6 @@ const verifyProposal = async (req, res) => {
 };
 
 // --- 8. CONFIRM SELECTION (CLIENT SIDE) ---
-// This is called when the client clicks "Select" on the website
 const confirmSelection = async (req, res) => {
     try {
         // 1. Extract all new fields sent from Frontend
@@ -498,23 +497,18 @@ const confirmSelection = async (req, res) => {
 
         const proposalDoc = snapshot.docs[0];
         const proposalData = proposalDoc.data();
-        const refId = proposalData.refId; // The Booking ID (e.g., BK-001)
+        const refId = proposalData.refId; 
 
-        // Use a Batch Write to ensure all updates happen together (Atomicity)
         const batch = db.batch();
 
-        // ---------------------------------------------------------
         // A. UPDATE PROPOSAL DOC
-        // ---------------------------------------------------------
         batch.update(proposalDoc.ref, {
-            status: "Payment Submitted", // Changed to indicate waiting for admin
+            status: "Payment Submitted", 
             selectedPackage: selectedPackage,
             confirmedAt: new Date().toISOString()
         });
 
-        // ---------------------------------------------------------
         // B. UPDATE MAIN BOOKING DOC
-        // ---------------------------------------------------------
         const bookingSnap = await db.collection("bookings")
             .where("bookingId", "==", refId)
             .limit(1)
@@ -524,44 +518,35 @@ const confirmSelection = async (req, res) => {
             const bookingDoc = bookingSnap.docs[0];
             const currentData = bookingDoc.data();
             
-            // Logic to append new notes to existing notes
             let updatedNotes = currentData.notes || "";
             if (clientNotes) {
                 updatedNotes += `\n\n[Client Request - ${new Date().toLocaleDateString()}]: ${clientNotes}`;
             }
 
             batch.update(bookingDoc.ref, {
-                "eventDetails.package": selectedPackage.name, // Save selected package name
-                "billing.paymentStatus": "For Verification",  // Admin needs to check this
-                "bookingStatus": "For Verification",          // Update main status
-                "notes": updatedNotes,                        // Save the client's special requests
+                "eventDetails.package": selectedPackage.name, 
+                "billing.paymentStatus": "For Verification",  
+                "bookingStatus": "For Verification",          
+                "notes": updatedNotes,                        
                 updatedAt: new Date().toISOString()
             });
         }
 
-        // ---------------------------------------------------------
-        // C. CREATE PAYMENT RECORD (For Admin Verification)
-        // ---------------------------------------------------------
-        // This creates a new document in the 'payments' collection
+        // C. CREATE PAYMENT RECORD
         const newPaymentRef = db.collection("payments").doc();
         
         batch.set(newPaymentRef, {
             bookingId: refId,
-            clientName: proposalData.clientName, // Useful for searching in Admin Panel
+            clientName: proposalData.clientName,
             amount: paymentDetails?.amount || 5000,
             accountName: paymentDetails?.accountName || "N/A",
             accountNumber: paymentDetails?.accountNumber || "N/A",
             referenceNumber: paymentDetails?.refNumber || "N/A",
-            // If you implemented file upload, save the URL here:
-            // proofUrl: paymentDetails?.proofUrl || null, 
             notes: clientNotes || "",
             status: "Pending Verification",
             submittedAt: new Date().toISOString()
         });
 
-        // ---------------------------------------------------------
-        // D. COMMIT CHANGES
-        // ---------------------------------------------------------
         await batch.commit();
 
         res.status(200).json({ success: true, message: "Package confirmed and sent for verification!" });
@@ -572,7 +557,6 @@ const confirmSelection = async (req, res) => {
     }
 };
 
-
 module.exports = {
     createInquiry,
     getInquiryDetails,
@@ -580,6 +564,6 @@ module.exports = {
     sendProposalEmail,
     updateInquiryStatus,
     getPackagesByEventType,
-    verifyProposal,    // Renamed for clarity
-    confirmSelection   // Added this missing function
+    verifyProposal,
+    confirmSelection
 };
