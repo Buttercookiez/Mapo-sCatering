@@ -63,3 +63,13 @@ export const markBookingAsFullyPaid = async (refId) => {
     throw error;
   }
 };
+
+export const sendPaymentReminder = async (refId) => {
+  try {
+    const response = await api.post("/inquiries/send-payment-reminder", { refId });
+    return response.data;
+  } catch (error) {
+    console.error("Error sending reminder:", error);
+    throw error;
+  }
+};
