@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, MoreHorizontal, Lock, Loader2 } from "lucide-react";
 
-// API
+// API (Only write functions needed now)
 import {
-  getBookingByRefId,
   sendProposalEmail,
   updateBookingStatus,
 } from "../../../api/bookingService";
 
+// NEW: Import the Hook
+import { useBookingDetails } from "../../../hooks/useBookingDetails";
+
 // Helper Components
 import FadeIn from "./components/FadeIn";
-import StatusBadge from "./components/StatusBadge";
+import StatusBadge from "./components/StatusBadge"; 
 import BookingSidebar from "./components/BookingSidebar";
 
 // Tab Components
@@ -20,90 +22,64 @@ import ProposalTab from "./components/ProposalTab";
 const detailTabs = ["Event Info", "Proposal"];
 
 const BookingDetails = ({
-  booking,
+  booking: initialBooking, // Renamed to initialBooking
   onBack,
+  onUpdateBooking, 
   activeDetailTab,
   setActiveDetailTab,
   theme,
   darkMode,
 }) => {
-  const [bookingData, setBookingData] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [proposalTotal, setProposalTotal] = useState(0);
+  // --- 1. USE REALTIME HOOK ---
+  // We use the ID passed from the list to subscribe to the doc
+  const { booking: realtimeBooking, loading: isSyncing, error } = useBookingDetails(initialBooking?.id);
 
-  // Email State
+  // --- 2. MERGE DATA ---
+  // Prefer realtime data, fallback to initial prop, or empty object
+  const details = realtimeBooking || initialBooking || {};
+  
+  // Local UI States
+  const [proposalTotal, setProposalTotal] = useState(0);
   const [isSending, setIsSending] = useState(false);
   const [emailStatus, setEmailStatus] = useState(null);
-
-  // Rejection State
   const [rejectionReason, setRejectionReason] = useState("");
   const [rejectionSent, setRejectionSent] = useState(false);
 
-  // 1. Fetch Data Effect
+  // Proposal Calculation Effect
   useEffect(() => {
-    setActiveDetailTab("Event Info");
-
-    const fetchBookingDetails = async () => {
-      const idToFetch = booking?.refId || booking?.id;
-      if (!idToFetch) return;
-
-      setIsLoading(true);
-      try {
-        const data = await getBookingByRefId(idToFetch);
-        setBookingData(data);
-      } catch (err) {
-        console.error("Fetch error:", err);
-        setError("Could not sync with database. Showing list data.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchBookingDetails();
-  }, [booking, setActiveDetailTab]); 
-
-  // 2. Proposal Calculation Effect
-  useEffect(() => {
-    if (bookingData) {
-      const proposalData = bookingData.proposal || {};
-      if (proposalData.costBreakdown?.grandTotal) {
-        setProposalTotal(proposalData.costBreakdown.grandTotal);
-      } else if (bookingData.estimatedBudget) {
-        setProposalTotal(bookingData.estimatedBudget);
-      }
+    if (details) {
+      // Check both nested (realtime) and flat (initial) structures
+      const grandTotal = details.billing?.totalCost || details.budget || 0;
+      setProposalTotal(grandTotal);
     }
-  }, [bookingData]);
+  }, [details]);
 
-  // 6. Data Merging & Preparation
-  const currentData = bookingData || booking || {};
-  const paymentData = currentData.payment || {};
+  // --- HANDLERS ---
 
-  const details = {
-    id: currentData.refId || currentData.id || "N/A",
-    client: currentData.fullName || currentData.client || "Unknown Client",
-    phone: currentData.phone || "No Contact Info",
-    email: currentData.email || "No Email",
-    date: currentData.dateOfEvent || currentData.date || "TBD",
-    guests: currentData.estimatedGuests || currentData.guests || 0,
-    type: currentData.eventType || currentData.type || "Event",
-    venue: currentData.venueName || currentData.venue || "Client Venue",
-    timeStart: currentData.startTime || "TBD",
-    timeEnd: currentData.endTime || "TBD",
-    serviceStyle: currentData.serviceStyle || "Plated",
-    status: currentData.status || "Pending",
-    budget: currentData.estimatedBudget || 0,
-    reservationFee: paymentData.reservationFee || 5000,
-    reservationStatus: paymentData.reservationFee ? "Paid" : "Unpaid",
-    downpayment: paymentData.downpayment || 0,
-    downpaymentStatus: paymentData.downpayment ? "Paid" : "Unpaid",
-    balance: paymentData.balance || currentData.estimatedBudget || 0,
-    paymentStatus: paymentData.paymentStatus || "Unpaid",
-    paymentMethod: paymentData.paymentMethod || "Bank Transfer",
-    history: paymentData.history?.length > 0 ? paymentData.history : [],
+  const handleUpdateStatus = async (newStatus) => {
+    // Note: We don't strictly need to set local state because the Hook 
+    // will update 'details' automatically when the DB changes.
+    // But we can do it for instant UI feedback.
+    
+    if (newStatus === "Cancelled" || newStatus === "Rejected") {
+      setActiveDetailTab("Event Info");
+    }
+
+    try {
+      // CHANGE THIS LINE: Use details.refId instead of details.id
+      if (details.refId) {
+        await updateBookingStatus(details.refId, newStatus);
+        
+        if (onUpdateBooking) {
+          onUpdateBooking({ ...details, status: newStatus });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to update status on server:", error);
+      alert("Failed to save status.");
+    }
   };
 
-  // 3. Handle Send Proposal
   const handleSendProposal = async (payloadData) => {
     if (!details.email) {
       alert("No email address found for this client.");
@@ -114,10 +90,9 @@ const BookingDetails = ({
     setEmailStatus(null);
 
     const { options } = payloadData;
-    const midOption = options[1];
     
     const payload = {
-      refId: details.id,
+      refId: details.refId,
       clientName: details.client,
       clientEmail: details.email,
       packageOptions: options, 
@@ -131,33 +106,16 @@ const BookingDetails = ({
     try {
       await sendProposalEmail(payload);
       setEmailStatus("success");
+      
+      // Update status to "Proposal Sent"
+      await handleUpdateStatus("Proposal Sent"); 
+
       setTimeout(() => setEmailStatus(null), 3000);
     } catch (err) {
       console.error(err);
       setEmailStatus("error");
     } finally {
       setIsSending(false);
-    }
-  };
-
-  // 4. Handle Booking Status Change
-  const handleUpdateStatus = async (newStatus) => {
-    setBookingData((prev) => ({
-      ...prev,
-      status: newStatus,
-    }));
-
-    if (newStatus === "Cancelled" || newStatus === "Rejected") {
-      setActiveDetailTab("Event Info");
-    }
-
-    try {
-      if (details.id) {
-        await updateBookingStatus(details.id, newStatus);
-      }
-    } catch (error) {
-      console.error("Failed to update status on server:", error);
-      alert("Failed to save status. Please check your connection.");
     }
   };
 
@@ -170,14 +128,22 @@ const BookingDetails = ({
     }, 1500);
   };
 
-  // UPDATED: Now includes "Client Responded" to unlock the Proposal tab
-  const isBookingConfirmed =
-    details.status === "Confirmed" || 
-    details.status === "Paid" ||
-    details.status === "Client Responded";
-
-  const isBookingRejected =
-    details.status === "Cancelled" || details.status === "Rejected";
+  // --- WORKFLOW LOGIC ---
+  const allowedProposalStages = [
+    "Accepted", 
+    "Proposal Sent", 
+    "No Response", 
+    "Verifying", 
+    "Reserved", 
+    "Confirmed", 
+    "Paid"
+  ];
+  
+  const currentStatusNormalized = details.status ? details.status.trim() : "";
+  
+  const isProposalUnlocked = allowedProposalStages.some(stage => 
+    stage.toLowerCase() === currentStatusNormalized.toLowerCase()
+  );
 
   return (
     <div className={`flex-1 overflow-y-auto scroll-smooth no-scrollbar h-full flex flex-col ${theme.bg}`}>
@@ -195,10 +161,10 @@ const BookingDetails = ({
           <div>
             <div className="flex items-center gap-3">
               <h2 className={`font-serif text-xl ${theme.text}`}>
-                {details.client}
+                {details.client || "Loading..."}
               </h2>
               <span className={`text-xs font-mono ${theme.subText}`}>
-                {details.id}
+                {details.refId}
               </span>
             </div>
           </div>
@@ -213,18 +179,17 @@ const BookingDetails = ({
 
       {error && (
         <div className="bg-red-500/10 border-b border-red-500/20 p-2 text-center text-xs text-red-500">
-          Warning: {error}
+          {error}
         </div>
       )}
 
       {/* Content Layout */}
       <div className="flex flex-col lg:flex-row flex-1 overflow-hidden relative">
         
-        {/* --- LOADING OVERLAY --- */}
-        {isLoading && (
-           <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center ${theme.bg} transition-all duration-300`}>
-                <Loader2 size={32} className="animate-spin mb-4 text-[#C9A25D]" />
-                <p className={`text-xs uppercase tracking-widest font-medium ${theme.text}`}>Loading Details...</p>
+        {/* --- SYNCING OVERLAY (Shows briefly when data updates) --- */}
+        {isSyncing && (
+           <div className={`absolute top-0 right-0 p-4 z-50`}>
+               <Loader2 size={16} className="animate-spin text-[#C9A25D]" />
            </div>
         )}
 
@@ -240,40 +205,37 @@ const BookingDetails = ({
           {/* TABS HEADER */}
           <div className={`flex items-center border-b ${theme.border} ${theme.cardBg} px-6`}>
             {detailTabs.map((tab) => {
-              const isDisabled =
-                !isBookingConfirmed &&
-                (tab === "Proposal"); 
+              const isLocked = tab === "Proposal" && !isProposalUnlocked;
 
               return (
                 <button
                   key={tab}
-                  onClick={() => !isDisabled && setActiveDetailTab(tab)}
-                  disabled={isDisabled}
+                  onClick={() => !isLocked && setActiveDetailTab(tab)}
+                  disabled={isLocked}
                   className={`px-6 py-4 text-xs uppercase tracking-[0.2em] border-b-2 transition-colors font-medium flex items-center gap-2 ${
                     activeDetailTab === tab
                       ? "border-[#C9A25D] text-[#C9A25D]"
-                      : isDisabled
+                      : isLocked
                       ? "border-transparent text-stone-300 dark:text-stone-700 cursor-not-allowed"
                       : `border-transparent ${theme.subText} hover:text-stone-600 dark:hover:text-stone-300`
                   }`}
                 >
                   {tab}
-                  {isDisabled && <Lock size={10} />}
+                  {isLocked && <Lock size={10} />}
                 </button>
               );
             })}
           </div>
 
           <div className="flex-1 overflow-y-auto p-8 lg:p-12 no-scrollbar">
-            {!isLoading && (
-              <FadeIn key={activeDetailTab}>
-                {/* EVENT INFO */}
-                {activeDetailTab === "Event Info" && (
+            {/* EVENT INFO */}
+            {activeDetailTab === "Event Info" && (
+                <FadeIn>
                   <EventInfoTab
                     details={details}
                     theme={theme}
-                    isBookingConfirmed={isBookingConfirmed}
-                    isBookingRejected={isBookingRejected}
+                    isBookingAccepted={details.status === 'Accepted'}
+                    isBookingRejected={details.status === 'Rejected'}
                     rejectionSent={rejectionSent}
                     rejectionReason={rejectionReason}
                     setRejectionReason={setRejectionReason}
@@ -281,21 +243,21 @@ const BookingDetails = ({
                     handleSendRejection={handleSendRejection}
                     isSending={isSending}
                   />
-                )}
+                </FadeIn>
+            )}
 
-                {/* PROPOSAL */}
-                {activeDetailTab === "Proposal" && (
+            {/* PROPOSAL */}
+            {activeDetailTab === "Proposal" && (
+                <FadeIn>
                   <ProposalTab
                     details={details}
                     theme={theme}
                     proposalTotal={proposalTotal}
-                    setProposalTotal={setProposalTotal}
                     handleSendProposal={handleSendProposal}
                     isSending={isSending}
                     emailStatus={emailStatus}
                   />
-                )}
-              </FadeIn>
+                </FadeIn>
             )}
           </div>
         </div>

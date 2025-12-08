@@ -81,7 +81,7 @@ const Financials = () => {
 
   // --- Data: Event Profitability (Manual Entries) ---
   const [profitLogs, setProfitLogs] = useState([
-    { id: 1, event: 'Cruz Wedding', date: 'Dec 10', cost: 15000, paid: 25000 },
+    { id: 1, event: 'Jemima Albuero Wedding', date: 'Dec 10', cost: 15000, paid: 25000 },
     { id: 2, event: 'Tech Corp Lunch', date: 'Dec 08', cost: 12000, paid: 20000 },
     { id: 3, event: 'Reyes Birthday', date: 'Dec 05', cost: 18500, paid: 18000 },
   ]);

@@ -10,7 +10,8 @@ import {
   Loader2,
   Send,
   Wallet,
-  Bell // Added Bell icon for notification
+  Bell,
+  XCircle
 } from "lucide-react";
 
 import StatusBadge from "./StatusBadge"; 
@@ -45,67 +46,92 @@ const EventInfoTab = ({
   return (
     <div className="max-w-4xl mx-auto">
       {isBookingRejected ? (
-        // --- REJECTION VIEW (Unchanged) ---
-        <div
-          className={`p-8 border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30 rounded-sm`}
-        >
-          <div className="flex items-center gap-3 mb-4 text-red-600 dark:text-red-400">
-            <AlertCircle size={24} />
-            <h3 className="font-serif text-xl">Inquiry Rejected</h3>
+        // --- REDESIGNED REJECTION VIEW ---
+        <div className={`relative p-8 border ${theme.border} ${theme.cardBg} rounded-sm shadow-sm overflow-hidden transition-colors duration-500`}>
+          
+          {/* Decorative Left Accent */}
+          <div className="absolute top-0 left-0 w-1 h-full bg-red-500/80"></div>
+
+          <div className="flex items-start gap-5 mb-8">
+            <div className={`p-3 rounded-full bg-red-500/10 text-red-500 mt-1`}>
+                <AlertCircle size={24} strokeWidth={1.5} />
+            </div>
+            <div className="flex-1">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-red-500 font-bold">Status Update</span>
+                <h3 className={`text-2xl font-serif italic ${theme.text} mt-1`}>Inquiry Rejected</h3>
+                <p className={`text-sm ${theme.subText} mt-2 max-w-2xl`}>
+                    This inquiry has been marked for rejection. Please review the details below before notifying the client.
+                </p>
+            </div>
           </div>
 
           {rejectionSent ? (
-            <div className="flex flex-col items-center py-8 text-center">
-              <CheckCircle size={48} className="text-emerald-500 mb-4" />
-              <h4 className={`text-lg font-bold ${theme.text}`}>
-                Rejection Email Sent
+            <div className={`flex flex-col items-center justify-center py-12 border-t border-dashed ${theme.border}`}>
+              <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
+                <CheckCircle size={32} className="text-emerald-500" />
+              </div>
+              <h4 className={`text-lg font-serif italic ${theme.text}`}>
+                Notification Sent
               </h4>
-              <p className={`text-sm ${theme.subText} mt-2`}>
-                The client has been notified regarding the rejection of this
-                inquiry.
+              <p className={`text-xs uppercase tracking-widest ${theme.subText} mt-2`}>
+                The client has been notified via email.
               </p>
+              
+              <button
+                  onClick={() => handleUpdateStatus("Pending")}
+                  className={`mt-8 text-xs text-stone-500 underline hover:text-[#C9A25D] transition-colors`}
+                >
+                  Undo Rejection (Restore to Pending)
+              </button>
             </div>
           ) : (
-            <>
-              <p className={`text-sm ${theme.text} mb-6`}>
-                This inquiry has been rejected. Please provide a reason below to
-                notify the client via email.
-              </p>
-              <label className="text-[10px] uppercase tracking-widest text-stone-500 mb-2 block">
-                Reason for Rejection
+            <div className="pl-0 md:pl-14">
+              <label className={`text-[10px] uppercase tracking-widest ${theme.subText} mb-3 block`}>
+                Reason for Rejection <span className="text-red-500">*</span>
               </label>
+              
               <textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                className={`w-full p-4 border ${theme.border} bg-white dark:bg-stone-900 rounded-sm focus:outline-none focus:border-red-400 mb-4 text-sm`}
+                className={`
+                    w-full p-4 border ${theme.border} bg-transparent 
+                    ${theme.text} placeholder-stone-500/50 rounded-sm 
+                    focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20
+                    transition-all duration-300 text-sm resize-none
+                `}
                 rows={5}
-                placeholder="e.g., Sorry, the date is fully booked..."
+                placeholder="e.g., We regret to inform you that our venue is fully booked for the requested date..."
               />
-              <div className="flex justify-end gap-3">
+
+              <div className="flex flex-col md:flex-row justify-end items-center gap-4 mt-8">
                 <button
                   onClick={() => handleUpdateStatus("Pending")}
-                  className={`px-4 py-2 text-xs uppercase font-bold text-stone-500 hover:text-stone-700`}
+                  className={`text-xs uppercase font-bold tracking-widest ${theme.subText} hover:text-[#C9A25D] transition-colors`}
                 >
-                  Cancel & Restore
+                  Cancel
                 </button>
                 <button
                   onClick={handleSendRejection}
                   disabled={!rejectionReason || isSending}
-                  className="flex items-center gap-2 px-6 py-2 bg-red-600 text-white text-xs uppercase font-bold rounded-sm hover:bg-red-700 disabled:opacity-50"
+                  className={`
+                    flex items-center gap-2 px-8 py-3 bg-red-600 text-white text-xs uppercase tracking-widest font-bold rounded-sm 
+                    hover:bg-red-700 transition-all shadow-lg shadow-red-900/20
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                  `}
                 >
                   {isSending ? (
                     <Loader2 size={14} className="animate-spin" />
                   ) : (
                     <Send size={14} />
                   )}
-                  Send Rejection Email
+                  Confirm & Send
                 </button>
               </div>
-            </>
+            </div>
           )}
         </div>
       ) : (
-        // --- EVENT INFO VIEW ---
+        // --- EVENT INFO VIEW (Unchanged) ---
         <>
           <div className="flex justify-between items-end mb-6">
             <h3 className={`font-serif text-2xl ${theme.text}`}>
@@ -113,7 +139,7 @@ const EventInfoTab = ({
             </h3>
           </div>
 
-          {/* 2. MAIN DETAILS GRID */}
+          {/* MAIN DETAILS GRID */}
           <div
             className={`grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 p-8 border ${theme.border} ${theme.cardBg} rounded-sm shadow-sm transition-all duration-500`}
           >
@@ -161,8 +187,6 @@ const EventInfoTab = ({
                 </span>
               </div>
             </div>
-            
-            {/* Note: Reservation Fee removed from here as it's now in the top container */}
 
             <div>
               <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">
@@ -204,7 +228,8 @@ const EventInfoTab = ({
             </div>
           </div>
 
-                    <div className={`mb-8 border ${theme.border} ${theme.cardBg} rounded-sm p-6 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6`}>
+          {/* Reservation Fee Block */}
+          <div className={`mt-8 mb-8 border ${theme.border} ${theme.cardBg} rounded-sm p-6 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 transition-colors duration-500`}>
              <div className="flex items-start gap-4">
                 <div className="p-3 bg-[#C9A25D]/10 rounded-full text-[#C9A25D]">
                     <Wallet size={24} strokeWidth={1.5} />

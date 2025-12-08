@@ -10,7 +10,9 @@ const {
     updateInquiryStatus, 
     getPackagesByEventType,
     verifyProposal,    
-    confirmSelection   
+    confirmSelection  ,
+    getAllPayments,
+    verifyPayment
 } = require("../controllers/inquiryController");
 
 // ==============================================
@@ -41,5 +43,7 @@ router.get("/", getBooking);
 // If you put these at the top, they block specific routes.
 router.patch("/:refId", updateInquiryStatus);
 router.get("/:refId", getInquiryDetails);
+router.patch("/payments/:paymentId/verify", verifyPayment);
+
 
 module.exports = router;

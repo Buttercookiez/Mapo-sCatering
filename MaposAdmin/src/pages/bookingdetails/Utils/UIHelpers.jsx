@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircle, Clock, AlertCircle, AlertTriangle } from 'lucide-react';
+import { 
+  CheckCircle, 
+  Clock, 
+  AlertCircle, 
+  AlertTriangle, 
+  XCircle, 
+  Loader2 
+} from 'lucide-react';
 
-// --- 1. Animation Component ---
+// --- 1. Animation Component (Unchanged) ---
 export const FadeIn = ({ children, delay = 0 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const ref = useRef(null);
@@ -22,60 +29,77 @@ export const FadeIn = ({ children, delay = 0 }) => {
   );
 };
 
-// --- 2. Status Badge Helper ---
-export const renderStatusBadge = (status) => {
-  const badgeBase = "flex items-center gap-1.5 text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-sm font-medium border transition-colors w-fit";
+// --- 2. Status Badge Helper (Updated) ---
+export const STATUS_CONFIG = {
+  // 1. Initial Inquiry
+  PENDING: {
+    label: 'Pending',
+    color: 'text-yellow-600 bg-yellow-50 border-yellow-200',
+    icon: <AlertCircle size={10} />,
+    description: 'New client inquiry waiting for admin review'
+  },
   
-  // Normalize status to ensure casing doesn't break it (optional but recommended)
-  const currentStatus = status ? status.trim() : '';
+  // 2. Admin Decision
+  REJECTED: {
+    label: 'Rejected',
+    color: 'text-red-700 bg-red-50 border-red-200',
+    icon: <XCircle size={10} />,
+    description: 'Admin rejected the request'
+  },
+  ACCEPTED: {
+    label: 'Accepted',
+    color: 'text-blue-700 bg-blue-50 border-blue-200',
+    icon: <CheckCircle size={10} />,
+    description: 'Admin accepted. Proposal tab unlocked.'
+  },
 
-  switch (currentStatus) {
-    case 'Reserved':
-      return (
-        <span className={`${badgeBase} text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/10`}>
-          <CheckCircle size={10} /> Reserved
-        </span>
-      );
-      
-    case 'Proposal Sent':
-      return (
-        <span className={`${badgeBase} text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-500/10 dark:border-amber-500/10`}>
-          <Clock size={10} /> Sent
-        </span>
-      );
+  // 3. Proposal Phase
+  PROPOSAL_SENT: {
+    label: 'Proposal Sent',
+    color: 'text-amber-700 bg-amber-50 border-amber-200',
+    icon: <Clock size={10} />,
+    description: 'Proposal sent to client'
+  },
+  NO_RESPONSE: {
+    label: 'No Response',
+    color: 'text-stone-500 bg-stone-100 border-stone-200',
+    icon: <AlertCircle size={10} />,
+    description: '24 hours passed without client action'
+  },
 
-    // --- THIS IS THE PART THAT HANDLES YOUR REQUEST ---
-    case 'Pending': 
-    case 'Pending Review':
-      return (
-        <span className={`${badgeBase} text-yellow-600 bg-stone-100 border-stone-200 dark:text-stone-400 dark:bg-stone-800 dark:border-stone-700`}>
-          {/* It detects 'Pending', but renders the word 'New' */}
-          <AlertCircle size={10} /> New 
-        </span>
-      );
-    // --------------------------------------------------
+  // 4. Payment & Finalization
+  VERIFYING: {
+    label: 'Verifying',
+    color: 'text-purple-700 bg-purple-50 border-purple-200',
+    icon: <Loader2 size={10} className="animate-spin" />,
+    description: 'Client paid and clicked verify. Waiting for admin.'
+  },
+  RESERVED: {
+    label: 'Reserved',
+    color: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+    icon: <CheckCircle size={10} />,
+    description: 'Payment verified by admin'
+  },
 
-    case 'Paid':
-    case 'Confirmed':
-      return (
-        <span className={`${badgeBase} text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/10`}>
-          <CheckCircle size={10} /> Confirmed
-        </span>
-      );
-
-    case 'Unpaid':
-      return (
-        <span className={`${badgeBase} text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/10`}>
-          <AlertTriangle size={10} /> Unpaid
-        </span>
-      );
-
-    default:
-      // Fallback for unknown statuses
-      return (
-        <span className={`${badgeBase} text-stone-400 bg-stone-50 border-stone-200`}>
-          {status}
-        </span>
-      );
+  // Fallback
+  DEFAULT: {
+    label: 'Unknown',
+    color: 'text-stone-400 bg-stone-50 border-stone-200',
+    icon: <AlertTriangle size={10} />
   }
+};
+
+export const renderStatusBadge = (status) => {
+  const statusKey = status ? status.toUpperCase().replace(/\s+/g, '_') : 'DEFAULT';
+  
+  // 2. Find config or fallback to DEFAULT
+  const config = STATUS_CONFIG[statusKey] || STATUS_CONFIG.DEFAULT;
+
+  // 3. Render
+  return (
+    <span className={`flex items-center gap-1.5 text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-sm font-medium border transition-colors w-fit ${config.color}`}>
+      {config.icon}
+      {config.label}
+    </span>
+  );
 };
