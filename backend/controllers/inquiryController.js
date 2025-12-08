@@ -767,6 +767,43 @@ const rejectBooking = async (req, res) => {
     }
 };
 
+// --- NEW: MARK FULL PAYMENT ---
+const markFullPayment = async (req, res) => {
+    try {
+        const { refId } = req.body;
+
+        const snapshot = await db.collection("bookings")
+            .where("bookingId", "==", refId)
+            .limit(1)
+            .get();
+
+        if (snapshot.empty) {
+            return res.status(404).json({ success: false, message: "Booking not found" });
+        }
+
+        const doc = snapshot.docs[0];
+
+        // Update Database
+        await db.collection("bookings").doc(doc.id).update({
+            // 1. Set the specific Full Payment flag
+            "billing.fullPaymentStatus": "Paid",
+            
+            // 2. Clear the remaining balance
+            "billing.remainingBalance": 0,
+            
+            // 3. Ensure paymentStatus remains "Paid" (to keep reservation valid)
+            "billing.paymentStatus": "Paid",
+
+            updatedAt: new Date().toISOString()
+        });
+
+        res.status(200).json({ success: true, message: "Full payment recorded." });
+
+    } catch (error) {
+        console.error("Full Payment Error:", error);
+        res.status(500).json({ success: false, message: "Failed to update payment." });
+    }
+};
 
 module.exports = {
     createInquiry,
@@ -780,5 +817,6 @@ module.exports = {
     getAllPayments,
     verifyPayment,
     sendConfirmationEmail,
-    rejectBooking
+    rejectBooking,
+    markFullPayment
 };
