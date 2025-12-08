@@ -20,10 +20,10 @@ const Footer = ({ darkMode }) => {
               <a href="#" className="hover:text-[#C9A25D] transition-colors">
                 <Instagram className="w-5 h-5" />
               </a>
-              <a href="#" className="hover:text-[#C9A25D] transition-colors">
+              <a href="https://www.facebook.com/maposcatering" className="hover:text-[#C9A25D] transition-colors">
                 <Facebook className="w-5 h-5" />
               </a>
-              <a href="#" className="hover:text-[#C9A25D] transition-colors">
+              <a href="mailto:cateringmapo@gmail.com" className="hover:text-[#C9A25D] transition-colors">
                 <Mail className="w-5 h-5" />
               </a>
             </div>
