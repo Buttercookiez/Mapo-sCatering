@@ -37,8 +37,8 @@ export const subscribeToBookings = (onUpdate, onError) => {
         
         // Billing
         totalCost: data.billing?.totalCost || 0,
-        amountPaid: data.billing?.amountPaid || 0,
         paymentStatus: data.billing?.paymentStatus || "Unpaid",
+        paymentStatus: data.billing?.fullPaymentStatus || "Unpaid",
 
         // Timestamp (Useful if you want to display "Inquired 2 hours ago")
         createdAt: data.createdAt,
