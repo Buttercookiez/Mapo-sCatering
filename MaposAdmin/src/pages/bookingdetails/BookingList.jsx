@@ -1,103 +1,20 @@
-import React from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { 
   Filter, 
   Plus, 
   ChevronRight, 
+  ChevronDown,
   Loader2, 
   Inbox,
-  CheckCircle,
-  Clock,
-  AlertCircle,
-  AlertTriangle,
-  XCircle
+  Search,
+  X,
+  Check
 } from "lucide-react";
 
-// --- 1. CONFIGURATION: Status Definitions ---
-const STATUS_CONFIG = {
-  // New Inquiry Stage
-  PENDING: {
-    label: 'Pending',
-    color: 'text-yellow-600 bg-yellow-50 border-yellow-200 dark:text-yellow-400 dark:bg-yellow-500/10 dark:border-yellow-500/20',
-    icon: <AlertCircle size={10} />
-  },
-  PENDING_REVIEW: { 
-    label: 'Pending',
-    color: 'text-yellow-600 bg-yellow-50 border-yellow-200 dark:text-yellow-400 dark:bg-yellow-500/10 dark:border-yellow-500/20',
-    icon: <AlertCircle size={10} />
-  },
-  
-  // Admin Decisions (Negative)
-  REJECTED: {
-    label: 'Rejected',
-    color: 'text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20',
-    icon: <XCircle size={10} />
-  },
-  
-  // --- NEW: CANCELLED STATUS ---
-  CANCELLED: {
-    label: 'Cancelled',
-    color: 'text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20',
-    icon: <XCircle size={10} />
-  },
-  
-  // Admin Decisions (Positive)
-  ACCEPTED: {
-    label: 'Accepted',
-    color: 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/20',
-    icon: <CheckCircle size={10} />
-  },
+// Import shared helpers
+import { renderStatusBadge, STATUS_CONFIG } from "./Utils/UIHelpers"; 
 
-  // Proposal Stage
-  PROPOSAL_SENT: {
-    label: 'Sent',
-    color: 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-500/10 dark:border-amber-500/20',
-    icon: <Clock size={10} />
-  },
-  NO_RESPONSE: {
-    label: 'No Response',
-    color: 'text-stone-500 bg-stone-100 border-stone-200 dark:text-stone-400 dark:bg-stone-800 dark:border-stone-700',
-    icon: <AlertCircle size={10} />
-  },
-
-  // Payment Stage
-  VERIFYING: {
-    label: 'Verifying',
-    color: 'text-purple-700 bg-purple-50 border-purple-200 dark:text-purple-400 dark:bg-purple-500/10 dark:border-purple-500/20',
-    icon: <Loader2 size={10} className="animate-spin" />
-  },
-  RESERVED: {
-    label: 'Reserved',
-    color: 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/20',
-    icon: <CheckCircle size={10} />
-  },
-
-  // Fallbacks
-  UNPAID: {
-    label: 'Unpaid',
-    color: 'text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20',
-    icon: <AlertTriangle size={10} />
-  },
-  DEFAULT: {
-    label: 'Unknown',
-    color: 'text-stone-400 bg-stone-50 border-stone-200',
-    icon: <AlertTriangle size={10} />
-  }
-};
-
-// --- 2. HELPER: Render Function ---
-export const renderStatusBadge = (status) => {
-  const statusKey = status ? status.trim().toUpperCase().replace(/\s+/g, '_') : 'DEFAULT';
-  const config = STATUS_CONFIG[statusKey] || STATUS_CONFIG.DEFAULT;
-
-  return (
-    <span className={`flex items-center gap-1.5 text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-sm font-medium border transition-colors w-fit ${config.color}`}>
-      {config.icon}
-      {config.label}
-    </span>
-  );
-};
-
-// --- 3. COMPONENT: Booking List ---
+// --- COMPONENT: Booking List ---
 const BookingList = ({
   bookings,
   isLoading,
@@ -106,7 +23,35 @@ const BookingList = ({
   theme,
   darkMode,
 }) => {
-  
+  // --- STATE ---
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+
+  // --- FILTER LOGIC ---
+  const filteredBookings = useMemo(() => {
+    if (!bookings) return [];
+
+    return bookings.filter((b) => {
+      // 1. Search Filter (Ref ID or Full Name)
+      const query = searchQuery.toLowerCase();
+      const matchesSearch = 
+        b.refId.toLowerCase().includes(query) || 
+        b.fullName.toLowerCase().includes(query);
+
+      // 2. Status Filter
+      const statusKey = b.status ? b.status.toUpperCase().replace(/\s+/g, '_') : 'DEFAULT';
+      const matchesStatus = statusFilter === "ALL" || statusKey === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [bookings, searchQuery, statusFilter]);
+
+  // --- HANDLERS ---
+  const clearFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("ALL");
+  };
+
   return (
     <div className="h-full flex flex-col p-6 md:p-12 pb-12 overflow-hidden">
       
@@ -120,11 +65,16 @@ const BookingList = ({
         `}
       </style>
 
-      {/* Header */}
+      {/* Header with Search & Filter Controls */}
       <div className="flex-none">
         <BookingHeader 
             theme={theme} 
-            onOpenNewBooking={onOpenNewBooking} 
+            onOpenNewBooking={onOpenNewBooking}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
+            darkMode={darkMode}
         />
       </div>
 
@@ -151,6 +101,7 @@ const BookingList = ({
                         <p className="text-xs uppercase tracking-widest">Loading Bookings...</p>
                     </div>
                 ) : bookings.length === 0 ? (
+                    // Empty State: No bookings at all
                     <div className="h-full flex flex-col items-center justify-center text-center">
                         <div className="p-4 bg-stone-100 dark:bg-stone-800 rounded-full mb-4">
                             <Inbox size={24} className="text-stone-400" />
@@ -158,9 +109,26 @@ const BookingList = ({
                         <h3 className={`font-serif text-xl ${theme.text}`}>No bookings found</h3>
                         <p className={`text-xs mt-2 ${theme.subText}`}>Create a new booking to get started.</p>
                     </div>
+                ) : filteredBookings.length === 0 ? (
+                    // Empty State: No results from search/filter
+                    <div className="h-full flex flex-col items-center justify-center text-center">
+                        <div className="p-4 bg-stone-50 dark:bg-stone-900 rounded-full mb-4">
+                            <Search size={24} className="text-stone-400" />
+                        </div>
+                        <h3 className={`font-serif text-lg ${theme.text}`}>No results found</h3>
+                        <p className={`text-xs mt-2 ${theme.subText}`}>
+                           Adjust your search or filters.
+                        </p>
+                        <button 
+                          onClick={clearFilters}
+                          className="mt-4 text-[10px] uppercase tracking-widest text-[#C9A25D] hover:underline"
+                        >
+                          Clear Filters
+                        </button>
+                    </div>
                 ) : (
                     <div className={`divide-y ${darkMode ? "divide-stone-800" : "divide-stone-100"}`}>
-                        {bookings.map((b) => (
+                        {filteredBookings.map((b) => (
                         <div
                             key={b.refId}
                             onClick={() => onSelectBooking(b)}
@@ -206,9 +174,92 @@ const BookingList = ({
   );
 };
 
-const BookingHeader = ({ theme, onOpenNewBooking }) => (
-  <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
-    <div>
+// --- SUB-COMPONENT: Custom Status Dropdown ---
+const StatusFilterDropdown = ({ currentFilter, onSelect, theme, darkMode }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+  
+    // Close on click outside
+    useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+          setIsOpen(false);
+        }
+      };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+  
+    // Determine label
+    const selectedLabel = currentFilter === "ALL" 
+      ? "All Statuses" 
+      : STATUS_CONFIG[currentFilter]?.label || "Unknown";
+  
+    // Dropdown Background Logic (Hardcoded specifically to ensure opacity/color is correct on top of card)
+    const dropdownBg = darkMode ? "bg-[#1c1c1c]" : "bg-white";
+    const hoverBg = darkMode ? "hover:bg-stone-800" : "hover:bg-stone-50";
+  
+    return (
+      <div className="relative" ref={dropdownRef}>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={`flex items-center justify-between gap-3 pl-3 pr-3 py-2.5 border ${theme.border} bg-transparent text-[10px] uppercase tracking-widest hover:border-[#C9A25D] hover:text-[#C9A25D] transition-all ${theme.subText} min-w-[160px] rounded-sm`}
+        >
+          <div className="flex items-center gap-2">
+            <Filter size={14} />
+            <span className="truncate max-w-[100px] text-left">{selectedLabel}</span>
+          </div>
+          <ChevronDown size={12} className={`transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} />
+        </button>
+  
+        {isOpen && (
+          <div className={`absolute top-full right-0 mt-1 w-56 z-50 border ${theme.border} ${dropdownBg} shadow-2xl max-h-80 overflow-y-auto custom-scrollbar rounded-sm animate-in fade-in zoom-in-95 duration-200`}>
+            <div className="py-1">
+              <button
+                onClick={() => { onSelect("ALL"); setIsOpen(false); }}
+                className={`w-full text-left px-4 py-3 text-[10px] uppercase tracking-widest transition-colors flex items-center justify-between group ${hoverBg}`}
+              >
+                <span className={`${currentFilter === "ALL" ? "text-[#C9A25D] font-bold" : theme.subText}`}>
+                  All Statuses
+                </span>
+                {currentFilter === "ALL" && <Check size={12} className="text-[#C9A25D]" />}
+              </button>
+  
+              {Object.entries(STATUS_CONFIG).map(([key, config]) => (
+                <button
+                  key={key}
+                  onClick={() => { onSelect(key); setIsOpen(false); }}
+                  className={`w-full text-left px-4 py-3 text-[10px] uppercase tracking-widest transition-colors flex items-center justify-between group ${hoverBg}`}
+                >
+                  <span className={`flex items-center gap-2 ${currentFilter === key ? "text-[#C9A25D] font-bold" : theme.subText} group-hover:text-[#C9A25D]`}>
+                    <span className="opacity-70 group-hover:opacity-100 transition-opacity">
+                        {config.icon}
+                    </span>
+                    {config.label}
+                  </span>
+                  {currentFilter === key && <Check size={12} className="text-[#C9A25D]" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+// --- HEADER COMPONENT ---
+const BookingHeader = ({ 
+  theme, 
+  onOpenNewBooking, 
+  searchQuery, 
+  setSearchQuery, 
+  statusFilter, 
+  setStatusFilter,
+  darkMode 
+}) => (
+  <div className="flex flex-col lg:flex-row justify-between items-end mb-8 gap-6">
+    {/* Title Section */}
+    <div className="w-full lg:w-auto">
       <h2 className={`font-serif text-3xl italic ${theme.text}`}>
         Bookings
       </h2>
@@ -216,15 +267,39 @@ const BookingHeader = ({ theme, onOpenNewBooking }) => (
         Manage requests and proposals.
       </p>
     </div>
-    <div className="flex gap-3">
-      <button
-        className={`flex items-center gap-2 px-4 py-2.5 border ${theme.border} text-[10px] uppercase tracking-widest hover:text-[#C9A25D] hover:border-[#C9A25D] transition-all bg-transparent ${theme.subText}`}
-      >
-        <Filter size={14} /> Filter
-      </button>
+
+    {/* Actions Section */}
+    <div className="w-full lg:w-auto flex flex-col sm:flex-row gap-3">
+      
+      {/* Search Bar */}
+      <div className={`flex items-center border ${theme.border} rounded-sm px-3 py-2.5 bg-transparent focus-within:border-[#C9A25D] transition-colors flex-grow sm:flex-grow-0 sm:w-64`}>
+        <Search size={14} className="text-stone-400 mr-2 flex-shrink-0" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search ID or Name..."
+          className={`bg-transparent border-none outline-none text-xs w-full placeholder:text-stone-500 ${theme.text}`}
+        />
+        {searchQuery && (
+          <button onClick={() => setSearchQuery("")}>
+            <X size={14} className="text-stone-400 hover:text-red-500 transition-colors" />
+          </button>
+        )}
+      </div>
+
+      {/* Custom Dropdown Replaces Native Select */}
+      <StatusFilterDropdown 
+        currentFilter={statusFilter}
+        onSelect={setStatusFilter}
+        theme={theme}
+        darkMode={darkMode}
+      />
+
+      {/* New Booking Button */}
       <button
         onClick={onOpenNewBooking}
-        className="flex items-center gap-2 bg-[#1c1c1c] text-white px-6 py-2.5 text-[10px] uppercase tracking-widest hover:bg-[#C9A25D] transition-colors rounded-sm shadow-md"
+        className="flex items-center justify-center gap-2 bg-[#1c1c1c] text-white px-6 py-2.5 text-[10px] uppercase tracking-widest hover:bg-[#C9A25D] transition-colors rounded-sm shadow-md min-w-[140px]"
       >
         <Plus size={14} /> New Booking
       </button>

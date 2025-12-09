@@ -101,7 +101,7 @@ const Bookings = () => {
 
         {currentView === "list" || !selectedBooking ? (
           <BookingList
-            bookings={bookings} // <--- REAL-TIME DATA
+            bookings={bookings} 
             isLoading={isLoading} 
             onSelectBooking={(booking) => {
               setSelectedBooking(booking);
