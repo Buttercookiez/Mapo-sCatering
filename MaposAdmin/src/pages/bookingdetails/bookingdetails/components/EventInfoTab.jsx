@@ -3,17 +3,16 @@ import {
   Calendar, MapPin, Clock, FileText, Utensils,
   AlertCircle, CheckCircle, Loader2, Send, Wallet,
   Coins, Receipt, Check, BellRing, XCircle, Mail,
-  PieChart // Added PieChart icon for 50%
+  PieChart, TrendingUp, Save, Lock // Added Lock icon
 } from "lucide-react";
 
 import { subDays, format, differenceInDays, isValid } from "date-fns";
 import StatusBadge from "./StatusBadge"; 
-
-// Import new service
 import { 
   markBookingAsFullyPaid, 
   markBookingAs50PercentPaid, 
-  sendPaymentReminder 
+  sendPaymentReminder,
+  saveOperationalCost 
 } from "../../../../api/bookingService";
 
 const EventInfoTab = ({
@@ -36,58 +35,67 @@ const EventInfoTab = ({
   const totalCost = billing.totalCost || details.budget || 0; 
   const reservationFee = 5000; 
 
-  // --- 2. PAYMENT STATUS LOGIC ---
-  const secureStatuses = ["Reserved", "Confirmed", "Paid", "Completed"];
+  // --- NEW: PROFIT CALCULATIONS ---
+  const opsCost = billing.operationalCost || 0;
+  const netProfit = totalCost - opsCost;
+  
+  // Logic: Only show margin if Ops Cost has been entered (> 0)
+  const hasOpsData = opsCost > 0;
+  const marginPercent = (hasOpsData && totalCost > 0) 
+    ? ((netProfit / totalCost) * 100).toFixed(1) 
+    : null;
+
+  // --- 2. STATUS LOGIC ---
   const currentStatus = details.status || "Pending";
+  // Check if Event is Completed
+  const isEventCompleted = currentStatus === "Completed";
+
+  // Payment Status
+  const secureStatuses = ["Reserved", "Confirmed", "Paid", "Completed"];
   const isReservationSecured = billing.paymentStatus === "Paid" || secureStatuses.includes(currentStatus);
   const reservationBadgeStatus = isReservationSecured ? "Paid" : "Unpaid";
-
-  // Check specific flags
   const isFullyPaid = billing.fullPaymentStatus === "Paid";
   const is50PercentPaid = billing.fiftyPercentPaymentStatus === "Paid";
 
-  // --- 3. BALANCE CALCULATION ---
-  // If Fully Paid -> 0
-  // If 50% Paid -> (Total - Reservation) / 2
-  // Default -> Total - Reservation
+  // Balance Logic
   let balanceDue = totalCost - reservationFee;
-  if (is50PercentPaid) balanceDue = balanceDue / 2;
+  if (is50PercentPaid) balanceDue = balanceDue / 2; 
   if (isFullyPaid) balanceDue = 0;
 
-  // --- 4. STATUS CHECKS ---
+  // Other Status Checks
+  const isCancelled = currentStatus === "Cancelled";
   const isCancelledOrRejected = ["Cancelled", "Rejected"].includes(currentStatus);
   const isActiveBooking = !isCancelledOrRejected;
-  const isCancelled = currentStatus === "Cancelled";
 
-  // --- 5. DATE LOGIC ---
+  // --- 3. DEADLINE LOGIC ---
   const eventDateObj = new Date(details.date);
   let deadlineString = "N/A";
   let daysUntilDeadline = null;
 
   if (isValid(eventDateObj)) {
-      const deadlineDate = subDays(eventDateObj, 5); 
+      const deadlineDate = subDays(eventDateObj, 4); 
       deadlineString = format(deadlineDate, 'MMM dd, yyyy');
       daysUntilDeadline = differenceInDays(deadlineDate, new Date());
   }
 
-  // --- 6. LOCAL STATE ---
+  // --- 4. LOCAL STATE ---
   const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
   const [isSendingReminder, setIsSendingReminder] = useState(false);
+  
+  // Cost Input State
+  const [costInput, setCostInput] = useState(opsCost);
+  const [isSavingCost, setIsSavingCost] = useState(false);
 
-  // --- 7. HANDLERS ---
-
+  // --- 5. HANDLERS ---
   const handle50PercentPayment = async () => {
-    // Calculate what the 50% amount is for the alert message
     const amountToPay = (totalCost - reservationFee) / 2;
     if(!window.confirm(`Mark 50% partial payment (₱${amountToPay.toLocaleString()}) as received?`)) return;
-
     setIsUpdatingPayment(true);
     try {
         await markBookingAs50PercentPaid(details.refId);
         alert("50% payment recorded.");
         window.location.reload(); 
     } catch (error) {
-        console.error(error);
         alert("Failed to update status.");
     } finally {
         setIsUpdatingPayment(false);
@@ -95,21 +103,14 @@ const EventInfoTab = ({
   };
 
   const handleFullPayment = async () => {
-    // Message changes based on previous payments
-    const msg = is50PercentPaid 
-        ? `Settle the FINAL balance of ₱${balanceDue.toLocaleString()}?`
-        : `Settle the FULL remaining balance of ₱${balanceDue.toLocaleString()}?`;
-
-    if(!window.confirm(msg)) return;
-
+    if(!window.confirm(`Confirm that the client has settled the remaining balance of ₱${balanceDue.toLocaleString()}?`)) return;
     setIsUpdatingPayment(true);
     try {
         await markBookingAsFullyPaid(details.refId);
         alert("Full payment recorded successfully.");
         window.location.reload(); 
     } catch (error) {
-        console.error(error);
-        alert("Failed to update status.");
+        alert("Failed to update payment status.");
     } finally {
         setIsUpdatingPayment(false);
     }
@@ -128,13 +129,25 @@ const EventInfoTab = ({
     }
   };
 
+  const handleSaveCost = async () => {
+    setIsSavingCost(true);
+    try {
+        await saveOperationalCost(details.refId, costInput);
+        alert("Operational cost saved.");
+        window.location.reload();
+    } catch (error) {
+        alert("Failed to save cost.");
+    } finally {
+        setIsSavingCost(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       {isBookingRejected ? (
-        // ... (Rejection View Code - Same as before) ...
-        <div className={`relative p-8 border ${theme.border} ${theme.cardBg} rounded-sm shadow-sm overflow-hidden transition-colors duration-500`}>
+        // ... (Rejection Code Omitted for Brevity - it remains the same) ...
+        <div className={`relative p-8 border ${theme.border} ${theme.cardBg} rounded-sm shadow-sm`}>
              <div className="absolute top-0 left-0 w-1 h-full bg-red-500/80"></div>
-             {/* ... header ... */}
              <div className="flex items-start gap-5 mb-8">
                 <div className={`p-3 rounded-full bg-red-500/10 text-red-500 mt-1`}><AlertCircle size={24} strokeWidth={1.5} /></div>
                 <div className="flex-1">
@@ -162,9 +175,9 @@ const EventInfoTab = ({
          </div>
       ) : (
         <>
-          {/* ... (Cancellation Notice & Event Grid - Same as before) ... */}
+          {/* ... (Cancellation & Event Specs - Same as before) ... */}
           {isCancelled && (
-            <div className="mb-8 p-6 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-sm flex flex-col md:flex-row gap-4 items-start relative overflow-hidden animate-in fade-in slide-in-from-top-2">
+            <div className="mb-8 p-6 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-sm flex flex-col md:flex-row gap-4 items-start relative overflow-hidden">
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
                 <div className="p-2 bg-white dark:bg-red-900/20 rounded-full text-red-500 mt-1 shadow-sm"><XCircle size={24} /></div>
                 <div className="flex-1">
@@ -190,119 +203,165 @@ const EventInfoTab = ({
           </div>
 
           {/* FINANCIALS BLOCK */}
-          <div className={`mt-8 mb-8 border ${theme.border} ${theme.cardBg} rounded-sm p-6 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-8 items-start transition-colors duration-500`}>
+          <div className={`mt-8 mb-8 border ${theme.border} ${theme.cardBg} rounded-sm p-6 shadow-sm`}>
              
-             {/* 1. RESERVATION FEE */}
-             <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-[#C9A25D]/10 rounded-full text-[#C9A25D]"><Wallet size={18} strokeWidth={1.5} /></div>
-                    <p className="text-[10px] uppercase tracking-widest text-stone-400 font-bold">Reservation Fee</p>
+             {/* --- FINANCIAL SUMMARY ROW --- */}
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start mb-8 border-b border-dashed border-stone-200 dark:border-stone-800 pb-8">
+                {/* 1. Reservation */}
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 bg-[#C9A25D]/10 rounded-full text-[#C9A25D]"><Wallet size={18} strokeWidth={1.5} /></div>
+                        <p className="text-[10px] uppercase tracking-widest text-stone-400 font-bold">Reservation Fee</p>
+                    </div>
+                    <span className={`font-serif text-xl font-medium ${theme.text}`}>₱ {reservationFee.toLocaleString()}</span>
+                    <div className="mt-1"><StatusBadge status={reservationBadgeStatus} /></div>
                 </div>
-                <span className={`font-serif text-xl font-medium ${theme.text}`}>₱ {reservationFee.toLocaleString()}</span>
-                <div className="mt-1"><StatusBadge status={reservationBadgeStatus} /></div>
-             </div>
 
-             {/* 2. ADD-ONS TOTAL */}
-             <div className="flex flex-col gap-1 md:border-l md:border-dashed md:border-stone-200 md:dark:border-stone-800 md:pl-8">
-                <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-stone-100 dark:bg-stone-800 rounded-full text-stone-500"><Receipt size={18} strokeWidth={1.5} /></div>
-                    <p className="text-[10px] uppercase tracking-widest text-stone-400 font-bold">Total Add-ons</p>
+                {/* 2. Add-ons */}
+                <div className="flex flex-col gap-1 md:border-l md:border-dashed md:border-stone-200 md:dark:border-stone-800 md:pl-8">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 bg-stone-100 dark:bg-stone-800 rounded-full text-stone-500"><Receipt size={18} strokeWidth={1.5} /></div>
+                        <p className="text-[10px] uppercase tracking-widest text-stone-400 font-bold">Total Add-ons</p>
+                    </div>
+                    <span className={`font-serif text-xl font-medium ${theme.text}`}>₱ {addOnsTotal.toLocaleString()}</span>
+                    <p className="text-[10px] text-stone-400 italic">{addOns.length} items selected</p>
                 </div>
-                <span className={`font-serif text-xl font-medium ${theme.text}`}>₱ {addOnsTotal.toLocaleString()}</span>
-                <p className="text-[10px] text-stone-400 italic">{addOns.length} items selected</p>
-             </div>
 
-             {/* 3. TOTAL CONTRACT PRICE & ACTIONS */}
-             <div className="flex flex-col gap-1 md:border-l md:border-dashed md:border-stone-200 md:dark:border-stone-800 md:pl-8">
-                <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-stone-100 dark:bg-stone-800 rounded-full text-stone-500"><Coins size={18} strokeWidth={1.5} /></div>
-                    <p className="text-[10px] uppercase tracking-widest text-stone-400 font-bold">Total Contract Price</p>
-                </div>
-                <span className={`font-serif text-2xl font-medium ${theme.text}`}>₱ {totalCost.toLocaleString()}</span>
-                
-                <div className="flex flex-col gap-3 mt-2">
+                {/* 3. Contract & Actions */}
+                <div className="flex flex-col gap-1 md:border-l md:border-dashed md:border-stone-200 md:dark:border-stone-800 md:pl-8">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 bg-stone-100 dark:bg-stone-800 rounded-full text-stone-500"><Coins size={18} strokeWidth={1.5} /></div>
+                        <p className="text-[10px] uppercase tracking-widest text-stone-400 font-bold">Total Contract Price</p>
+                    </div>
+                    <span className={`font-serif text-2xl font-medium ${theme.text}`}>₱ {totalCost.toLocaleString()}</span>
                     
-                    {/* BALANCE INFO */}
-                    {!isFullyPaid && (
-                        <div className={`p-3 rounded border ${isCancelled ? 'bg-stone-100 border-stone-200 opacity-75' : 'bg-stone-50 dark:bg-stone-900 border-stone-200 dark:border-stone-800'}`}>
-                           <div className="flex justify-between items-center mb-1">
-                               <span className="text-[10px] uppercase text-stone-500 font-bold">Balance Due</span>
-                               <span className="text-xs font-mono font-bold text-stone-800 dark:text-stone-200">₱{balanceDue.toLocaleString()}</span>
-                           </div>
-                           <div className="flex justify-between items-center">
-                               <span className="text-[10px] uppercase text-stone-500 font-bold">Deadline</span>
-                               <span className={`text-xs font-mono font-bold ${daysUntilDeadline !== null && daysUntilDeadline < 5 && isActiveBooking ? 'text-red-500' : 'text-stone-800 dark:text-stone-200'}`}>
-                                   {deadlineString}
-                               </span>
-                           </div>
-                           
-                           {/* 50% PAID INDICATOR */}
-                           {is50PercentPaid && isActiveBooking && (
-                               <div className="mt-2 pt-2 border-t border-dashed border-stone-200 dark:border-stone-700 flex items-center justify-center gap-2">
-                                   <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                                   <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-500 uppercase tracking-wide">50% Paid</span>
-                               </div>
-                           )}
-
-                           {/* Warning (Only if active) */}
-                           {isActiveBooking && daysUntilDeadline !== null && daysUntilDeadline < 5 && daysUntilDeadline >= 0 && (
-                               <p className="text-[9px] text-red-500 mt-2 italic text-center font-semibold">Warning: Auto-cancellation in {daysUntilDeadline} days.</p>
-                           )}
-                        </div>
-                    )}
-
-                    {/* ACTION BUTTONS */}
-                    <div className="flex flex-col gap-2">
-                        {isFullyPaid ? (
-                            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 px-3 py-2 rounded-sm border border-emerald-200 dark:border-emerald-900/30 w-full justify-center">
-                                <CheckCircle size={16} />
-                                <span className="text-xs font-bold uppercase tracking-wide">Fully Paid</span>
-                            </div>
-                        ) : (
-                            isReservationSecured && isActiveBooking ? ( 
-                                 <>
-                                    <div className="flex gap-2">
-                                        {/* 50% BUTTON (Only show if NOT yet 50% paid) */}
-                                        {!is50PercentPaid && (
-                                            <button 
-                                                onClick={handle50PercentPayment} 
-                                                disabled={isUpdatingPayment}
-                                                className="flex-1 flex items-center justify-center gap-2 bg-stone-700 hover:bg-stone-600 text-white px-3 py-2 rounded-sm text-[10px] uppercase tracking-widest transition-colors shadow-sm"
-                                            >
-                                                {isUpdatingPayment ? <Loader2 size={12} className="animate-spin"/> : <PieChart size={12} />} 
-                                                50% Paid
-                                            </button>
-                                        )}
-
-                                        {/* FULL PAYMENT BUTTON (Always shown until fully paid) */}
-                                        <button 
-                                            onClick={handleFullPayment} 
-                                            disabled={isUpdatingPayment}
-                                            className="flex-1 flex items-center justify-center gap-2 bg-[#1c1c1c] hover:bg-emerald-600 text-white px-3 py-2 rounded-sm text-[10px] uppercase tracking-widest transition-colors shadow-md"
-                                        >
-                                            {isUpdatingPayment ? <Loader2 size={12} className="animate-spin"/> : <Check size={12} />} 
-                                            {is50PercentPaid ? "Pay Final" : "Pay Full"}
-                                        </button>
-                                    </div>
-
-                                    {/* REMINDER BUTTON */}
-                                    <button onClick={handleReminderClick} disabled={isSendingReminder} className="w-full flex items-center justify-center gap-2 bg-white border border-stone-300 text-stone-600 hover:bg-stone-100 hover:text-[#C9A25D] hover:border-[#C9A25D] px-3 py-2 rounded-sm text-[10px] uppercase tracking-widest transition-colors shadow-sm">
-                                        {isSendingReminder ? <Loader2 size={12} className="animate-spin"/> : <BellRing size={12} />} Send Reminder
-                                    </button>
-                                 </>
-                            ) : (
-                                <div className="flex flex-col gap-1 w-full">
-                                    {isCancelledOrRejected ? (
-                                        <div className="flex items-center justify-center gap-2 py-2 border border-red-200 bg-red-50 rounded-sm text-red-500 text-[10px] font-bold uppercase tracking-wide"><XCircle size={12} /> {currentStatus}</div>
-                                    ) : (
-                                        <p className="text-[10px] text-stone-400 italic flex items-center gap-1"><AlertCircle size={10} /> Awaiting Reservation Fee</p>
-                                    )}
+                    {/* Payment Actions */}
+                    <div className="flex flex-col gap-3 mt-4">
+                        {!isFullyPaid && (
+                            <div className="bg-stone-50 dark:bg-stone-900 p-3 rounded border border-stone-200 dark:border-stone-800">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-[10px] uppercase text-stone-500 font-bold">Balance Due</span>
+                                    <span className="text-xs font-mono font-bold text-stone-800 dark:text-stone-200">₱{balanceDue.toLocaleString()}</span>
                                 </div>
-                            )
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] uppercase text-stone-500 font-bold">Deadline</span>
+                                    <span className={`text-xs font-mono font-bold ${daysUntilDeadline !== null && daysUntilDeadline < 5 && isActiveBooking ? 'text-red-500' : 'text-stone-800 dark:text-stone-200'}`}>{deadlineString}</span>
+                                </div>
+                                {is50PercentPaid && isActiveBooking && (<div className="mt-2 pt-2 border-t border-dashed border-stone-200 dark:border-stone-700 flex items-center justify-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500"></div><span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-500 uppercase tracking-wide">50% Paid</span></div>)}
+                                {isActiveBooking && daysUntilDeadline !== null && daysUntilDeadline < 5 && daysUntilDeadline >= 0 && !is50PercentPaid && (<p className="text-[9px] text-red-500 mt-2 italic text-center font-semibold">Warning: Auto-cancellation in {daysUntilDeadline} days.</p>)}
+                            </div>
                         )}
+
+                        <div className="flex flex-col gap-2">
+                            {isFullyPaid ? (
+                                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 px-3 py-2 rounded-sm border border-emerald-200 dark:border-emerald-900/30 w-full justify-center"><CheckCircle size={16} /><span className="text-xs font-bold uppercase tracking-wide">Fully Paid</span></div>
+                            ) : (
+                                isReservationSecured && isActiveBooking ? ( 
+                                     <>
+                                        <div className="flex gap-2">
+                                            {!is50PercentPaid && (
+                                                <button onClick={handle50PercentPayment} disabled={isUpdatingPayment} className="flex-1 flex items-center justify-center gap-2 bg-stone-700 hover:bg-stone-600 text-white px-3 py-2 rounded-sm text-[10px] uppercase tracking-widest transition-colors shadow-sm">
+                                                    {isUpdatingPayment ? <Loader2 size={12} className="animate-spin"/> : <PieChart size={12} />} 50% Paid
+                                                </button>
+                                            )}
+                                            <button onClick={handleFullPayment} disabled={isUpdatingPayment} className="flex-1 flex items-center justify-center gap-2 bg-[#1c1c1c] hover:bg-emerald-600 text-white px-3 py-2 rounded-sm text-[10px] uppercase tracking-widest transition-colors shadow-md">
+                                                {isUpdatingPayment ? <Loader2 size={12} className="animate-spin"/> : <Check size={12} />} {is50PercentPaid ? "Pay Final" : "Pay Full"}
+                                            </button>
+                                        </div>
+                                        <button onClick={handleReminderClick} disabled={isSendingReminder} className="w-full flex items-center justify-center gap-2 bg-white border border-stone-300 text-stone-600 hover:bg-stone-100 hover:text-[#C9A25D] hover:border-[#C9A25D] px-3 py-2 rounded-sm text-[10px] uppercase tracking-widest transition-colors shadow-sm">
+                                            {isSendingReminder ? <Loader2 size={12} className="animate-spin"/> : <BellRing size={12} />} Send Reminder
+                                        </button>
+                                     </>
+                                ) : (
+                                    <div className="flex flex-col gap-1 w-full">
+                                        {isCancelledOrRejected ? (
+                                            <div className="flex items-center justify-center gap-2 py-2 border border-red-200 bg-red-50 rounded-sm text-red-500 text-[10px] font-bold uppercase tracking-wide"><XCircle size={12} /> {currentStatus}</div>
+                                        ) : (
+                                            <p className="text-[10px] text-stone-400 italic flex items-center gap-1"><AlertCircle size={10} /> Awaiting Reservation Fee</p>
+                                        )}
+                                    </div>
+                                )
+                            )}
+                        </div>
                     </div>
                 </div>
              </div>
+
+             {/* --- PROFITABILITY ANALYSIS ROW --- */}
+             <div>
+                <h4 className="text-[10px] uppercase tracking-[0.2em] text-stone-400 font-bold mb-4 flex items-center gap-2">
+                    <TrendingUp size={14} /> Internal Profitability Analysis
+                </h4>
+
+                <div className={`grid grid-cols-1 md:grid-cols-3 gap-8 items-end p-4 rounded border ${
+                    !isEventCompleted 
+                    ? 'bg-stone-100 dark:bg-stone-900 border-dashed opacity-75' 
+                    : 'bg-stone-50 dark:bg-stone-900/50 border-stone-200 dark:border-stone-800'
+                }`}>
+                    
+                    {/* INPUT: OPERATIONAL COST */}
+                    <div className="flex flex-col gap-2">
+                        <div className="flex justify-between">
+                            <label className="text-[10px] uppercase font-bold text-stone-500">Operational Cost</label>
+                            {!isEventCompleted && <span className="text-[9px] text-amber-500 flex items-center gap-1"><Lock size={8} /> Event Ongoing</span>}
+                        </div>
+                        <div className="flex gap-2">
+                            <div className="relative flex-1">
+                                <span className="absolute left-3 top-2.5 text-xs text-stone-400">₱</span>
+                                <input 
+                                    type="number" 
+                                    value={costInput}
+                                    onChange={(e) => setCostInput(e.target.value)}
+                                    disabled={!isEventCompleted} // DISABLED IF NOT COMPLETED
+                                    className={`w-full pl-6 pr-3 py-2 text-sm border ${theme.border} rounded-sm bg-white dark:bg-stone-800 focus:outline-none focus:border-[#C9A25D] disabled:cursor-not-allowed disabled:bg-transparent`}
+                                    placeholder="0"
+                                />
+                            </div>
+                            <button 
+                                onClick={handleSaveCost}
+                                disabled={isSavingCost || !isEventCompleted} // DISABLED IF NOT COMPLETED
+                                className="bg-[#1c1c1c] text-white p-2 rounded-sm hover:bg-[#C9A25D] transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#1c1c1c]"
+                                title="Save Cost"
+                            >
+                                {isSavingCost ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                            </button>
+                        </div>
+                        <p className="text-[9px] text-stone-400 italic">Unlock after event completion.</p>
+                    </div>
+
+                    {/* DISPLAY: NET PROFIT */}
+                    <div className="flex flex-col gap-1">
+                        <p className="text-[10px] uppercase font-bold text-stone-500">Net Profit</p>
+                        {hasOpsData ? (
+                            <span className={`font-serif text-2xl font-bold ${netProfit >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                ₱ {netProfit.toLocaleString()}
+                            </span>
+                        ) : (
+                            <span className="font-serif text-2xl font-bold text-stone-300">---</span>
+                        )}
+                        <p className="text-[10px] text-stone-400">Revenue - Expenses</p>
+                    </div>
+
+                    {/* DISPLAY: MARGIN % */}
+                    <div className="flex flex-col gap-1">
+                        <p className="text-[10px] uppercase font-bold text-stone-500">Profit Margin</p>
+                        {marginPercent !== null ? (
+                            <div className="flex items-center gap-2">
+                                <span className={`text-xl font-bold ${Number(marginPercent) > 30 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                    {marginPercent}%
+                                </span>
+                                <span className="text-[9px] px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold">
+                                    {Number(marginPercent) > 50 ? 'Excellent' : 'Good'}
+                                </span>
+                            </div>
+                        ) : (
+                            <span className="text-sm text-stone-400 italic mt-1">Pending Input...</span>
+                        )}
+                    </div>
+
+                </div>
+            </div>
+
           </div>
         </>
       )}

@@ -7,7 +7,6 @@ import api from "../api/api";
 // ==========================================
 
 export const subscribeToBookings = (onUpdate, onError) => {
-  // CHANGED: Sort by 'createdAt' desc (Newest created first)
   const q = query(
     collection(db, "bookings"), 
     orderBy("createdAt", "desc") 
@@ -35,12 +34,19 @@ export const subscribeToBookings = (onUpdate, onError) => {
         endTime: data.eventDetails?.endTime,
         venue: data.eventDetails?.venue,
         
-        // Billing
-        totalCost: data.billing?.totalCost || 0,
-        paymentStatus: data.billing?.paymentStatus || "Unpaid",
-        paymentStatus: data.billing?.fullPaymentStatus || "Unpaid",
+        // --- BILLING (UPDATED TO MATCH DB IMAGE) ---
+        billing: {
+            totalCost: data.billing?.totalCost || 0,
+            amountPaid: data.billing?.amountPaid || 0,
+            remainingBalance: data.billing?.remainingBalance ?? data.billing?.totalCost ?? 0, // Fallback logic
+            
+            // Status Flags
+            paymentStatus: data.billing?.paymentStatus || "Unpaid", // Reservation Fee
+            fiftyPercentPaymentStatus: data.billing?.fiftyPercentPaymentStatus || "Unpaid",
+            fullPaymentStatus: data.billing?.fullPaymentStatus || "Unpaid"
+        },
 
-        // Timestamp (Useful if you want to display "Inquired 2 hours ago")
+        // Timestamp
         createdAt: data.createdAt,
 
         ...data 
@@ -53,6 +59,7 @@ export const subscribeToBookings = (onUpdate, onError) => {
     if (onError) onError(error);
   });
 };
+
 
 export const updateBookingStatus = async (refId, status) => {
   // CRITICAL FIX: 

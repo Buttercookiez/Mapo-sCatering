@@ -84,3 +84,12 @@ export const sendPaymentReminder = async (refId) => {
   }
 };
 
+export const saveOperationalCost = async (refId, cost) => {
+  try {
+    const response = await api.post("/inquiries/update-cost", { refId, cost });
+    return response.data;
+  } catch (error) {
+    console.error("Error saving cost:", error);
+    throw error;
+  }
+};  

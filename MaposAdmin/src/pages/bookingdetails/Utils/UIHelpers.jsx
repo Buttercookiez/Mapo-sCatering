@@ -86,6 +86,17 @@ export const STATUS_CONFIG = {
     icon: <CheckCircle size={10} />
   },
 
+  COMPLETED: {
+    label: 'Completed',
+    color: 'text-stone-500 bg-stone-100 border-stone-200 dark:text-stone-400 dark:bg-stone-800 dark:border-stone-700',
+    icon: <CheckCircle size={10} />
+  },
+  ONGOING: {
+    label: 'Happening Now',
+    color: 'text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-900/20 dark:border-blue-800 animate-pulse', // Added animate-pulse for effect
+    icon: <Loader2 size={10} className="animate-spin" />
+  },
+
   // Fallbacks
   UNPAID: {
     label: 'Unpaid',

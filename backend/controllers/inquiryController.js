@@ -1049,10 +1049,134 @@ const checkOverdueBookings = async () => {
     }
 };
 
+// --- NEW: UPDATE OPERATIONAL COST ---
+const updateOperationalCost = async (req, res) => {
+    try {
+        const { refId, cost } = req.body;
+
+        const snapshot = await db.collection("bookings")
+            .where("bookingId", "==", refId)
+            .limit(1)
+            .get();
+
+        if (snapshot.empty) {
+            return res.status(404).json({ message: "Booking not found" });
+        }
+
+        const doc = snapshot.docs[0];
+
+        await db.collection("bookings").doc(doc.id).update({
+            "billing.operationalCost": Number(cost),
+            updatedAt: new Date().toISOString()
+        });
+
+        res.status(200).json({ success: true, message: "Cost updated." });
+
+    } catch (error) {
+        console.error("Cost Update Error:", error);
+        res.status(500).json({ success: false, message: "Failed to update cost." });
+    }
+};
+
+// --- HELPER: Parse 12 Hour Time (e.g., "11:00 PM" -> 23, 0) ---
+const parseTime12h = (timeStr) => {
+    if (!timeStr) return { hours: 0, minutes: 0 }; // Default to start of day
+    const [time, modifier] = timeStr.split(' ');
+    let [hours, minutes] = time.split(':');
+    if (hours === '12') hours = '00';
+    if (modifier === 'PM') hours = parseInt(hours, 10) + 12;
+    return { hours: parseInt(hours, 10), minutes: parseInt(minutes, 10) };
+};
+
+// --- 14. AUTOMATED CRON JOB: HANDLE ONGOING & COMPLETED ---
+const updateEventStatuses = async () => {
+    console.log("Running Event Status Check...");
+    try {
+        const now = new Date();
+
+        // 1. Get All Active Bookings (Reserved, Confirmed, Paid, OR Ongoing)
+        const snapshot = await db.collection("bookings")
+            .where("bookingStatus", "in", ["Reserved", "Confirmed", "Paid", "Ongoing"]) 
+            .get();
+
+        const batch = db.batch();
+        let updateCount = 0;
+
+        for (const doc of snapshot.docs) {
+            const data = doc.data();
+            const currentStatus = data.bookingStatus;
+            
+            const dateStr = data.eventDetails?.date;      
+            const startTimeStr = data.eventDetails?.startTime; 
+            const endTimeStr = data.eventDetails?.endTime;     
+
+            if (!dateStr || !startTimeStr || !endTimeStr) continue;
+
+            // 2. Construct Start Date Object
+            const eventStart = new Date(dateStr);
+            const startT = parseTime12h(startTimeStr);
+            eventStart.setHours(startT.hours, startT.minutes, 0);
+
+            // 3. Construct End Date Object
+            const eventEnd = new Date(dateStr); 
+            const endT = parseTime12h(endTimeStr);
+            eventEnd.setHours(endT.hours, endT.minutes, 0);
+
+            // 4. CROSS-DAY LOGIC (e.g., 11 PM to 5 AM)
+            if (eventEnd < eventStart) {
+                eventEnd.setDate(eventEnd.getDate() + 1);
+            }
+
+            // ============================================
+            // 5. STATUS LOGIC
+            // ============================================
+
+            // CASE A: MARK AS COMPLETED (Now is PAST End Time)
+            if (now >= eventEnd) {
+                if (currentStatus !== "Completed") {
+                    console.log(`Marking Completed: ${data.bookingId}`);
+                    batch.update(doc.ref, { 
+                        bookingStatus: "Completed",
+                        updatedAt: new Date().toISOString() 
+                    });
+                    updateCount++;
+                }
+            } 
+            // CASE B: MARK AS ONGOING (Now is BETWEEN Start and End)
+            else if (now >= eventStart && now < eventEnd) {
+                if (currentStatus !== "Ongoing") {
+                    console.log(`Marking Ongoing: ${data.bookingId}`);
+                    batch.update(doc.ref, { 
+                        bookingStatus: "Ongoing",
+                        updatedAt: new Date().toISOString() 
+                    });
+                    updateCount++;
+                }
+            }
+        }
+
+        if (updateCount > 0) {
+            await batch.commit();
+            console.log(`Updated status for ${updateCount} events.`);
+        }
+
+    } catch (error) {
+        console.error("Event Status Cron Error:", error);
+    }
+};
+
+
+
 // --- INITIALIZE CRON JOB ---
 // Schedule to run every day at 12:00 AM (Midnight)
 cron.schedule('0 0 * * *', () => {
     checkOverdueBookings();
+});
+
+// --- SCHEDULE: RUN EVERY 10 MINUTES ---
+// Since events start at specific times, we check frequently.
+cron.schedule('*/10 * * * *', () => {
+    updateEventStatuses();
 });
 
 module.exports = {
@@ -1071,5 +1195,7 @@ module.exports = {
     markFullPayment,
     sendPaymentReminder,
     checkOverdueBookings,
-    mark50PercentPayment 
+    mark50PercentPayment,
+    updateOperationalCost,
+    updateEventStatuses
 };
