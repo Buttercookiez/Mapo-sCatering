@@ -647,32 +647,37 @@ const verifyPayment = async (req, res) => {
         if (!paymentDoc.exists) return res.status(404).json({ message: "Payment not found" });
         
         const payData = paymentDoc.data();
+        const paidAmount = payData.amount || 5000; // Get amount from payment record
 
-        // 1. Update Payment
+        // 1. Update Payment Status
         await paymentDocRef.update({ status: "Verified" });
 
-        // 2. Update Booking
+        // 2. Update Booking Financials
         const bookingSnap = await db.collection("bookings").where("bookingId", "==", payData.bookingId).limit(1).get();
         
         if (!bookingSnap.empty) {
             const bookingDoc = bookingSnap.docs[0];
-            const bookingData = bookingDoc.data();
+            const currentData = bookingDoc.data();
             
-            // Calculate balance
-            // Note: In real app, you should recalculate based on pax * package + addOns
-            // Here we just mark as Paid/Reserved
-            
+            // --- NEW CALCULATION LOGIC ---
+            const totalCost = currentData.billing?.totalCost || 0;
+            const newAmountPaid = (currentData.billing?.amountPaid || 0) + paidAmount;
+            const newRemainingBalance = totalCost - newAmountPaid;
+
             await bookingDoc.ref.update({
                 bookingStatus: "Reserved",
-                "billing.paymentStatus": "Paid"
+                "billing.paymentStatus": "Paid", // Reservation Paid
+                "billing.amountPaid": newAmountPaid,
+                "billing.remainingBalance": newRemainingBalance, // Store the calculated balance
+                updatedAt: new Date().toISOString()
             });
 
             // 3. Send Email
-            const eventDate = bookingData.eventDetails?.date || "TBD";
+            const eventDate = currentData.eventDetails?.date || "TBD";
             await sendConfirmationEmail(payData.clientEmail, payData.clientName, payData.bookingId, eventDate);
         }
 
-        res.status(200).json({ success: true, message: "Verified & Email Sent" });
+        res.status(200).json({ success: true, message: "Verified & Balance Updated" });
 
     } catch (error) {
         console.error("Verification Error:", error);
@@ -835,17 +840,23 @@ const markFullPayment = async (req, res) => {
         }
 
         const doc = snapshot.docs[0];
+        const data = doc.data();
 
-        // Update Database
+        // 1. Get the Total Contract Price
+        const totalCost = data.billing?.totalCost || 0;
+
+        // 2. Update Database
         await db.collection("bookings").doc(doc.id).update({
-            // 1. Set the specific Full Payment flag
+            // Mark flags as Paid
             "billing.fullPaymentStatus": "Paid",
-            
-            // 2. Clear the remaining balance
-            "billing.remainingBalance": 0,
-            
-            // 3. Ensure paymentStatus remains "Paid" (to keep reservation valid)
+            "billing.fiftyPercentPaymentStatus": "Paid", // Implicitly paid if full is paid
             "billing.paymentStatus": "Paid",
+
+            // CRITICAL FIX: Update the Amount Paid to equal Total Cost
+            "billing.amountPaid": totalCost, 
+            
+            // Zero out the balance
+            "billing.remainingBalance": 0,
 
             updatedAt: new Date().toISOString()
         });
