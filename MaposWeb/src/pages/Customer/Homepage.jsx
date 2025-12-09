@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowUp, Minus, Plus, ChefHat, Calendar, Users, ArrowRight
+  ArrowUp, Minus, Plus, ChefHat, Calendar, Users
 } from 'lucide-react';
 import Navbar from '../../components/customer/Navbar';
 import Footer from '../../components/customer/Footer';
@@ -200,12 +200,7 @@ const Homepage = () => {
     <>
       <Navbar darkMode={darkMode} setDarkMode={setDarkMode} isScrolled={activeIndex > 0 || navIsScrolled} />
 
-      {/* --- OPENING ANIMATION (Reference Implementation) --- */}
-      {/* 
-          Logic copied from Reference:
-          - Loading: clipPath: 'ellipse(150% 150% at 50% 50%)' (Full screen)
-          - Loaded: clipPath: 'ellipse(150% 100% at 50% -100%)' (Lifts up with curve)
-      */}
+      {/* --- OPENING ANIMATION --- */}
       <div
         className={`fixed inset-0 z-[100] flex items-center justify-center 
           ${darkMode ? 'bg-[#0c0c0c]' : 'bg-[#FAFAFA]'}`
@@ -301,7 +296,7 @@ const Homepage = () => {
             </FadeIn>
           </div>
 
-          {/* Scroll Indicator - Bouncy */}
+          {/* Scroll Indicator */}
           <div
             onClick={() => scrollToSection(1)}
             className={`absolute bottom-10 flex flex-col items-center gap-3 z-10 cursor-pointer animate-bounce transition-opacity duration-1000 delay-[2200ms] ${appLoading ? 'opacity-0' : 'opacity-80 hover:opacity-100'}`}
@@ -327,7 +322,6 @@ const Homepage = () => {
               </h2>
             </div>
             <FadeIn>
-
               <p className={`${theme.subText} font-light text-lg leading-relaxed max-w-2xl mx-auto`}>
                 "Mapo’s adds amazing flavor to your special moments.
                 We use fresh, local ingredients to create menus that are sustainable and delicious."
@@ -406,7 +400,7 @@ const Homepage = () => {
           </div>
         </section>
 
-        {/* --- 5. GALLERY --- */}
+       {/* --- 5. GALLERY (Updated Section) --- */}
         <section
           ref={addToRefs}
           id="gallery"
@@ -414,10 +408,17 @@ const Homepage = () => {
         >
           <div className="group/gallery flex flex-wrap md:flex-nowrap h-full w-full">
             {[
-              { src: "/images/mapo1.png", caption: "Birthday" },
-              { src: "/images/mapo2.png", caption: "Wedding" },
-              { src: "/images/mapo6.png", caption: "Corporate Gala" },
-              { src: "/images/mapo7.png", caption: "Private Dinner" }
+              // 1. Dessert Table -> Celebrations
+              { src: "/images/mapo1.png", title: "Celebrations", sub: "JOYFUL MOMENTS" },
+              
+              // 2. Couple -> Weddings
+              { src: "/images/mapo2.png", title: "Weddings", sub: "TIMELESS LOVE" },
+              
+              // 3. Buffet Warmers -> Grand Banquet (Better fit than Corporate Gala)
+              { src: "/images/mapo6.png", title: "Grand Banquet", sub: "CULINARY FEAST" },
+              
+              // 4. Food Display -> Private Dining
+              { src: "/images/mapo7.png", title: "Private Dining", sub: "INTIMATE GATHERING" }
             ].map((item, i) => (
               <div
                 key={i}
@@ -430,15 +431,25 @@ const Homepage = () => {
               >
                 <img
                   src={item.src}
-                  alt={item.caption}
+                  alt={item.title}
                   className="w-full h-full object-cover transition-transform duration-1000 ease-out group-hover/item:scale-110"
                 />
 
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-8">
+                {/* Overlay & Text Alignment */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-100 transition-opacity duration-500">
+                  <div className="absolute bottom-0 left-0 p-6 md:p-8 w-full flex flex-col justify-end items-start">
+                    
+                    {/* Golden Subtitle - Extended to 2 words & spacing added */}
+                    <span className="block text-[#C9A25D] text-[10px] md:text-xs tracking-[0.3em] font-bold uppercase mb-2 transform translate-y-4 opacity-0 group-hover/item:opacity-100 group-hover/item:translate-y-0 transition-all duration-500 delay-100">
+                      {item.sub}
+                    </span>
 
-                  <h3 className="text-white font-serif text-3xl translate-y-4 group-hover/item:translate-y-0 transition-transform duration-500">
-                    {item.caption}
-                  </h3>
+                    {/* Main Title */}
+                    <h3 className="text-white font-serif text-3xl md:text-4xl transform translate-y-4 group-hover/item:translate-y-0 transition-transform duration-500">
+                      {item.title}
+                    </h3>
+
+                  </div>
                 </div>
               </div>
             ))}
