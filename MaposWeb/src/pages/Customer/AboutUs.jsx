@@ -242,8 +242,7 @@ const AboutUs = () => {
             ::-webkit-scrollbar { display: none; }
           `}
         </style>
-
-        {/* --- Section 0: Hero --- */}
+{/* --- Section 0: Hero --- */}
         <header 
           ref={addToRefs}
           className="relative h-screen w-full overflow-hidden bg-stone-900 flex flex-col justify-center items-center"
@@ -251,7 +250,7 @@ const AboutUs = () => {
           {/* Parallax Image (High Quality Online Image) */}
           <div className={`absolute inset-0 w-full h-full z-0 transition-transform duration-[2000ms] ease-out ${appLoading ? 'scale-125' : 'scale-100'}`}>
             <img 
-              src="https://images.pexels.com/photos/2284166/pexels-photo-2284166.jpeg?auto=compress&cs=tinysrgb&w=1600" 
+              src="images/aboutus.jpg" 
               alt="Culinary Art" 
               className="object-cover w-full h-full opacity-60 animate-pulse-slow" 
               style={{ animationDuration: '20s' }}
@@ -261,12 +260,15 @@ const AboutUs = () => {
 
           <div className="relative z-10 text-center px-4 md:px-6 max-w-5xl mx-auto flex flex-col items-center justify-center h-full pb-16 md:pb-0">
             <FadeIn delay={1000}>
-              <span className="text-[#C9A25D] text-sm md:text-base tracking-[0.3em] uppercase font-medium mb-4 md:mb-6 block">
-                Established 2015
-              </span>
+              {/* Added pr-12 to push the text visual center to the left */}
+              <div className="flex justify-center w-full">
+                <span className="text-[#C9A25D] text-sm md:text-base tracking-[0.3em] uppercase font-medium mb-4 md:mb-6 text-center pr-12">
+                  Established 2004
+                </span>
+              </div>
             </FadeIn>
             
-            <h1 className="font-serif text-6xl sm:text-7xl md:text-8xl lg:text-9xl text-white leading-[0.9] mb-6 md:mb-8 font-thin drop-shadow-2xl">
+            <h1 className="font-serif text-6xl sm:text-7xl md:text-8xl lg:text-9xl text-white leading-[0.9] mb-6 md:mb-8 font-thin drop-shadow-2xl flex flex-col items-center">
               <div className="block overflow-hidden">
                   <StaggeredText text="Heart &" delay={1400} />
               </div>
@@ -278,11 +280,10 @@ const AboutUs = () => {
             </h1>
             
             <FadeIn delay={2000}>
-              <p className="text-white/80 text-base md:text-lg max-w-xs md:max-w-xl mx-auto font-light leading-relaxed tracking-wide mb-8 md:mb-10">
+              <p className="text-white/80 text-base md:text-lg max-w-xs md:max-w-xl mx-auto font-light leading-relaxed tracking-wide mb-8 md:mb-10 text-center">
                 The story of Mapo's is a story of family. From a small canteen in Alaminos 
                 to the premier catering choice of Laguna.
               </p>
-              <div className="w-[1px] h-12 md:h-16 bg-white/30 mx-auto"></div>
             </FadeIn>
           </div>
 
@@ -313,7 +314,7 @@ const AboutUs = () => {
                     {/* Main Image */}
                     <div className="relative z-10 w-full h-full overflow-hidden shadow-2xl bg-stone-200">
                       <img 
-                        src="/images/mapo6.png" 
+                        src="/images/maandpo3.jpg" 
                         alt="Marivic & Potenciano" 
                         className="w-full h-full object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-110 grayscale-[20%] group-hover:grayscale-0"
                       />
@@ -340,13 +341,13 @@ const AboutUs = () => {
                 </h2>
                 <div className={`space-y-6 ${theme.subText} font-light text-lg leading-relaxed text-justify md:text-left`}>
                   <p>
-                    Mapo's Catering began 19 years ago not in a grand ballroom, but in a modest concessionaire. For 16 years, it was a daily struggle and a labor of love, serving Halo-Halo and Pancit to the locals of Alaminos.
+                    Mapo's Catering began 19 years ago not in a grand ballroom, but in a modest school canteen. For 16 years, it was a daily struggle and a labor of love, serving Halo-Halo and Pancit to the locals of Alaminos.
                   </p>
                   <p>
                     <strong className={theme.text}>Marivic</strong>, a working mother and student, dreamed of something bigger. She believed that poverty was not a hindrance but an inspiration.
                   </p>
                   <p>
-                    The name <strong className="text-[#C9A25D]">"Mapo"</strong> is a union of <span className={theme.text}>Ma</span>rivic and <span className={theme.text}>Po</span>tenciano—a testament that this business is built on partnership, love, and the Filipino value of <em>Bayanihan</em>.
+                    The name <strong className="text-[#C9A25D]">"Mapo"</strong> is a union of <span className={theme.text}>Ma</span>rivic and <span className={theme.text}>Po</span>tenciano, a testament that this business is built on partnership, love, and the Filipino value of <em>Bayanihan</em>.
                   </p>
                 </div>
               </FadeIn>
@@ -373,18 +374,18 @@ const AboutUs = () => {
               {[
                 { 
                   icon: Clock, 
-                  title: "Just-in-Time", 
-                  desc: "We reject the shortcut of stockpiling. We source ingredients immediately before your event to ensure the snap of vegetables and the freshness of meats." 
+                  title: "Freshly Sourced", 
+                  desc: "We avoid the shortcut of stockpiling. We buy ingredients right before your event to ensure crisp vegetables and fresh meats." 
                 },
                 { 
                   icon: Heart, 
                   title: "Absolute Honesty", 
-                  desc: "We treat your budget as if it were our own. No hidden fees, no cutting corners. If we promise 500 plates, we serve 500 plates—generously." 
+                  desc: "We treat your budget like it is our own. There are no hidden fees or shortcuts here. If we promise 500 plates, we serve 500 generous portions." 
                 },
                 { 
                   icon: Leaf, 
                   title: "Local Roots", 
-                  desc: "We are proud sons and daughters of Laguna. We employ local servers, cooks, and drivers, giving back to the community that raised us." 
+                  desc: "We are proud natives of Laguna. We hire local servers, cooks, and drivers to support the community that raised us." 
                 }
               ].map((item, idx) => (
                 <FadeIn key={idx} delay={idx * 150}>

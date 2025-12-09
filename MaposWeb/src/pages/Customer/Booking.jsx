@@ -423,8 +423,8 @@ const Booking = () => {
               <span className="text-[#C9A25D] text-xs md:text-sm tracking-[0.3em] uppercase font-light mb-6 block font-sans">Reservations</span>
             </FadeIn>
             <h1 className="font-serif text-5xl md:text-7xl lg:text-8xl text-white leading-[0.9] mb-8 font-thin drop-shadow-2xl">
-              <div className="block overflow-hidden"><StaggeredText text="Curate Your" delay={1400} /></div>
-              <div className="block overflow-hidden"><span className="italic font-light"><StaggeredText text="Moment" delay={1600} /></span></div>
+              <div className="block overflow-hidden"><StaggeredText text="Craft Your" delay={1400} /></div>
+              <div className="block overflow-hidden"><span className="italic font-light"><StaggeredText text="Celebration" delay={1600} /></span></div>
             </h1>
             <FadeIn delay={2000}>
               <p className="text-white/80 text-sm md:text-base max-w-lg mx-auto font-light leading-relaxed tracking-wide">Tell us about your vision. Whether an intimate dinner or a grand gala, we craft the menu to match the occasion.</p>
@@ -444,7 +444,7 @@ const Booking = () => {
                   <FadeIn>
                       <div className="mb-12 border-l-2 border-[#C9A25D] pl-6">
                           <span className="text-[#C9A25D] text-xs font-light tracking-widest uppercase mb-2 block font-sans">Step 01</span>
-                          <h2 className={`font-serif text-5xl md:text-6xl ${theme.text} font-thin`}><StaggeredText text="The Host" /></h2>
+                          <h2 className={`font-serif text-5xl md:text-6xl ${theme.text} font-thin`}><StaggeredText text="The Booker" /></h2>
                       </div>
                       <div className="space-y-10">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -558,7 +558,7 @@ const Booking = () => {
                   <FadeIn>
                       <div className="mb-12 border-l-2 border-[#C9A25D] pl-6">
                           <span className="text-[#C9A25D] text-xs font-light tracking-widest uppercase mb-2 block font-sans">Step 04</span>
-                          <h2 className={`font-serif text-4xl md:text-5xl ${theme.text} font-thin`}><StaggeredText text="Event Logistics" /></h2>
+                          <h2 className={`font-serif text-4xl md:text-5xl ${theme.text} font-thin`}><StaggeredText text="Event Details" /></h2>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                           <div className="space-y-10">

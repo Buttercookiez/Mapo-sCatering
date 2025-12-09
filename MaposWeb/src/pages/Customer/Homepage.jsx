@@ -329,7 +329,7 @@ const Homepage = () => {
               </h2>
             </div>
             <FadeIn>
-              <div className="w-[1px] h-20 bg-[#C9A25D] mx-auto mb-8"></div>
+              
               <p className={`${theme.subText} font-light text-lg leading-relaxed max-w-2xl mx-auto`}>
                 "Mapo’s adds amazing flavor to your special moments.
                 We use fresh, local ingredients to create menus that are sustainable and delicious."
@@ -347,9 +347,9 @@ const Homepage = () => {
           <div className="max-w-screen-xl mx-auto px-6 w-full">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-8">
               {[
-                { icon: Users, title: "Let's Plan", desc: "Share your ideas with us. We will listen and help you create the perfect menu for your budget." },
-                { icon: ChefHat, title:  "We Create", desc: "Our chefs get to work. We prepare your dishes using the freshest local ingredients." },
-                { icon: Calendar, title: "You Celebrate", desc: "Relax on your big day. We handle all the service so you can be a guest at your own party." }
+                  { icon: Users, title: "Let's Plan", desc: "We listen to your ideas to help create the perfect menu for your budget." },
+                  { icon: ChefHat, title:  "We Create", desc: "Our chefs get to work preparing dishes using the freshest local ingredients." },
+                  { icon: Calendar, title: "You Celebrate", desc: "We handle all the service so you can be a guest at your own party." }
               ].map((step, idx) => (
                 <FadeIn key={idx} delay={idx * 150}>
                   <div className="text-center group">
@@ -459,9 +459,26 @@ const Homepage = () => {
             </h2>
             <div className={`divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
               {[
-                { q: "What is the booking lead time?", a: "We recommend securing your date 2-4 weeks in advance, especially for weekends during peak season." },
-                { q: "Do you handle dietary restrictions?", a: "Our culinary team is well-versed in gluten-free, vegan, and allergen-sensitive preparations without compromising on flavor." },
-                { q: "Is staff included?", a: "Yes, we take care of the setup, serving, and cleaning up so you have nothing to worry about." }
+{ 
+    q: "Which areas do you cater to?", 
+    a: "While we are based in Alaminos, Laguna, we travel to service events in Manila, Batangas, Quezon, and throughout Laguna." 
+  },
+  { 
+    q: "What is the booking lead time?", 
+    a: "We recommend securing your date 2-4 weeks in advance, especially for weekends during peak season." 
+  },
+  { 
+    q: "How do you ensure food freshness?", 
+    a: "We buy ingredients fresh from the market. Meats are marinated the day before, and dishes are cooked specifically for your event, not pre-made." 
+  },
+  { 
+    q: "Can I hire you for service only?", 
+    a: "Yes! If you prefer to provide your own food, we can handle the full setup, staffing, and service management for you." 
+  },
+  { 
+    q: "What happens if more guests arrive than expected?", 
+    a: "We always prepare a food buffer. If attendance significantly exceeds the count, we immediately source additional food to ensure no one goes hungry." 
+  }
               ].map((item, idx) => (
                 <FadeIn key={idx} delay={idx * 100}>
                   <div className="group py-6 cursor-pointer" onClick={() => setOpenFaq(openFaq === idx ? null : idx)}>

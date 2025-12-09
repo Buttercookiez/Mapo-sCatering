@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowUp, MapPin, Users, Maximize, Wifi, 
-  Music, Coffee, ArrowRight, Star 
+  Music, Coffee, ArrowRight, Star, Facebook, Instagram 
 } from 'lucide-react';
 import Navbar from '../../components/customer/Navbar';
 import Footer from '../../components/customer/Footer';
@@ -207,7 +207,11 @@ const Venue = () => {
       size: "4,500 sq. ft.",
       img: "/images/palacios.png",
       subImg: "/images/palacioslogo.png", 
-      description: "Palacios Events Place offers a clean, elegant, and spacious venue perfect for weddings, parties, and special celebrations."
+      description: "Palacios Events Place offers a clean, elegant, and spacious venue perfect for weddings, parties, and special celebrations.",
+      socials: {
+        facebook: "https://www.facebook.com/palacioseventsplacesanpablo",
+        instagram: "#"
+      }
     },
     {
       id: 2,
@@ -216,7 +220,11 @@ const Venue = () => {
       size: "2,800 sq. ft.",
       img: "/images/laverandaa.png",
       subImg: "/images/laverandalogo.jpg", 
-      description: "A cozy and beautifully curated events space, La Veranda is the ideal spot for small parties and special occasions."
+      description: "A cozy and beautifully curated events space, La Veranda is the ideal spot for small parties and special occasions.",
+      socials: {
+        facebook: "https://www.facebook.com/laveranda",
+        instagram: "#"
+      }
     },
     {
       id: 3,
@@ -225,7 +233,11 @@ const Venue = () => {
       size: "1,200 sq. ft.",
       img: "/images/tenorios.png",
       subImg: "/images/tenorioslogo.jpg", 
-      description: "Your exclusive getaway for family celebrations, team gatherings, and special occasions. Relax, celebrate, and create memories here at Tenorio's!"
+      description: "Your exclusive getaway for family celebrations, team gatherings, and special occasions. Relax, celebrate, and create memories here at Tenorio's!",
+      socials: {
+        facebook: "https://www.facebook.com/profile.php?id=100093983792833", // Tenorio's
+        instagram: "#"
+      }
     }
   ];
 
@@ -385,9 +397,43 @@ const Venue = () => {
                     >
                       <StaggeredText text={venue.name} />
                     </h2>
-                    <p className={`${theme.subText} leading-relaxed mb-10 font-light text-lg max-w-md`}>
+                    <p className={`${theme.subText} leading-relaxed mb-6 font-light text-lg max-w-md`}>
                       {venue.description}
                     </p>
+
+                     {/* SOCIAL ICONS */}
+                    <div className="flex gap-4 mb-8">
+                      {venue.socials && (
+                        <>
+                          {venue.socials.facebook && (
+                            <a 
+                              href={venue.socials.facebook} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className={`flex items-center gap-2 text-xs uppercase tracking-widest ${theme.subText} hover:text-[#C9A25D] transition-colors group/social`}
+                            >
+                              <div className={`p-2 rounded-full border ${theme.border} group-hover/social:border-[#C9A25D]`}>
+                                <Facebook className="w-4 h-4" />
+                              </div>
+                              <span className="hidden md:block">Facebook</span>
+                            </a>
+                          )}
+                          {venue.socials.instagram && venue.socials.instagram !== "#" && (
+                            <a 
+                              href={venue.socials.instagram} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className={`flex items-center gap-2 text-xs uppercase tracking-widest ${theme.subText} hover:text-[#C9A25D] transition-colors group/social`}
+                            >
+                              <div className={`p-2 rounded-full border ${theme.border} group-hover/social:border-[#C9A25D]`}>
+                                <Instagram className="w-4 h-4" />
+                              </div>
+                              <span className="hidden md:block">Instagram</span>
+                            </a>
+                          )}
+                        </>
+                      )}
+                    </div>
                     
                     {/* Specs Grid */}
                     <div className={`grid grid-cols-2 gap-8 border-t ${theme.border} pt-8 mb-10`}>
@@ -467,7 +513,7 @@ const Venue = () => {
               <h2 className={`font-serif text-4xl md:text-6xl ${theme.text} mb-6 leading-tight`}>
                 <StaggeredText text="Experience it in Person" />
               </h2>
-              <div className="w-[1px] h-20 bg-[#C9A25D] mx-auto mb-8 mt-4"></div>
+              
               <p className={`${theme.subText} mb-10 max-w-lg mx-auto font-light text-lg`}>
                 Schedule a private tour with our venue coordinator to visualize your event in our spaces.
               </p>
