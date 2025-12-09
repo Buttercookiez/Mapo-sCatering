@@ -8,7 +8,7 @@ import {
   Loader2 
 } from 'lucide-react';
 
-// --- 1. Animation Component (Unchanged) ---
+// --- 1. Animation Component ---
 export const FadeIn = ({ children, delay = 0 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const ref = useRef(null);
@@ -29,59 +29,69 @@ export const FadeIn = ({ children, delay = 0 }) => {
   );
 };
 
-// --- 2. Status Badge Helper (Updated) ---
+// --- 2. CONFIGURATION: Status Definitions ---
 export const STATUS_CONFIG = {
-  // 1. Initial Inquiry
+  // New Inquiry Stage
   PENDING: {
     label: 'Pending',
-    color: 'text-yellow-600 bg-yellow-50 border-yellow-200',
-    icon: <AlertCircle size={10} />,
-    description: 'New client inquiry waiting for admin review'
+    color: 'text-yellow-600 bg-yellow-50 border-yellow-200 dark:text-yellow-400 dark:bg-yellow-500/10 dark:border-yellow-500/20',
+    icon: <AlertCircle size={10} />
+  },
+  PENDING_REVIEW: { 
+    label: 'Pending',
+    color: 'text-yellow-600 bg-yellow-50 border-yellow-200 dark:text-yellow-400 dark:bg-yellow-500/10 dark:border-yellow-500/20',
+    icon: <AlertCircle size={10} />
   },
   
-  // 2. Admin Decision
+  // Admin Decisions (Negative)
   REJECTED: {
     label: 'Rejected',
-    color: 'text-red-700 bg-red-50 border-red-200',
-    icon: <XCircle size={10} />,
-    description: 'Admin rejected the request'
+    color: 'text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20',
+    icon: <XCircle size={10} />
   },
+  CANCELLED: {
+    label: 'Cancelled',
+    color: 'text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20',
+    icon: <XCircle size={10} />
+  },
+  
+  // Admin Decisions (Positive)
   ACCEPTED: {
     label: 'Accepted',
-    color: 'text-blue-700 bg-blue-50 border-blue-200',
-    icon: <CheckCircle size={10} />,
-    description: 'Admin accepted. Proposal tab unlocked.'
+    color: 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/20',
+    icon: <CheckCircle size={10} />
   },
 
-  // 3. Proposal Phase
+  // Proposal Stage
   PROPOSAL_SENT: {
-    label: 'Proposal Sent',
-    color: 'text-amber-700 bg-amber-50 border-amber-200',
-    icon: <Clock size={10} />,
-    description: 'Proposal sent to client'
+    label: 'Sent',
+    color: 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-500/10 dark:border-amber-500/20',
+    icon: <Clock size={10} />
   },
   NO_RESPONSE: {
     label: 'No Response',
-    color: 'text-stone-500 bg-stone-100 border-stone-200',
-    icon: <AlertCircle size={10} />,
-    description: '24 hours passed without client action'
+    color: 'text-stone-500 bg-stone-100 border-stone-200 dark:text-stone-400 dark:bg-stone-800 dark:border-stone-700',
+    icon: <AlertCircle size={10} />
   },
 
-  // 4. Payment & Finalization
+  // Payment Stage
   VERIFYING: {
     label: 'Verifying',
-    color: 'text-purple-700 bg-purple-50 border-purple-200',
-    icon: <Loader2 size={10} className="animate-spin" />,
-    description: 'Client paid and clicked verify. Waiting for admin.'
+    color: 'text-purple-700 bg-purple-50 border-purple-200 dark:text-purple-400 dark:bg-purple-500/10 dark:border-purple-500/20',
+    icon: <Loader2 size={10} className="animate-spin" />
   },
   RESERVED: {
     label: 'Reserved',
-    color: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-    icon: <CheckCircle size={10} />,
-    description: 'Payment verified by admin'
+    color: 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/20',
+    icon: <CheckCircle size={10} />
   },
 
-  // Fallback
+  // Fallbacks
+  UNPAID: {
+    label: 'Unpaid',
+    color: 'text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20',
+    icon: <AlertTriangle size={10} />
+  },
   DEFAULT: {
     label: 'Unknown',
     color: 'text-stone-400 bg-stone-50 border-stone-200',
@@ -89,13 +99,11 @@ export const STATUS_CONFIG = {
   }
 };
 
+// --- 3. HELPER: Render Function ---
 export const renderStatusBadge = (status) => {
-  const statusKey = status ? status.toUpperCase().replace(/\s+/g, '_') : 'DEFAULT';
-  
-  // 2. Find config or fallback to DEFAULT
+  const statusKey = status ? status.trim().toUpperCase().replace(/\s+/g, '_') : 'DEFAULT';
   const config = STATUS_CONFIG[statusKey] || STATUS_CONFIG.DEFAULT;
 
-  // 3. Render
   return (
     <span className={`flex items-center gap-1.5 text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-sm font-medium border transition-colors w-fit ${config.color}`}>
       {config.icon}

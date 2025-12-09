@@ -1,8 +1,8 @@
 // src/pages/Customer/Homepage.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ArrowUp, Minus, Plus, ChefHat, Calendar, Users, ArrowRight 
+import {
+  ArrowUp, Minus, Plus, ChefHat, Calendar, Users, ArrowRight
 } from 'lucide-react';
 import Navbar from '../../components/customer/Navbar';
 import Footer from '../../components/customer/Footer';
@@ -19,7 +19,7 @@ const StaggeredText = ({ text, className = "", delay = 0 }) => {
       ([entry]) => {
         setIsVisible(entry.isIntersecting);
       },
-      { threshold: 0.1 } 
+      { threshold: 0.1 }
     );
     if (ref.current) observer.observe(ref.current);
     return () => { if (ref.current) observer.unobserve(ref.current); };
@@ -32,9 +32,8 @@ const StaggeredText = ({ text, className = "", delay = 0 }) => {
       {words.map((word, i) => (
         <span key={i} className="inline-block overflow-hidden align-bottom mr-[0.25em]">
           <span
-            className={`inline-block transition-transform duration-[1000ms] ease-[cubic-bezier(0.76,0,0.24,1)] will-change-transform ${
-              isVisible ? 'translate-y-0' : 'translate-y-[110%]'
-            }`}
+            className={`inline-block transition-transform duration-[1000ms] ease-[cubic-bezier(0.76,0,0.24,1)] will-change-transform ${isVisible ? 'translate-y-0' : 'translate-y-[110%]'
+              }`}
             style={{ transitionDelay: isVisible ? `${delay + (i * 30)}ms` : '0ms' }}
           >
             {word}
@@ -63,9 +62,8 @@ const FadeIn = ({ children, delay = 0 }) => {
   return (
     <div
       ref={ref}
-      className={`transition-all duration-[1000ms] ease-[cubic-bezier(0.76,0,0.24,1)] transform ${
-        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-      }`}
+      className={`transition-all duration-[1000ms] ease-[cubic-bezier(0.76,0,0.24,1)] transform ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}
       style={{ transitionDelay: isVisible ? `${delay}ms` : '0ms' }}
     >
       {children}
@@ -77,15 +75,15 @@ const Homepage = () => {
   const navigate = useNavigate();
   const [openFaq, setOpenFaq] = useState(null);
   const [appLoading, setAppLoading] = useState(true);
-  
+
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark';
   });
-  
+
   const [activeIndex, setActiveIndex] = useState(0);
   const [isScrolling, setIsScrolling] = useState(false);
   const [navIsScrolled, setNavIsScrolled] = useState(false);
-  
+
   const containerRef = useRef(null);
   const sectionRefs = useRef([]);
   const touchStartY = useRef(0);
@@ -99,7 +97,7 @@ const Homepage = () => {
       setTimeout(() => {
         document.body.style.overflow = '';
       }, 1200);
-    }, 1500); 
+    }, 1500);
 
     return () => clearTimeout(timer);
   }, []);
@@ -161,7 +159,7 @@ const Homepage = () => {
       setIsScrolling(true);
       const targetSection = sectionRefs.current[index];
       const targetTop = targetSection.offsetTop;
-      smoothScrollTo(targetTop, 1000); 
+      smoothScrollTo(targetTop, 1000);
     } else {
       sectionRefs.current[index].scrollIntoView({ behavior: 'smooth' });
     }
@@ -208,13 +206,13 @@ const Homepage = () => {
           - Loading: clipPath: 'ellipse(150% 150% at 50% 50%)' (Full screen)
           - Loaded: clipPath: 'ellipse(150% 100% at 50% -100%)' (Lifts up with curve)
       */}
-      <div 
+      <div
         className={`fixed inset-0 z-[100] flex items-center justify-center 
           ${darkMode ? 'bg-[#0c0c0c]' : 'bg-[#FAFAFA]'}`
         }
         style={{
-          clipPath: appLoading 
-            ? 'ellipse(150% 150% at 50% 50%)' 
+          clipPath: appLoading
+            ? 'ellipse(150% 150% at 50% 50%)'
             : 'ellipse(150% 100% at 50% -100%)',
           transition: 'clip-path 1.2s cubic-bezier(0.76, 0, 0.24, 1)'
         }}
@@ -229,7 +227,7 @@ const Homepage = () => {
       </div>
 
       {/* --- MAIN SCROLL CONTAINER --- */}
-      <div 
+      <div
         ref={containerRef}
         onScroll={handleNativeScroll}
         onTouchStart={handleTouchStart}
@@ -247,18 +245,18 @@ const Homepage = () => {
         </style>
 
         {/* --- 1. HERO SECTION --- */}
-        <header 
+        <header
           ref={addToRefs}
-          id="home" 
+          id="home"
           className="relative h-screen w-full overflow-hidden bg-stone-900 flex flex-col justify-center items-center"
         >
           {/* Parallax Video Scale */}
           <div className={`absolute inset-0 w-full h-full z-0 transition-transform duration-[2000ms] ease-out ${appLoading ? 'scale-125' : 'scale-100'}`}>
-            <video 
-              autoPlay 
-              loop 
-              muted 
-              playsInline 
+            <video
+              autoPlay
+              loop
+              muted
+              playsInline
               className="object-cover object-center w-full h-full opacity-60"
             >
               <source src="/videos/wedding.mp4" type="video/mp4" />
@@ -267,7 +265,7 @@ const Homepage = () => {
           </div>
 
           <div className="relative z-10 flex flex-col items-center text-center px-6 max-w-5xl mx-auto mt-0 md:-mt-10">
-            
+
             <FadeIn delay={1000}>
               <span className="text-[#C9A25D] text-xs md:text-sm tracking-[0.4em] uppercase font-medium mb-6 block">
                 Est. 2004
@@ -276,25 +274,25 @@ const Homepage = () => {
 
             <h1 className="font-serif text-6xl md:text-8xl lg:text-9xl text-white leading-[0.9] mb-8 font-thin drop-shadow-2xl">
               <div className="block overflow-hidden">
-                  <StaggeredText text="The Art of" delay={1400} />
+                <StaggeredText text="The Art of" delay={1400} />
               </div>
               <div className="block overflow-hidden">
-                  <span className="italic font-light">
-                    <StaggeredText text="Dining" delay={1600} />
-                  </span>
+                <span className="italic font-light">
+                  <StaggeredText text="Dining" delay={1600} />
+                </span>
               </div>
             </h1>
-            
+
             <FadeIn delay={2000}>
               <div className="max-w-md mx-auto">
                 <p className="text-white/90 text-sm md:text-base font-light leading-relaxed tracking-wide mb-10 max-w-4xl mx-auto">
-                 Delicious moments, unforgettable memories.
+                  Delicious moments, unforgettable memories.
                   <br />
-                 We cater to your cravings, big or small.
+                  We cater to your cravings, big or small.
                 </p>
-                
-                <button 
-                  onClick={() => navigate('/booking')} 
+
+                <button
+                  onClick={() => navigate('/booking')}
                   className="px-10 py-4 bg-white text-stone-900 text-xs tracking-[0.25em] uppercase hover:bg-[#C9A25D] hover:text-white transition-all duration-500 shadow-xl font-bold"
                 >
                   Inquire Now
@@ -302,9 +300,9 @@ const Homepage = () => {
               </div>
             </FadeIn>
           </div>
-          
+
           {/* Scroll Indicator - Bouncy */}
-          <div 
+          <div
             onClick={() => scrollToSection(1)}
             className={`absolute bottom-10 flex flex-col items-center gap-3 z-10 cursor-pointer animate-bounce transition-opacity duration-1000 delay-[2200ms] ${appLoading ? 'opacity-0' : 'opacity-80 hover:opacity-100'}`}
           >
@@ -314,7 +312,7 @@ const Homepage = () => {
         </header>
 
         {/* --- 2. INTRO --- */}
-        <section 
+        <section
           ref={addToRefs}
           className={`min-h-screen md:h-screen flex flex-col justify-center py-20 ${theme.bg} transition-colors duration-500`}
         >
@@ -324,12 +322,12 @@ const Homepage = () => {
                 <StaggeredText text='"We believe that food' className="block" />
                 <StaggeredText text='is not just eaten,' className="block" />
                 <span className={`${theme.subText} italic block mt-2`}>
-                    <StaggeredText text='it is experienced."' delay={200} />
+                  <StaggeredText text='it is experienced."' delay={200} />
                 </span>
               </h2>
             </div>
             <FadeIn>
-              <div className="w-[1px] h-20 bg-[#C9A25D] mx-auto mb-8"></div>
+
               <p className={`${theme.subText} font-light text-lg leading-relaxed max-w-2xl mx-auto`}>
                 "Mapo’s adds amazing flavor to your special moments.
                 We use fresh, local ingredients to create menus that are sustainable and delicious."
@@ -339,17 +337,17 @@ const Homepage = () => {
         </section>
 
         {/* --- 3. PROCESS --- */}
-        <section 
+        <section
           ref={addToRefs}
-          id="process" 
+          id="process"
           className={`min-h-screen md:h-screen flex flex-col justify-center py-20 md:py-24 ${theme.cardBg} border-t ${theme.border} transition-colors duration-500`}
         >
           <div className="max-w-screen-xl mx-auto px-6 w-full">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-8">
               {[
-                { icon: Users, title: "Let's Plan", desc: "Share your ideas with us. We will listen and help you create the perfect menu for your budget." },
-                { icon: ChefHat, title:  "We Create", desc: "Our chefs get to work. We prepare your dishes using the freshest local ingredients." },
-                { icon: Calendar, title: "You Celebrate", desc: "Relax on your big day. We handle all the service so you can be a guest at your own party." }
+                { icon: Users, title: "Let's Plan", desc: "We listen to your ideas to help create the perfect menu for your budget." },
+                { icon: ChefHat, title: "We Create", desc: "Our chefs get to work preparing dishes using the freshest local ingredients." },
+                { icon: Calendar, title: "You Celebrate", desc: "We handle all the service so you can be a guest at your own party." }
               ].map((step, idx) => (
                 <FadeIn key={idx} delay={idx * 150}>
                   <div className="text-center group">
@@ -370,9 +368,9 @@ const Homepage = () => {
         </section>
 
         {/* --- 4. MENUS --- */}
-        <section 
+        <section
           ref={addToRefs}
-          id="menu" 
+          id="menu"
           className={`min-h-screen md:h-screen flex flex-col justify-center py-20 md:py-32 ${theme.bg} transition-colors duration-500`}
         >
           <div className="max-w-screen-xl mx-auto px-6 w-full">
@@ -390,10 +388,10 @@ const Homepage = () => {
                 <FadeIn key={idx} delay={idx * 150}>
                   <div className="group cursor-pointer" >
                     <div className={`relative overflow-hidden aspect-[3/4] mb-6 ${darkMode ? 'bg-stone-800' : 'bg-stone-200'}`}>
-                      <img 
-                        src={item.img} 
-                        alt={item.title} 
-                        className="w-full h-full object-cover transition-transform duration-[1.5s] ease-[cubic-bezier(0.2,0.65,0.3,0.9)] group-hover:scale-110 grayscale-[20%] group-hover:grayscale-0" 
+                      <img
+                        src={item.img}
+                        alt={item.title}
+                        className="w-full h-full object-cover transition-transform duration-[1.5s] ease-[cubic-bezier(0.2,0.65,0.3,0.9)] group-hover:scale-110 grayscale-[20%] group-hover:grayscale-0"
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-500"></div>
                     </div>
@@ -409,9 +407,9 @@ const Homepage = () => {
         </section>
 
         {/* --- 5. GALLERY --- */}
-        <section 
+        <section
           ref={addToRefs}
-          id="gallery" 
+          id="gallery"
           className="h-screen w-full bg-stone-900 snap-start"
         >
           <div className="group/gallery flex flex-wrap md:flex-nowrap h-full w-full">
@@ -421,8 +419,8 @@ const Homepage = () => {
               { src: "/images/mapo6.png", caption: "Corporate Gala" },
               { src: "/images/mapo7.png", caption: "Private Dinner" }
             ].map((item, i) => (
-              <div 
-                key={i} 
+              <div
+                key={i}
                 className="group/item relative w-1/2 h-1/2 md:w-auto md:h-full md:flex-1 md:hover:flex-[2.5] 
                   border border-stone-800/50 overflow-hidden 
                   transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] cursor-pointer
@@ -430,14 +428,14 @@ const Homepage = () => {
                   group-hover/gallery:grayscale group-hover/gallery:opacity-40
                   hover:!grayscale-0 hover:!opacity-100"
               >
-                <img 
-                  src={item.src} 
-                  alt={item.caption} 
-                  className="w-full h-full object-cover transition-transform duration-1000 ease-out group-hover/item:scale-110" 
+                <img
+                  src={item.src}
+                  alt={item.caption}
+                  className="w-full h-full object-cover transition-transform duration-1000 ease-out group-hover/item:scale-110"
                 />
-                
+
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-8">
-                  
+
                   <h3 className="text-white font-serif text-3xl translate-y-4 group-hover/item:translate-y-0 transition-transform duration-500">
                     {item.caption}
                   </h3>
@@ -448,9 +446,9 @@ const Homepage = () => {
         </section>
 
         {/* --- 6. FAQ --- */}
-        <section 
+        <section
           ref={addToRefs}
-          id="faq" 
+          id="faq"
           className={`min-h-screen md:h-screen flex flex-col justify-center py-20 md:py-32 ${theme.cardBg} transition-colors duration-500`}
         >
           <div className="max-w-screen-md mx-auto px-6 w-full">
@@ -459,15 +457,32 @@ const Homepage = () => {
             </h2>
             <div className={`divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
               {[
-                { q: "What is the booking lead time?", a: "We recommend securing your date atleast 2 weeks in advance, especially for weekends during peak season." },
-                { q: "Do you handle dietary restrictions?", a: "Our culinary team is well-versed in gluten-free, vegan, and allergen-sensitive preparations without compromising on flavor." },
-                { q: "Is staff included?", a: "Yes, we take care of the setup, serving, and cleaning up so you have nothing to worry about." }
+                {
+                  q: "Which areas do you cater to?",
+                  a: "While we are based in Alaminos, Laguna, we travel to service events in Manila, Batangas, Quezon, and throughout Laguna."
+                },
+                {
+                  q: "What is the booking lead time?",
+                  a: "We recommend securing your date 2-4 weeks in advance, especially for weekends during peak season."
+                },
+                {
+                  q: "How do you ensure food freshness?",
+                  a: "We buy ingredients fresh from the market. Meats are marinated the day before, and dishes are cooked specifically for your event, not pre-made."
+                },
+                {
+                  q: "Can I hire you for service only?",
+                  a: "Yes! If you prefer to provide your own food, we can handle the full setup, staffing, and service management for you."
+                },
+                {
+                  q: "What happens if more guests arrive than expected?",
+                  a: "We always prepare a food buffer. If attendance significantly exceeds the count, we immediately source additional food to ensure no one goes hungry."
+                }
               ].map((item, idx) => (
                 <FadeIn key={idx} delay={idx * 100}>
                   <div className="group py-6 cursor-pointer" onClick={() => setOpenFaq(openFaq === idx ? null : idx)}>
                     <div className="flex justify-between items-center gap-4">
                       <span className={`font-serif text-xl md:text-2xl ${darkMode ? 'text-stone-200' : 'text-stone-800'} group-hover:text-[#C9A25D] transition-colors duration-300`}>{item.q}</span>
-                      {openFaq === idx ? <Minus className="w-4 h-4 text-[#C9A25D] flex-shrink-0"/> : <Plus className="w-4 h-4 text-stone-400 flex-shrink-0"/>}
+                      {openFaq === idx ? <Minus className="w-4 h-4 text-[#C9A25D] flex-shrink-0" /> : <Plus className="w-4 h-4 text-stone-400 flex-shrink-0" />}
                     </div>
                     <div className={`overflow-hidden transition-all duration-500 ease-in-out ${openFaq === idx ? 'max-h-40 opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
                       <p className={`${theme.subText} font-light leading-relaxed`}>{item.a}</p>
@@ -485,11 +500,10 @@ const Homepage = () => {
         </div>
 
         {/* --- Back to Top --- */}
-        <button 
+        <button
           onClick={() => scrollToSection(0)}
-          className={`fixed bottom-8 right-8 p-3 ${darkMode ? 'bg-stone-800/50 border-stone-700 hover:bg-white hover:text-stone-900' : 'bg-white/10 border-stone-200 hover:bg-stone-900 hover:text-white'} backdrop-blur-md border rounded-full shadow-lg transition-all duration-500 z-50 ${
-            (activeIndex > 0 || navIsScrolled) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'
-          }`}
+          className={`fixed bottom-8 right-8 p-3 ${darkMode ? 'bg-stone-800/50 border-stone-700 hover:bg-white hover:text-stone-900' : 'bg-white/10 border-stone-200 hover:bg-stone-900 hover:text-white'} backdrop-blur-md border rounded-full shadow-lg transition-all duration-500 z-50 ${(activeIndex > 0 || navIsScrolled) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'
+            }`}
         >
           <ArrowUp className="w-5 h-5" strokeWidth={1.5} />
         </button>

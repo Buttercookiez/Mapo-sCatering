@@ -12,19 +12,6 @@ const DashboardNavbar = ({ activeTab, theme, darkMode, setDarkMode, searchQuery,
     { id: 4, title: "Staff Schedule", desc: "Chef Gordon requested leave for Dec 24.", time: "5 hrs ago", type: "info" },
   ];
 
-  // --- Dynamic Placeholder Logic ---
-  const getPlaceholder = () => {
-    const tab = (activeTab || '').toLowerCase();
-    
-    if (tab.includes('inventory')) return "Search stock, SKU, category...";
-    if (tab.includes('finance') || tab.includes('financial')) return "Search invoices, client, ref...";
-    if (tab.includes('calendar') || tab.includes('event')) return "Search events, dates...";
-    if (tab.includes('client')) return "Search client name, email...";
-    if (tab.includes('task')) return "Search tasks, assignees...";
-    if (tab.includes('menu') || tab.includes('kitchen')) return "Search recipes, ingredients...";
-    return "Search dashboard...";
-  };
-
   // Close notifications on Escape key
   useEffect(() => {
     const handleEsc = (e) => {
@@ -45,19 +32,7 @@ const DashboardNavbar = ({ activeTab, theme, darkMode, setDarkMode, searchQuery,
         </div>
 
         <div className="flex items-center gap-4 md:gap-6">
-          
-          {/* Search Bar */}
-          <div className={`hidden md:flex items-center gap-3 px-4 py-2 rounded-full border ${theme.border} bg-transparent focus-within:border-[#C9A25D] transition-colors`}>
-            <Search size={14} className="text-stone-400" />
-            <input 
-              type="text" 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={getPlaceholder()} 
-              className={`bg-transparent text-xs uppercase tracking-wider focus:outline-none w-64 placeholder-stone-400 ${theme.text}`}
-            />
-          </div>
-
+        
           {/* Notification Bell Trigger */}
           <button 
             onClick={() => setIsNotifOpen(true)}
