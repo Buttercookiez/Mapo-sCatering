@@ -459,7 +459,7 @@ const Homepage = () => {
             </h2>
             <div className={`divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
               {[
-                { q: "What is the booking lead time?", a: "We recommend securing your date 2-4 weeks in advance, especially for weekends during peak season." },
+                { q: "What is the booking lead time?", a: "We recommend securing your date atleast 2 weeks in advance, especially for weekends during peak season." },
                 { q: "Do you handle dietary restrictions?", a: "Our culinary team is well-versed in gluten-free, vegan, and allergen-sensitive preparations without compromising on flavor." },
                 { q: "Is staff included?", a: "Yes, we take care of the setup, serving, and cleaning up so you have nothing to worry about." }
               ].map((item, idx) => (
