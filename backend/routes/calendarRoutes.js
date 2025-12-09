@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { getCalendarEvents } = require('../controllers/calendarController');
+const { getCalendarData, toggleBlockDate} = require('../controllers/calendarController');
 
 // Route: /api/calendar/events
-router.get('/events', getCalendarEvents);
+router.get('/data', getCalendarData);
+router.post('/toggle-block', toggleBlockDate);
 
 module.exports = router;
