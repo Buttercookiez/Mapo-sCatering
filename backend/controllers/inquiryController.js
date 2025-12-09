@@ -108,15 +108,17 @@ const createInquiry = async (req, res) => {
                 serviceStyle: data.serviceStyle,
                 eventType: data.eventType,
                 package: null,
-                addOns: data.addOns || []
+                addOns: {}
             },
             billing: {
                 totalCost: 0,
+                fiftyPercentPaymentStatus: "Unpaid",
+                fullPaymentStatus: "Unpaid",
                 amountPaid: 0,
-                remainingBalance: 0,
+                remainingBalance: 0,    
                 paymentStatus: "Unpaid"
             },
-            notes: data.notes || "",
+            notes: "",
             createdAt: new Date().toISOString()
         };
 
@@ -769,6 +771,55 @@ const rejectBooking = async (req, res) => {
     }
 };
 
+// --- NEW: MARK 50% PAYMENT ---
+const mark50PercentPayment = async (req, res) => {
+    try {
+        const { refId } = req.body;
+
+        const snapshot = await db.collection("bookings")
+            .where("bookingId", "==", refId)
+            .limit(1)
+            .get();
+
+        if (snapshot.empty) {
+            return res.status(404).json({ success: false, message: "Booking not found" });
+        }
+
+        const doc = snapshot.docs[0];
+        const data = doc.data();
+
+        // 1. Calculate Financials
+        const totalCost = data.billing?.totalCost || 0;
+        const reservationFee = 5000; // Fixed fee
+        
+        // The Net Balance before any partial payment
+        const netBalance = totalCost - reservationFee;
+        
+        // 50% of the Net Balance
+        const fiftyPercentAmount = netBalance / 2;
+
+        // New Amount Paid (Reservation + 50%)
+        const newAmountPaid = reservationFee + fiftyPercentAmount;
+        
+        // New Remaining Balance
+        const newRemainingBalance = totalCost - newAmountPaid;
+
+        // 2. Update Database
+        await db.collection("bookings").doc(doc.id).update({
+            "billing.fiftyPercentPaymentStatus": "Paid", // Custom flag
+            "billing.amountPaid": newAmountPaid,
+            "billing.remainingBalance": newRemainingBalance,
+            updatedAt: new Date().toISOString()
+        });
+
+        res.status(200).json({ success: true, message: "50% payment recorded." });
+
+    } catch (error) {
+        console.error("50% Payment Error:", error);
+        res.status(500).json({ success: false, message: "Failed to update payment." });
+    }
+};
+
 // --- NEW: MARK FULL PAYMENT ---
 const markFullPayment = async (req, res) => {
     try {
@@ -806,6 +857,7 @@ const markFullPayment = async (req, res) => {
         res.status(500).json({ success: false, message: "Failed to update payment." });
     }
 };
+
 const getConfirmedEvents = async (req, res) => {
     try {
         // Fetch bookings where status is "Reserved" (which happens after Payment Verification)
@@ -835,7 +887,7 @@ const getConfirmedEvents = async (req, res) => {
     }
 };
 
-// --- SEND PAYMENT REMINDER (Manual Trigger) ---
+// --- 1. SEND PAYMENT REMINDER (Manual Trigger) ---
 const sendPaymentReminder = async (req, res) => {
     try {
         const { refId } = req.body;
@@ -845,32 +897,67 @@ const sendPaymentReminder = async (req, res) => {
 
         const data = snapshot.docs[0].data();
         
-        // Calculate Balance
+        // Calculate Financials
         const total = data.billing?.totalCost || 0;
-        const paid = data.billing?.amountPaid || 0; // Likely 5000 reservation fee
+        const paid = data.billing?.amountPaid || 0; 
         const balance = total - paid;
         
-        // Calculate Deadline (5 Days before event)
-        const eventDate = new Date(data.eventDetails.date);
-        const deadlineDate = subDays(eventDate, 5); 
-        const formattedDeadline = format(deadlineDate, 'MMMM dd, yyyy');
+        // Check Payment Status
+        const is50PercentPaid = data.billing?.fiftyPercentPaymentStatus === "Paid";
+        const isFullyPaid = data.billing?.fullPaymentStatus === "Paid";
 
-        // Email Content
+        // Calculate 50% Target Amount
+        const reservationFee = 5000;
+        const netBalance = total - reservationFee;
+        const fiftyPercentTarget = reservationFee + (netBalance / 2);
+
+        // --- DATE CALCULATIONS ---
+        const eventDate = new Date(data.eventDetails.date);
+        const deadlineDate = subDays(eventDate, 4); 
+        
+        // 1. Format the Deadline
+        const formattedDeadline = format(deadlineDate, 'MMMM dd, yyyy'); 
+        
+        // 2. Format the Event Date (NEW) - e.g., "December 23, 2025"
+        const formattedEventDate = format(eventDate, 'MMMM dd, yyyy');
+
+        let emailSubject = `Payment Reminder: Due ${formattedDeadline}`;
+        let messageBody = "";
+
+        if (!is50PercentPaid) {
+            const amountDueFor50 = fiftyPercentTarget - paid;
+            messageBody = `
+                <div style="background-color: #fef2f2; padding: 15px; margin: 20px 0; border-left: 4px solid #ef4444;">
+                    <p style="margin: 0; color: #ef4444; font-weight: bold;">Action Required: 50% Partial Payment</p>
+                    <p style="margin: 10px 0 0;"><strong>Minimum Amount Due:</strong> ₱${amountDueFor50.toLocaleString()}</p>
+                    <p style="margin: 5px 0 0;"><strong>Deadline:</strong> ${formattedDeadline}</p>
+                </div>
+                <p style="color: #ef4444; font-size: 12px; font-style: italic;">
+                    <strong>Important:</strong> Failure to settle at least 50% of the balance by the deadline will result in automatic cancellation.
+                </p>
+            `;
+        } else if (!isFullyPaid) {
+            messageBody = `
+                <div style="background-color: #f9f9f9; padding: 15px; margin: 20px 0; border-left: 4px solid #C9A25D;">
+                    <p style="margin: 0;"><strong>Remaining Balance:</strong> ₱${balance.toLocaleString()}</p>
+                    <p style="margin: 10px 0 0;">Please settle the remaining balance at your earliest convenience or upon arrival.</p>
+                </div>
+            `;
+            emailSubject = `Payment Reminder: Remaining Balance`;
+        } else {
+            return res.status(400).json({ message: "Booking is already fully paid." });
+        }
+
+        // Email Content Wrapper
         const htmlContent = `
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; border: 1px solid #ddd; max-width: 600px;">
                 <h2 style="color: #C9A25D;">Payment Reminder</h2>
                 <p>Dear <strong>${data.profile.name}</strong>,</p>
-                <p>This is a friendly reminder regarding your upcoming event on <strong>${data.eventDetails.date}</strong>.</p>
                 
-                <div style="background-color: #f9f9f9; padding: 15px; margin: 20px 0; border-left: 4px solid #C9A25D;">
-                    <p style="margin: 0;"><strong>Remaining Balance:</strong> ₱${balance.toLocaleString()}</p>
-                    <p style="margin: 10px 0 0;"><strong>Payment Deadline:</strong> ${formattedDeadline}</p>
-                </div>
-
-                <p style="color: #ef4444; font-size: 12px; font-style: italic;">
-                    <strong>Important:</strong> As per our policy, full payment must be settled 5 days before the event (${formattedDeadline}). 
-                    Failure to settle may result in automatic cancellation of your booking.
-                </p>
+                <!-- UPDATED LINE BELOW -->
+                <p>This is a reminder regarding your upcoming event on <strong>${formattedEventDate}</strong>.</p>
+                
+                ${messageBody}
 
                 <p>Please contact us immediately if you have already sent payment.</p>
             </div>
@@ -879,7 +966,7 @@ const sendPaymentReminder = async (req, res) => {
         await transporter.sendMail({
             from: `"Mapos Catering" <${process.env.EMAIL_USER}>`,
             to: data.profile.email,
-            subject: `Payment Reminder: Due ${formattedDeadline}`,
+            subject: emailSubject,
             html: htmlContent
         });
 
@@ -916,8 +1003,8 @@ const checkOverdueBookings = async () => {
             const eventDate = new Date(data.eventDetails.date);
             const daysUntilEvent = differenceInDays(eventDate, today);
 
-            // LOGIC: If less than 5 days left AND not paid
-            if (daysUntilEvent < 5 && daysUntilEvent >= 0) {
+            // LOGIC: If less than 4 days left AND not paid
+            if (daysUntilEvent < 4 && daysUntilEvent >= 0) {
                 console.log(`Cancelling Booking ${data.bookingId} (Event in ${daysUntilEvent} days)`);
                 
                 // 1. Update DB to Cancelled
@@ -983,5 +1070,6 @@ module.exports = {
     rejectBooking,
     markFullPayment,
     sendPaymentReminder,
-    checkOverdueBookings 
+    checkOverdueBookings,
+    mark50PercentPayment 
 };

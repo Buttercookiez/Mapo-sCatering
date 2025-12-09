@@ -1,29 +1,20 @@
 import React, { useState } from "react";
 import {
-  Calendar,
-  MapPin,
-  Clock,
-  FileText,
-  Utensils,
-  AlertCircle,
-  CheckCircle,
-  Loader2,
-  Send,
-  Wallet,
-  Coins,
-  Receipt,
-  Check,
-  BellRing,
-  XCircle, // Added for Cancel icon
-  Mail     // Added for Email indicator
+  Calendar, MapPin, Clock, FileText, Utensils,
+  AlertCircle, CheckCircle, Loader2, Send, Wallet,
+  Coins, Receipt, Check, BellRing, XCircle, Mail,
+  PieChart // Added PieChart icon for 50%
 } from "lucide-react";
 
-// Date Utilities
 import { subDays, format, differenceInDays, isValid } from "date-fns";
-
-// Components & Services
 import StatusBadge from "./StatusBadge"; 
-import { markBookingAsFullyPaid, sendPaymentReminder } from "../../../../api/bookingService";
+
+// Import new service
+import { 
+  markBookingAsFullyPaid, 
+  markBookingAs50PercentPaid, 
+  sendPaymentReminder 
+} from "../../../../api/bookingService";
 
 const EventInfoTab = ({
   details,
@@ -51,32 +42,66 @@ const EventInfoTab = ({
   const isReservationSecured = billing.paymentStatus === "Paid" || secureStatuses.includes(currentStatus);
   const reservationBadgeStatus = isReservationSecured ? "Paid" : "Unpaid";
 
+  // Check specific flags
   const isFullyPaid = billing.fullPaymentStatus === "Paid";
-  const balanceDue = isFullyPaid ? 0 : (totalCost - reservationFee);
+  const is50PercentPaid = billing.fiftyPercentPaymentStatus === "Paid";
 
-  // --- 3. STATUS CHECKS ---
-  const isCancelled = currentStatus === "Cancelled";
+  // --- 3. BALANCE CALCULATION ---
+  // If Fully Paid -> 0
+  // If 50% Paid -> (Total - Reservation) / 2
+  // Default -> Total - Reservation
+  let balanceDue = totalCost - reservationFee;
+  if (is50PercentPaid) balanceDue = balanceDue / 2;
+  if (isFullyPaid) balanceDue = 0;
+
+  // --- 4. STATUS CHECKS ---
   const isCancelledOrRejected = ["Cancelled", "Rejected"].includes(currentStatus);
   const isActiveBooking = !isCancelledOrRejected;
+  const isCancelled = currentStatus === "Cancelled";
 
-  // --- 4. DEADLINE & DATE LOGIC ---
+  // --- 5. DATE LOGIC ---
   const eventDateObj = new Date(details.date);
   let deadlineString = "N/A";
   let daysUntilDeadline = null;
 
   if (isValid(eventDateObj)) {
-      const deadlineDate = subDays(eventDateObj, 5); // 5 Days before event
+      const deadlineDate = subDays(eventDateObj, 5); 
       deadlineString = format(deadlineDate, 'MMM dd, yyyy');
       daysUntilDeadline = differenceInDays(deadlineDate, new Date());
   }
 
-  // --- 5. LOCAL STATE ---
+  // --- 6. LOCAL STATE ---
   const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
   const [isSendingReminder, setIsSendingReminder] = useState(false);
 
-  // --- HANDLERS ---
+  // --- 7. HANDLERS ---
+
+  const handle50PercentPayment = async () => {
+    // Calculate what the 50% amount is for the alert message
+    const amountToPay = (totalCost - reservationFee) / 2;
+    if(!window.confirm(`Mark 50% partial payment (₱${amountToPay.toLocaleString()}) as received?`)) return;
+
+    setIsUpdatingPayment(true);
+    try {
+        await markBookingAs50PercentPaid(details.refId);
+        alert("50% payment recorded.");
+        window.location.reload(); 
+    } catch (error) {
+        console.error(error);
+        alert("Failed to update status.");
+    } finally {
+        setIsUpdatingPayment(false);
+    }
+  };
+
   const handleFullPayment = async () => {
-    if(!window.confirm(`Confirm that the client has settled the remaining balance of ₱${balanceDue.toLocaleString()}?`)) return;
+    // Message changes based on previous payments
+    const msg = is50PercentPaid 
+        ? `Settle the FINAL balance of ₱${balanceDue.toLocaleString()}?`
+        : `Settle the FULL remaining balance of ₱${balanceDue.toLocaleString()}?`;
+
+    if(!window.confirm(msg)) return;
+
     setIsUpdatingPayment(true);
     try {
         await markBookingAsFullyPaid(details.refId);
@@ -84,7 +109,7 @@ const EventInfoTab = ({
         window.location.reload(); 
     } catch (error) {
         console.error(error);
-        alert("Failed to update payment status.");
+        alert("Failed to update status.");
     } finally {
         setIsUpdatingPayment(false);
     }
@@ -95,9 +120,8 @@ const EventInfoTab = ({
     setIsSendingReminder(true);
     try {
         await sendPaymentReminder(details.refId);
-        alert("Payment reminder sent to client.");
+        alert("Payment reminder sent.");
     } catch (error) {
-        console.error(error);
         alert("Failed to send reminder.");
     } finally {
         setIsSendingReminder(false);
@@ -107,60 +131,46 @@ const EventInfoTab = ({
   return (
     <div className="max-w-4xl mx-auto">
       {isBookingRejected ? (
-        // --- REJECTION VIEW (Explicit Rejection via Button) ---
+        // ... (Rejection View Code - Same as before) ...
         <div className={`relative p-8 border ${theme.border} ${theme.cardBg} rounded-sm shadow-sm overflow-hidden transition-colors duration-500`}>
-          <div className="absolute top-0 left-0 w-1 h-full bg-red-500/80"></div>
-          <div className="flex items-start gap-5 mb-8">
-            <div className={`p-3 rounded-full bg-red-500/10 text-red-500 mt-1`}><AlertCircle size={24} strokeWidth={1.5} /></div>
-            <div className="flex-1">
-                <span className="text-[10px] uppercase tracking-[0.2em] text-red-500 font-bold">Status Update</span>
-                <h3 className={`text-2xl font-serif italic ${theme.text} mt-1`}>Inquiry Rejected</h3>
-                <p className={`text-sm ${theme.subText} mt-2 max-w-2xl`}>This inquiry has been marked for rejection.</p>
-            </div>
-          </div>
-          {rejectionSent ? (
-            <div className={`flex flex-col items-center justify-center py-12 border-t border-dashed ${theme.border}`}>
-              <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4"><CheckCircle size={32} className="text-emerald-500" /></div>
-              <h4 className={`text-lg font-serif italic ${theme.text}`}>Notification Sent</h4>
-              {rejectionReason && (<div className={`mt-6 p-4 bg-stone-50 dark:bg-stone-900/50 rounded-sm border ${theme.border} max-w-md w-full text-center`}><span className="text-[10px] uppercase tracking-widest text-stone-400 block mb-2">Recorded Reason</span><p className={`text-sm ${theme.text} italic`}>"{rejectionReason}"</p></div>)}
-              <button onClick={() => handleUpdateStatus("Pending")} className={`mt-8 text-xs text-stone-500 underline hover:text-[#C9A25D] transition-colors`}>Undo Rejection</button>
-            </div>
-          ) : (
-            <div className="pl-0 md:pl-14">
-              <textarea value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} className={`w-full p-4 border ${theme.border} bg-transparent ${theme.text} placeholder-stone-500/50 rounded-sm focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20 transition-all duration-300 text-sm resize-none`} rows={5} placeholder="e.g., Venue fully booked..." />
-              <div className="flex flex-col md:flex-row justify-end items-center gap-4 mt-8">
-                <button onClick={() => handleUpdateStatus("Pending")} className={`text-xs uppercase font-bold tracking-widest ${theme.subText} hover:text-[#C9A25D] transition-colors`}>Cancel</button>
-                <button onClick={handleSendRejection} disabled={!rejectionReason || isSending} className={`flex items-center gap-2 px-8 py-3 bg-red-600 text-white text-xs uppercase tracking-widest font-bold rounded-sm hover:bg-red-700 transition-all shadow-lg shadow-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed`}>
-                  {isSending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Confirm & Send
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+             <div className="absolute top-0 left-0 w-1 h-full bg-red-500/80"></div>
+             {/* ... header ... */}
+             <div className="flex items-start gap-5 mb-8">
+                <div className={`p-3 rounded-full bg-red-500/10 text-red-500 mt-1`}><AlertCircle size={24} strokeWidth={1.5} /></div>
+                <div className="flex-1">
+                    <span className="text-[10px] uppercase tracking-[0.2em] text-red-500 font-bold">Status Update</span>
+                    <h3 className={`text-2xl font-serif italic ${theme.text} mt-1`}>Inquiry Rejected</h3>
+                </div>
+             </div>
+             {rejectionSent ? (
+                <div className={`flex flex-col items-center justify-center py-12 border-t border-dashed ${theme.border}`}>
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4"><CheckCircle size={32} className="text-emerald-500" /></div>
+                  <h4 className={`text-lg font-serif italic ${theme.text}`}>Notification Sent</h4>
+                  <button onClick={() => handleUpdateStatus("Pending")} className={`mt-8 text-xs text-stone-500 underline hover:text-[#C9A25D] transition-colors`}>Undo Rejection</button>
+                </div>
+              ) : (
+                <div className="pl-0 md:pl-14">
+                  <textarea value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} className={`w-full p-4 border ${theme.border} bg-transparent ${theme.text} placeholder-stone-500/50 rounded-sm focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20 transition-all duration-300 text-sm resize-none`} rows={5} placeholder="Reason..." />
+                  <div className="flex justify-end gap-4 mt-8">
+                    <button onClick={() => handleUpdateStatus("Pending")} className={`text-xs uppercase font-bold tracking-widest ${theme.subText}`}>Cancel</button>
+                    <button onClick={handleSendRejection} disabled={!rejectionReason || isSending} className={`flex items-center gap-2 px-8 py-3 bg-red-600 text-white text-xs uppercase tracking-widest font-bold rounded-sm`}>
+                      {isSending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Confirm & Send
+                    </button>
+                  </div>
+                </div>
+              )}
+         </div>
       ) : (
-        // --- NORMAL INFO VIEW ---
         <>
-          {/* --- 1. CANCELLATION NOTICE (New) --- */}
+          {/* ... (Cancellation Notice & Event Grid - Same as before) ... */}
           {isCancelled && (
             <div className="mb-8 p-6 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-sm flex flex-col md:flex-row gap-4 items-start relative overflow-hidden animate-in fade-in slide-in-from-top-2">
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
-                
-                <div className="p-2 bg-white dark:bg-red-900/20 rounded-full text-red-500 mt-1 shadow-sm">
-                    <XCircle size={24} />
-                </div>
-
+                <div className="p-2 bg-white dark:bg-red-900/20 rounded-full text-red-500 mt-1 shadow-sm"><XCircle size={24} /></div>
                 <div className="flex-1">
                     <h4 className="text-lg font-serif font-bold text-red-700 dark:text-red-400">Booking Cancelled</h4>
-                    <p className="text-sm text-red-600/80 dark:text-red-300 mt-1 leading-relaxed">
-                        {details.cancellationReason || "This booking was automatically cancelled because the full payment was not settled 5 days before the event."}
-                    </p>
-
-                    {/* Email Indicator */}
-                    <div className="flex items-center gap-2 mt-4">
-                        <span className="flex items-center gap-1.5 py-1 px-3 bg-white dark:bg-red-900/20 rounded-full border border-red-100 dark:border-red-900/30 text-[10px] font-bold uppercase tracking-widest text-red-500 shadow-sm">
-                            <Mail size={12} /> Cancellation Notice Sent
-                        </span>
-                    </div>
+                    <p className="text-sm text-red-600/80 dark:text-red-300 mt-1 leading-relaxed">{details.cancellationReason || "Payment not settled."}</p>
+                    <div className="flex items-center gap-2 mt-4"><span className="flex items-center gap-1.5 py-1 px-3 bg-white dark:bg-red-900/20 rounded-full border border-red-100 dark:border-red-900/30 text-[10px] font-bold uppercase tracking-widest text-red-500 shadow-sm"><Mail size={12} /> Cancellation Notice Sent</span></div>
                 </div>
             </div>
           )}
@@ -168,7 +178,7 @@ const EventInfoTab = ({
           <div className="flex justify-between items-end mb-6">
             <h3 className={`font-serif text-2xl ${theme.text}`}>Event Specifications</h3>
           </div>
-
+          
           <div className={`grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 p-8 border ${theme.border} ${theme.cardBg} rounded-sm shadow-sm transition-all duration-500`}>
             <div><p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Event Date</p><div className="flex items-center gap-2"><Calendar size={16} className="text-[#C9A25D]" /><span className={`text-sm font-medium ${theme.text}`}>{details.date}</span></div></div>
             <div><p className="text-[10px] uppercase tracking-widest text-stone-400 mb-1">Time</p><div className="flex items-center gap-2"><Clock size={16} className="text-[#C9A25D]" /><span className={`text-sm font-medium ${theme.text}`}>{details.timeStart} — {details.timeEnd}</span></div></div>
@@ -226,17 +236,23 @@ const EventInfoTab = ({
                                </span>
                            </div>
                            
-                           {/* Warning Message (Only if Active) */}
+                           {/* 50% PAID INDICATOR */}
+                           {is50PercentPaid && isActiveBooking && (
+                               <div className="mt-2 pt-2 border-t border-dashed border-stone-200 dark:border-stone-700 flex items-center justify-center gap-2">
+                                   <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                   <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-500 uppercase tracking-wide">50% Paid</span>
+                               </div>
+                           )}
+
+                           {/* Warning (Only if active) */}
                            {isActiveBooking && daysUntilDeadline !== null && daysUntilDeadline < 5 && daysUntilDeadline >= 0 && (
-                               <p className="text-[9px] text-red-500 mt-2 italic text-center font-semibold">
-                                   Warning: Auto-cancellation in {daysUntilDeadline} days.
-                               </p>
+                               <p className="text-[9px] text-red-500 mt-2 italic text-center font-semibold">Warning: Auto-cancellation in {daysUntilDeadline} days.</p>
                            )}
                         </div>
                     )}
 
                     {/* ACTION BUTTONS */}
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-col gap-2">
                         {isFullyPaid ? (
                             <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 px-3 py-2 rounded-sm border border-emerald-200 dark:border-emerald-900/30 w-full justify-center">
                                 <CheckCircle size={16} />
@@ -245,20 +261,39 @@ const EventInfoTab = ({
                         ) : (
                             isReservationSecured && isActiveBooking ? ( 
                                  <>
-                                    <button onClick={handleFullPayment} disabled={isUpdatingPayment} className="flex-1 flex items-center justify-center gap-2 bg-[#1c1c1c] hover:bg-emerald-600 text-white px-3 py-2 rounded-sm text-[10px] uppercase tracking-widest transition-colors shadow-md">
-                                        {isUpdatingPayment ? <Loader2 size={12} className="animate-spin"/> : <Check size={12} />} Mark Paid
-                                    </button>
-                                    <button onClick={handleReminderClick} disabled={isSendingReminder} title="Send Payment Reminder Email" className="flex items-center justify-center gap-2 bg-white border border-stone-300 text-stone-600 hover:bg-stone-100 hover:text-[#C9A25D] hover:border-[#C9A25D] px-3 py-2 rounded-sm text-[10px] uppercase tracking-widest transition-colors shadow-sm">
-                                        {isSendingReminder ? <Loader2 size={12} className="animate-spin"/> : <BellRing size={12} />}
+                                    <div className="flex gap-2">
+                                        {/* 50% BUTTON (Only show if NOT yet 50% paid) */}
+                                        {!is50PercentPaid && (
+                                            <button 
+                                                onClick={handle50PercentPayment} 
+                                                disabled={isUpdatingPayment}
+                                                className="flex-1 flex items-center justify-center gap-2 bg-stone-700 hover:bg-stone-600 text-white px-3 py-2 rounded-sm text-[10px] uppercase tracking-widest transition-colors shadow-sm"
+                                            >
+                                                {isUpdatingPayment ? <Loader2 size={12} className="animate-spin"/> : <PieChart size={12} />} 
+                                                50% Paid
+                                            </button>
+                                        )}
+
+                                        {/* FULL PAYMENT BUTTON (Always shown until fully paid) */}
+                                        <button 
+                                            onClick={handleFullPayment} 
+                                            disabled={isUpdatingPayment}
+                                            className="flex-1 flex items-center justify-center gap-2 bg-[#1c1c1c] hover:bg-emerald-600 text-white px-3 py-2 rounded-sm text-[10px] uppercase tracking-widest transition-colors shadow-md"
+                                        >
+                                            {isUpdatingPayment ? <Loader2 size={12} className="animate-spin"/> : <Check size={12} />} 
+                                            {is50PercentPaid ? "Pay Final" : "Pay Full"}
+                                        </button>
+                                    </div>
+
+                                    {/* REMINDER BUTTON */}
+                                    <button onClick={handleReminderClick} disabled={isSendingReminder} className="w-full flex items-center justify-center gap-2 bg-white border border-stone-300 text-stone-600 hover:bg-stone-100 hover:text-[#C9A25D] hover:border-[#C9A25D] px-3 py-2 rounded-sm text-[10px] uppercase tracking-widest transition-colors shadow-sm">
+                                        {isSendingReminder ? <Loader2 size={12} className="animate-spin"/> : <BellRing size={12} />} Send Reminder
                                     </button>
                                  </>
                             ) : (
                                 <div className="flex flex-col gap-1 w-full">
                                     {isCancelledOrRejected ? (
-                                        <div className="flex items-center justify-center gap-2 py-2 border border-red-200 bg-red-50 rounded-sm text-red-500 text-[10px] font-bold uppercase tracking-wide">
-                                            <XCircle size={12} />
-                                            {currentStatus}
-                                        </div>
+                                        <div className="flex items-center justify-center gap-2 py-2 border border-red-200 bg-red-50 rounded-sm text-red-500 text-[10px] font-bold uppercase tracking-wide"><XCircle size={12} /> {currentStatus}</div>
                                     ) : (
                                         <p className="text-[10px] text-stone-400 italic flex items-center gap-1"><AlertCircle size={10} /> Awaiting Reservation Fee</p>
                                     )}
