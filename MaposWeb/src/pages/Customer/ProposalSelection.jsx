@@ -169,20 +169,46 @@ const ProposalSelection = () => {
     }
   };
 
-  const handleInputChange = (e) =>
-    setPaymentForm({ ...paymentForm, [e.target.name]: e.target.value });
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
 
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0])
-      setPaymentForm({ ...paymentForm, proofFile: e.target.files[0] });
+    // 1. Account Number: Numbers only, max 11 digits
+    if (name === "accountNumber") {
+      const numericValue = value.replace(/\D/g, "");
+      if (numericValue.length <= 11) {
+        setPaymentForm((prev) => ({ ...prev, [name]: numericValue }));
+      }
+      return;
+    }
+
+    // 2. Ref Number: Numbers only (no specific length limit enforced unless you need one)
+    if (name === "refNumber") {
+      const numericValue = value.replace(/\D/g, "");
+      setPaymentForm((prev) => ({ ...prev, [name]: numericValue }));
+      return;
+    }
+
+    // 3. All other text fields
+    setPaymentForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handlePreSubmitValidation = () => {
-    if (!paymentForm.accountName || !paymentForm.refNumber) {
+    // Check if empty fields exist
+    if (
+      !paymentForm.accountName ||
+      !paymentForm.refNumber ||
+      !paymentForm.accountNumber
+    ) {
       return alert(
-        "Please fill in your payment details (Sender Name & Reference Number)."
+        "Please fill in all payment details (Sender Name, Account Number & Reference Number)."
       );
     }
+
+    // specific validation for 11 digits
+    if (paymentForm.accountNumber.length !== 11) {
+      return alert("Account Number must be exactly 11 digits.");
+    }
+
     setShowTermsModal(true);
   };
 
@@ -684,18 +710,22 @@ const ProposalSelection = () => {
                         value={paymentForm.accountNumber}
                         onChange={handleInputChange}
                         type="text"
+                        inputMode="numeric" // Opens number pad on mobile
+                        maxLength={11}
                         placeholder="Sender Account Number"
                         className="w-full bg-stone-50 border border-stone-200 p-3 rounded text-sm focus:border-[#C9A25D] outline-none"
                       />
+
+                      {/* --- Reference Number Input --- */}
                       <input
                         name="refNumber"
                         value={paymentForm.refNumber}
                         onChange={handleInputChange}
                         type="text"
+                        inputMode="numeric" // Opens number pad on mobile
                         placeholder="Transaction Ref No."
                         className="w-full bg-stone-50 border border-stone-200 p-3 rounded text-sm focus:border-[#C9A25D] outline-none"
                       />
-
 
                       <button
                         onClick={handlePreSubmitValidation}
