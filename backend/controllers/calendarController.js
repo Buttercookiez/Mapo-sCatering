@@ -1,37 +1,60 @@
+// controllers/calendarController.js
 const db = require("../firestore/firebase").db;
 
-// --- GET VERIFIED EVENTS ---
-const getCalendarEvents = async (req, res) => {
+// --- 1. GET PUBLIC CALENDAR DATA (Restore this for Booking.jsx) ---
+const getPublicCalendarData = async (req, res) => {
     try {
-        // Fetch only bookings that have been verified/paid (Status: 'Reserved')
-        const snapshot = await db.collection("bookings")
-            .where("bookingStatus", "==", "Reserved")
+        // A. Fetch Active Bookings (for capacity calculation)
+        const bookingSnapshot = await db.collection("bookings")
+            .where("bookingStatus", "in", ["Reserved", "Confirmed", "Paid", "Ongoing"])
             .get();
 
-        const events = snapshot.docs.map(doc => {
+        const events = bookingSnapshot.docs.map(doc => {
             const data = doc.data();
-            
-            // Format data specifically for the React Calendar component
             return {
-                id: data.bookingId,
-                date: data.eventDetails?.date, // Expecting "YYYY-MM-DD" string
-                title: `${data.profile?.name} - ${data.eventDetails?.eventType}`, // e.g. "Juan Dela Cruz - Wedding"
-                type: data.eventDetails?.eventType || "Social",
-                time: data.eventDetails?.startTime || "TBD",
-                guests: data.eventDetails?.pax || 0,
-                location: data.eventDetails?.venue || "TBD",
+                date: data.eventDetails?.date, // stored as "YYYY-MM-DD"
                 status: data.bookingStatus
             };
         });
 
-        res.status(200).json(events);
+        // B. Fetch Manually Blocked Dates (Admin blocks)
+        const blockedSnapshot = await db.collection("blocked_dates").get();
+        const blockedDates = blockedSnapshot.docs.map(doc => doc.id); 
+
+        res.status(200).json({
+            events,
+            blockedDates
+        });
 
     } catch (error) {
-        console.error("Error fetching calendar events:", error);
-        res.status(500).json({ success: false, message: "Failed to fetch events" });
+        console.error("Error fetching public calendar:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch data" });
+    }
+};
+
+// --- 2. TOGGLE BLOCK DATE (Admin Action) ---
+const toggleBlockDate = async (req, res) => {
+    try {
+        const { date } = req.body; 
+        if (!date) return res.status(400).json({ message: "Date required" });
+
+        const docRef = db.collection("blocked_dates").doc(date);
+        const doc = await docRef.get();
+
+        if (doc.exists) {
+            await docRef.delete();
+            res.json({ success: true, action: "unblocked", date });
+        } else {
+            await docRef.set({ blockedAt: new Date().toISOString() });
+            res.json({ success: true, action: "blocked", date });
+        }
+    } catch (error) {
+        console.error("Error toggling block:", error);
+        res.status(500).json({ success: false, message: "Failed to update block" });
     }
 };
 
 module.exports = {
-    getCalendarEvents
+    getPublicCalendarData, // <--- Make sure this is exported
+    toggleBlockDate
 };

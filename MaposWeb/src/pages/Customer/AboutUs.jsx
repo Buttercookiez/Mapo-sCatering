@@ -242,12 +242,13 @@ const AboutUs = () => {
             ::-webkit-scrollbar { display: none; }
           `}
         </style>
-{/* --- Section 0: Hero --- */}
+
+        {/* --- Section 0: Hero --- */}
         <header 
           ref={addToRefs}
           className="relative h-screen w-full overflow-hidden bg-stone-900 flex flex-col justify-center items-center"
         >
-          {/* Parallax Image (High Quality Online Image) */}
+          {/* Parallax Image */}
           <div className={`absolute inset-0 w-full h-full z-0 transition-transform duration-[2000ms] ease-out ${appLoading ? 'scale-125' : 'scale-100'}`}>
             <img 
               src="images/aboutus.jpg" 
@@ -260,7 +261,6 @@ const AboutUs = () => {
 
           <div className="relative z-10 text-center px-4 md:px-6 max-w-5xl mx-auto flex flex-col items-center justify-center h-full pb-16 md:pb-0">
             <FadeIn delay={1000}>
-              {/* Added pr-12 to push the text visual center to the left */}
               <div className="flex justify-center w-full">
                 <span className="text-[#C9A25D] text-sm md:text-base tracking-[0.3em] uppercase font-medium mb-4 md:mb-6 text-center pr-12">
                   Established 2004
@@ -304,23 +304,18 @@ const AboutUs = () => {
         >
           <div className="max-w-screen-xl mx-auto flex flex-col md:flex-row items-center gap-16 md:gap-24 w-full">
             
-            {/* Image Side - Venue Style */}
+            {/* Image Side */}
             <div className="w-full md:w-1/2 flex justify-center">
               <FadeIn>
                 <div className="relative w-[85%] aspect-[3/4] group cursor-pointer">
-                    {/* Decorative Border */}
                     <div className={`absolute inset-0 border border-[#C9A25D]/50 z-0 transition-transform duration-500 ease-out translate-x-5 -translate-y-5 group-hover:translate-x-3 group-hover:-translate-y-3`}></div>
-
-                    {/* Main Image */}
                     <div className="relative z-10 w-full h-full overflow-hidden shadow-2xl bg-stone-200">
                       <img 
                         src="/images/maandpo3.jpg" 
                         alt="Marivic & Potenciano" 
                         className="w-full h-full object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-110 grayscale-[20%] group-hover:grayscale-0"
                       />
-                      {/* Gradient Overlay for Text Visibility */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity duration-500"></div>
-                      
                       <div className="absolute bottom-6 left-6 text-white z-20 translate-y-2 group-hover:translate-y-0 transition-transform duration-500">
                         <p className="font-serif text-3xl italic mb-1">"Ma" + "Po"</p>
                         <p className="text-[10px] uppercase tracking-widest text-[#C9A25D]">Founders</p>
@@ -411,17 +406,17 @@ const AboutUs = () => {
           <div className="max-w-screen-xl mx-auto w-full flex flex-col md:flex-row gap-16">
             <div className="w-full md:w-1/3">
               <FadeIn>
-                <span className="text-[#C9A25D] text-xs tracking-[0.2em] uppercase mb-4 block">The Kitchen</span>
+                <span className="text-[#C9A25D] text-xs tracking-[0.2em] uppercase mb-4 block">The Kitchen Brigade</span>
                 <h2 className={`font-serif text-5xl ${theme.text} mb-8 leading-tight`}>
                   <StaggeredText text="Meet the" /> <br/> 
                   <span className="italic">
                     <StaggeredText text="Masters" />
                   </span>
                 </h2>
+                {/* REMOVED DASHES IN THIS PARAGRAPH AS REQUESTED */}
                 <p className={`${theme.subText} font-light mb-8 text-lg`}>
-                  A kitchen is only as good as its hands. Our team is composed of dedicated professionals who have grown with us over the decades.
+                  A kitchen is only as good as its hands. Our hierarchy ensures that every aspect of your meal from the main course to the dessert is handled by a specialist.
                 </p>
-                {/* Changed Button to Booking since Menu is unavailable */}
                 <button 
                   onClick={() => navigate('/booking')} 
                   className={`group flex items-center gap-2 text-xs tracking-[0.2em] uppercase border-b border-[#C9A25D] pb-1 ${theme.text} hover:text-[#C9A25D] transition-colors font-bold`}
@@ -434,13 +429,32 @@ const AboutUs = () => {
 
             <div className="w-full md:w-2/3 grid grid-cols-1 gap-6">
               {[
-                { role: "Head Chef", name: "The Flavor Architect", icon: ChefHat, desc: "Ensures consistency across every single dish that leaves the pass." },
-                { role: "Grill Master", name: "Expert of the Flame", icon: Star, desc: "Specializing in our signature Roast Beef and grilled delicacies." },
-                { role: "Pastry Chef", name: "Sweet Endings", icon: Heart, desc: "Crafting the delicate desserts that guests remember fondly." },
-                { role: "Service Lead", name: "Front of House", icon: Award, desc: "Managing the white-glove service to treat every guest like royalty." }
+                { 
+                  role: "Head Chef", 
+                  name: "The Owners", 
+                  icon: ChefHat, 
+                  desc: "Leading the kitchen team and keeping our family cooking standards high." 
+                },
+                { 
+                  role: "2nd Chef", 
+                  name: "Pastry Specialist", 
+                  icon: Heart, 
+                  desc: "Focused entirely on creating delicious desserts and sweet treats." 
+                },
+                { 
+                  role: "3rd Chef", 
+                  name: "Grill Master", 
+                  icon: Star, 
+                  desc: "Expertly handling the grill station for all roasted and barbecued dishes." 
+                },
+                { 
+                  role: "Support Staff", 
+                  name: "Service & Stewardship", 
+                  icon: Users, 
+                  desc: "Our hardworking team of dishwashers and waiters ensuring smooth service." 
+                }
               ].map((member, i) => (
                 <FadeIn key={i} delay={i * 100}>
-                  {/* FIX: Ensure explicit text colors on hover to prevent black text on light background issues */}
                   <div className={`
                     group flex items-center gap-6 p-6 border ${theme.border} 
                     cursor-default transition-all duration-500

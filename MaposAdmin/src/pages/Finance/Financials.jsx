@@ -1,18 +1,17 @@
-// src/pages/Finance/Financials.jsx
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
-  DollarSign, TrendingUp, FileText, Download, 
-  PieChart, ArrowUpRight, Plus, Filter, ArrowUpDown,
-  MoreHorizontal, CheckCircle, Clock, AlertCircle,
-  X, Trash2, Calculator, Package // Added Package icon
+  DollarSign, TrendingUp, Download, 
+  ArrowUpRight, ArrowDownRight,
+  Package, Trash2, AlertCircle, 
+  Wallet, Coins, CalendarRange, PieChart, Users,
+  BarChart3, Filter, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
-// Import Layout Components
 import Sidebar from '../../components/layout/Sidebar';
 import DashboardNavbar from '../../components/layout/Navbar';
 
-// IMPORT CUSTOM HOOK to get Real Inventory Logs
 import { useInventory } from '../../hooks/useInventory';
+import { useBookings } from '../../hooks/useBooking';
 
 // --- Animation Component ---
 const FadeIn = ({ children, delay = 0 }) => {
@@ -21,9 +20,7 @@ const FadeIn = ({ children, delay = 0 }) => {
 
   useEffect(() => {
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) setIsVisible(true);
-      },
+      ([entry]) => { if (entry.isIntersecting) setIsVisible(true); },
       { threshold: 0.1 }
     );
     if (ref.current) observer.observe(ref.current);
@@ -44,11 +41,19 @@ const FadeIn = ({ children, delay = 0 }) => {
 };
 
 const Financials = () => {
-  const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem('theme') === 'dark';
-  });
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState('Finance');
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  // --- Forecast Filter State ---
+  const [forecastFilter, setForecastFilter] = useState('Month'); // 'Day', 'Week', 'Month'
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // --- Theme Persistence ---
+  const { inventoryData, logsData } = useInventory();
+  const { bookings, isLoading: bookingsLoading } = useBookings();
+
+  // --- THEME ---
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -59,251 +64,388 @@ const Financials = () => {
     }
   }, [darkMode]);
 
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState('Finance');
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false); 
-
-  // --- GET DATA FROM INVENTORY SYSTEM ---
-  const { inventoryData, logsData } = useInventory();
-
   const theme = {
     bg: darkMode ? 'bg-[#0c0c0c]' : 'bg-[#FAFAFA]',
     cardBg: darkMode ? 'bg-[#141414]' : 'bg-white',
     text: darkMode ? 'text-stone-200' : 'text-stone-900',
     subText: darkMode ? 'text-stone-500' : 'text-stone-500',
     border: darkMode ? 'border-stone-800' : 'border-stone-200',
-    accent: 'text-[#C9A25D]',
-    accentBg: 'bg-[#C9A25D]',
     hoverBg: darkMode ? 'hover:bg-stone-900' : 'hover:bg-stone-50',
-    inputBg: darkMode ? 'bg-[#1c1c1c]' : 'bg-stone-50',
   };
 
-  // --- Data: Event Profitability (Manual Entries) ---
-  const [profitLogs, setProfitLogs] = useState([
-    { id: 1, event: 'Jemima Albuero Wedding', date: 'Dec 10', cost: 15000, paid: 25000 },
-    { id: 2, event: 'Tech Corp Lunch', date: 'Dec 08', cost: 12000, paid: 20000 },
-    { id: 3, event: 'Reyes Birthday', date: 'Dec 05', cost: 18500, paid: 18000 },
-  ]);
+  // --- DATE NAVIGATION HANDLERS ---
+  const handlePrev = () => {
+    const newDate = new Date(selectedDate);
+    if (forecastFilter === 'Month') {
+      newDate.setFullYear(newDate.getFullYear() - 1);
+    } else {
+      newDate.setMonth(newDate.getMonth() - 1);
+    }
+    setSelectedDate(newDate);
+  };
 
-  // 1. CALCULATE REAL WASTE FROM LOGS
+  const handleNext = () => {
+    const newDate = new Date(selectedDate);
+    if (forecastFilter === 'Month') {
+      newDate.setFullYear(newDate.getFullYear() + 1);
+    } else {
+      newDate.setMonth(newDate.getMonth() + 1);
+    }
+    setSelectedDate(newDate);
+  };
+
+  // ==========================================
+  // 1. BUSINESS INTELLIGENCE LOGIC
+  // ==========================================
+
+  // A. Inventory Loss Calculation
   const realWasteValue = useMemo(() => {
     if (!logsData || !inventoryData) return 0;
-
     return logsData.reduce((total, log) => {
       if (log.quantityLost > 0) {
         const item = inventoryData.find(i => i.id === log.itemId);
         const price = item ? (item.price || 0) : 0;
-        const valueLost = log.quantityLost * price;
-        return total + valueLost;
+        return total + (log.quantityLost * price);
       }
       return total;
     }, 0);
   }, [logsData, inventoryData]);
 
-  // 2. CALCULATE TOTAL ASSET VALUE (For the new Ratio)
-  const totalAssetValue = useMemo(() => {
-    if (!inventoryData) return 0;
-    return inventoryData.reduce((acc, item) => {
-      const qty = item.stock?.quantityTotal || 0;
-      const price = item.price || 0;
-      return acc + (qty * price);
-    }, 0);
-  }, [inventoryData]);
-
-  // --- Helper: Form State ---
-  const [formData, setFormData] = useState({
-    event: '', cost: '', paid: '', notes: ''
-  });
-
-  const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSaveFinancials = () => {
-    if(!formData.event || !formData.cost) return;
-
-    const newItem = {
-      id: profitLogs.length + 1,
-      event: formData.event,
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      cost: parseFloat(formData.cost),
-      paid: parseFloat(formData.paid)
+  // B. Financial Data Aggregation
+  const analytics = useMemo(() => {
+    if (!bookings) return { 
+        records: [], 
+        forecastChartData: [], 
+        categoryStats: {}, 
+        totals: { contract: 0, collected: 0, receivables: 0, expenses: 0, profit: 0, pax: 0 } 
     };
-    
-    setProfitLogs([newItem, ...profitLogs]);
-    setIsModalOpen(false);
-    setFormData({ event: '', cost: '', paid: '', notes: '' });
-  };
 
-  // --- Helper: Calculations ---
-  const calculateNetProfit = (log) => log.paid - log.cost;
+    const records = [];
+    const categoryStats = {};   
+    let totalPax = 0;
+
+    // --- PREPARE CHART BUCKETS ---
+    let chartBuckets = [];
+    const viewYear = selectedDate.getFullYear();
+    const viewMonth = selectedDate.getMonth(); 
+
+    if (forecastFilter === 'Month') {
+        for (let i = 0; i < 12; i++) {
+            const label = new Date(viewYear, i, 1).toLocaleString('default', { month: 'short' });
+            chartBuckets.push({ label, sortKey: i, amount: 0 });
+        }
+    } else if (forecastFilter === 'Day') {
+        const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+        for (let i = 1; i <= daysInMonth; i++) {
+            chartBuckets.push({ label: `${i}`, sortKey: i, amount: 0 });
+        }
+    } else if (forecastFilter === 'Week') {
+        for (let i = 1; i <= 5; i++) {
+            chartBuckets.push({ label: `Week ${i}`, sortKey: i, amount: 0 });
+        }
+    }
+
+    const activeBookings = bookings.filter(b => 
+        b.status !== "Cancelled" && b.status !== "Rejected"
+    );
+
+    activeBookings.forEach(b => {
+        // Core Financials
+        const contractPrice = b.billing?.totalCost || 0;
+        const collected = b.billing?.amountPaid || 0;
+        const balance = b.billing?.remainingBalance !== undefined 
+            ? b.billing.remainingBalance 
+            : (contractPrice - collected);
+        
+        const opsCost = b.billing?.operationalCost || 0;
+        const netProfit = contractPrice - opsCost;
+        
+        const hasOpsData = opsCost > 0;
+        const margin = (hasOpsData && contractPrice > 0) 
+            ? ((netProfit / contractPrice) * 100).toFixed(1)
+            : null;
+
+        // Chart Logic
+        const eventDate = new Date(b.dateOfEvent);
+        
+        if (!isNaN(eventDate)) {
+            const eventYear = eventDate.getFullYear();
+            const eventMonth = eventDate.getMonth();
+            const eventDay = eventDate.getDate();
+
+            if (balance > 0) { 
+                if (forecastFilter === 'Month') {
+                    if (eventYear === viewYear) {
+                        chartBuckets[eventMonth].amount += balance;
+                    }
+                } else {
+                    if (eventYear === viewYear && eventMonth === viewMonth) {
+                        if (forecastFilter === 'Day') {
+                            if(chartBuckets[eventDay - 1]) {
+                                chartBuckets[eventDay - 1].amount += balance;
+                            }
+                        } else if (forecastFilter === 'Week') {
+                            const weekNum = Math.ceil(eventDay / 7); 
+                            const bucketIndex = Math.min(weekNum, 5) - 1; 
+                            if(chartBuckets[bucketIndex]) {
+                                chartBuckets[bucketIndex].amount += balance;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Category Stats
+        const type = b.eventType || "Other";
+        if (!categoryStats[type]) categoryStats[type] = { count: 0, revenue: 0 };
+        categoryStats[type].count += 1;
+        categoryStats[type].revenue += contractPrice;
+
+        totalPax += parseInt(b.estimatedGuests || 0);
+
+        records.push({
+            id: b.refId,
+            client: b.fullName,
+            event: type,
+            date: b.dateOfEvent,
+            dateObj: eventDate,
+            contractPrice,
+            collected,
+            balance,
+            opsCost,   
+            netProfit, 
+            margin,
+            hasOpsData,
+            status: b.status
+        });
+    });
+
+    records.sort((a, b) => a.dateObj - b.dateObj);
+
+    return {
+        records,
+        forecastChartData: chartBuckets,
+        categoryStats,
+        totals: {
+            contract: records.reduce((acc, r) => acc + r.contractPrice, 0),
+            collected: records.reduce((acc, r) => acc + r.collected, 0),
+            receivables: records.reduce((acc, r) => acc + r.balance, 0),
+            expenses: records.reduce((acc, r) => acc + r.opsCost, 0),
+            profit: records.reduce((acc, r) => acc + r.netProfit, 0),
+            pax: totalPax
+        }
+    };
+  }, [bookings, forecastFilter, selectedDate]);
+
+  const { totals, forecastChartData, categoryStats } = analytics;
   
-  const calculateMargin = (log) => {
-    const profit = calculateNetProfit(log);
-    return ((profit / log.paid) * 100).toFixed(1);
-  };
+  const topCategory = Object.keys(categoryStats).reduce((a, b) => 
+    (categoryStats[a]?.revenue > categoryStats[b]?.revenue ? a : b), "N/A"
+  );
+  
+  const globalMargin = totals.contract > 0 ? ((totals.profit / totals.contract) * 100).toFixed(0) : 0;
 
-  // Aggregate Totals
-  const totalRevenue = profitLogs.reduce((acc, curr) => acc + curr.paid, 0);
-  // Note: We subtract waste from profit for the dashboard summary, but keep revenue pure
-  const totalProfit = profitLogs.reduce((acc, curr) => acc + calculateNetProfit(curr), 0) - realWasteValue;
+  const getDisplayDate = () => {
+    if (forecastFilter === 'Month') return selectedDate.getFullYear();
+    return selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+  };
 
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text} selection:bg-[#C9A25D] selection:text-white transition-colors duration-500`}>
+      {/* --- CUSTOM SCROLLBAR STYLES --- */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #2a2a2a; /* Dark track to match screenshot */
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #C9A25D; 
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #b08d55; 
+        }
+      `}</style>
+
+      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={setActiveTab} theme={theme} />
       
-      <style>
-        {`
-          @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap');
-          .font-serif { font-family: 'Cormorant Garamond', serif; }
-          .font-sans { font-family: 'Inter', sans-serif; }
-          .no-scrollbar::-webkit-scrollbar { display: none; }
-        `}
-      </style>
-
-      {/* --- Sidebar --- */}
-      <Sidebar 
-        sidebarOpen={sidebarOpen} 
-        setSidebarOpen={setSidebarOpen} 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        theme={theme} 
-      />
-
-      {/* --- Main Content --- */}
       <main className="flex-1 flex flex-col relative overflow-hidden">
-        <DashboardNavbar 
-          activeTab="Financial Overview"
-          theme={theme}
-          darkMode={darkMode}
-          setDarkMode={setDarkMode}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-        />
+        <DashboardNavbar activeTab="Financial Intelligence" theme={theme} darkMode={darkMode} setDarkMode={setDarkMode} searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
 
         <div className="flex-1 overflow-y-auto p-6 md:p-12 scroll-smooth no-scrollbar">
           
-          {/* Header Actions */}
+          {/* HEADER */}
           <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
             <div>
               <h2 className="font-serif text-3xl italic">Financial Intelligence</h2>
-              <p className={`text-xs mt-1 ${theme.subText}`}>Profitability & Asset Loss Analysis</p>
+              <p className={`text-xs mt-1 ${theme.subText}`}>Profitability, Forecasts & Asset Analysis</p>
             </div>
             <div className="flex gap-3">
               <button className={`flex items-center gap-2 px-4 py-2.5 border ${theme.border} text-[10px] uppercase tracking-widest hover:text-[#C9A25D] transition-colors bg-transparent`}>
-                <Download size={14} /> Report
-              </button>
-              <button 
-                onClick={() => setIsModalOpen(true)}
-                className="flex items-center gap-2 bg-[#1c1c1c] text-white px-6 py-2.5 text-[10px] uppercase tracking-widest hover:bg-[#C9A25D] transition-colors shadow-lg shadow-stone-900/10"
-              >
-                <Plus size={14} /> Add Event Record
+                <Download size={14} /> Export CSV
               </button>
             </div>
           </div>
 
-          {/* --- Section 1: The Scoreboard --- */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-            {[
-              { label: 'Total Revenue', value: `₱${totalRevenue.toLocaleString()}`, trend: '+12%', icon: DollarSign, color: 'text-[#C9A25D]' },
-              { label: 'Real Net Profit', value: `₱${totalProfit.toLocaleString()}`, trend: 'After Loss', icon: TrendingUp, color: 'text-emerald-500' },
-              // Show Total Inventory Value for context
-              { label: 'Total Inventory Value', value: `₱${totalAssetValue.toLocaleString()}`, trend: 'Current Assets', icon: Package, color: 'text-stone-400' },
-              { label: 'Total Value Lost', value: `₱${realWasteValue.toLocaleString()}`, trend: 'From Logs', icon: Trash2, color: 'text-rose-500' },
-            ].map((stat, idx) => (
-              <FadeIn key={idx} delay={idx * 100}>
-                <div className={`p-6 border ${theme.border} ${theme.cardBg} group hover:border-[#C9A25D]/30 transition-all duration-500 flex flex-col justify-between h-32`}>
-                  <div className="flex justify-between items-start">
-                    <span className={`text-[10px] uppercase tracking-[0.2em] ${theme.subText}`}>{stat.label}</span>
-                    <stat.icon size={16} strokeWidth={1} className={`${stat.color} opacity-80`} />
-                  </div>
-                  <div className="flex items-baseline justify-between">
-                    <h3 className="font-serif text-3xl md:text-4xl">{stat.value}</h3>
-                    <span className={`text-[10px] font-medium opacity-60`}>
-                      {stat.trend}
-                    </span>
-                  </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+             {/* Scorecards */}
+            <FadeIn delay={0}>
+                <div className={`p-6 border ${theme.border} ${theme.cardBg} h-32 flex flex-col justify-between group hover:border-emerald-500/30 transition-colors`}>
+                    <div className="flex justify-between items-start"><span className={`text-[10px] uppercase tracking-[0.2em] ${theme.subText}`}>Liquidity</span><Wallet size={16} className="text-emerald-500" /></div>
+                    <div><h3 className="font-serif text-3xl">₱{totals.collected.toLocaleString()}</h3><span className="text-[10px] text-emerald-500 font-medium">Cash Collected</span></div>
                 </div>
-              </FadeIn>
-            ))}
+            </FadeIn>
+            <FadeIn delay={100}>
+                <div className={`p-6 border ${theme.border} ${theme.cardBg} h-32 flex flex-col justify-between group hover:border-[#C9A25D]/30 transition-colors`}>
+                    <div className="flex justify-between items-start"><span className={`text-[10px] uppercase tracking-[0.2em] ${theme.subText}`}>Pipeline</span><Coins size={16} className="text-[#C9A25D]" /></div>
+                    <div><h3 className="font-serif text-3xl">₱{totals.receivables.toLocaleString()}</h3><span className="text-[10px] text-[#C9A25D] font-medium">Accounts Receivable</span></div>
+                </div>
+            </FadeIn>
+            <FadeIn delay={200}>
+                <div className={`p-6 border ${theme.border} ${theme.cardBg} h-32 flex flex-col justify-between group hover:border-blue-400/30 transition-colors`}>
+                    <div className="flex justify-between items-start"><span className={`text-[10px] uppercase tracking-[0.2em] ${theme.subText}`}>Profitability</span><BarChart3 size={16} className="text-blue-400" /></div>
+                    <div><h3 className="font-serif text-3xl">₱{totals.profit.toLocaleString()}</h3><div className="flex items-center gap-2"><span className="text-[10px] text-blue-400 font-medium">Net Profit</span><span className={`text-[9px] px-1.5 py-0.5 rounded bg-blue-400/10 text-blue-400 border border-blue-400/20`}>{globalMargin}% Margin</span></div></div>
+                </div>
+            </FadeIn>
+            <FadeIn delay={300}>
+                <div className={`p-6 border ${theme.border} ${theme.cardBg} h-32 flex flex-col justify-between group hover:border-rose-500/30 transition-colors`}>
+                    <div className="flex justify-between items-start"><span className={`text-[10px] uppercase tracking-[0.2em] ${theme.subText}`}>Leakage</span><Trash2 size={16} className="text-rose-500" /></div>
+                    <div><h3 className="font-serif text-3xl">₱{realWasteValue.toLocaleString()}</h3><span className="text-[10px] text-rose-500 font-medium">Inventory Loss</span></div>
+                </div>
+            </FadeIn>
           </div>
 
-          {/* --- Section 2: Analytics --- */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+          {/* --- CHARTS SECTION --- */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
             
-            {/* Chart A: Profit Trend */}
+            {/* CASH FLOW FORECAST CHART */}
             <div className="lg:col-span-2">
-              <FadeIn delay={300}>
-                <div className={`border ${theme.border} ${theme.cardBg} p-8 h-full min-h-[400px] flex flex-col`}>
-                  <div className="flex justify-between items-center mb-10">
-                    <h3 className="font-serif text-2xl italic">Operational Profit</h3>
-                    <div className="flex gap-4">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-[#C9A25D]"></span>
-                        <span className={`text-[10px] uppercase tracking-widest ${theme.subText}`}>Revenue</span>
-                      </div>
+              <FadeIn delay={400}>
+                <div className={`border ${theme.border} ${theme.cardBg} p-8 h-full min-h-[350px] flex flex-col`}>
+                  <div className="flex flex-col md:flex-row justify-between md:items-center mb-8 gap-4">
+                    <div>
+                        <h3 className="font-serif text-2xl italic">Cash Flow Forecast</h3>
+                        <p className={`text-[10px] uppercase tracking-wider ${theme.subText} mt-1`}>
+                            {forecastFilter === 'Month' ? 'Monthly' : 'Daily'} Projections for <span className="text-[#C9A25D] font-bold">{getDisplayDate()}</span>
+                        </p>
+                    </div>
+                    
+                    <div className="flex items-center gap-6">
+                        {/* Date Navigation - Minimal */}
+                        <div className="flex items-center gap-2">
+                            <button onClick={handlePrev} className="p-1 text-stone-400 hover:text-white transition-colors bg-stone-800/50 rounded hover:bg-stone-700">
+                                <ChevronLeft size={14}/>
+                            </button>
+                            <div className="px-3 text-[10px] font-bold uppercase min-w-[80px] text-center text-stone-300 tracking-wider">
+                                {getDisplayDate()}
+                            </div>
+                            <button onClick={handleNext} className="p-1 text-stone-400 hover:text-white transition-colors bg-stone-800/50 rounded hover:bg-stone-700">
+                                <ChevronRight size={14}/>
+                            </button>
+                        </div>
+
+                        {/* Filter Switcher - High Contrast (White Active on Dark) */}
+                        <div className="flex gap-1 bg-transparent">
+                            {['Day', 'Week', 'Month'].map((filter) => (
+                                <button
+                                    key={filter}
+                                    onClick={() => setForecastFilter(filter)}
+                                    className={`
+                                        px-4 py-1.5 text-[10px] uppercase tracking-widest rounded transition-all duration-300 font-bold border
+                                        ${forecastFilter === filter 
+                                            ? 'bg-white text-[#C9A25D] border-white' // Matches screenshot: White box, gold text
+                                            : 'bg-transparent text-stone-500 border-transparent hover:text-stone-300'
+                                        }
+                                    `}
+                                >
+                                    {filter}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                   </div>
                   
-                  {/* Chart Visual */}
-                  <div className="flex-1 flex items-end justify-between gap-4 w-full px-2">
-                     {profitLogs.map((log, i) => (
-                       <div key={i} className="flex-1 flex flex-col justify-end h-full group relative">
-                          <div className="relative w-full rounded-t-sm overflow-hidden flex flex-col-reverse h-64 bg-stone-100 dark:bg-stone-800/50">
-                             <div style={{ height: '60%' }} className="w-full bg-[#C9A25D] opacity-90"></div>
-                             <div style={{ height: '40%' }} className="w-full bg-stone-400 dark:bg-stone-600"></div>
-                          </div>
-                          <span className={`text-[10px] text-center mt-4 uppercase tracking-widest ${theme.subText}`}>{log.date}</span>
-                       </div>
-                     ))}
+                  {/* Forecast Visualization */}
+                  <div className="flex-1 flex items-end gap-2 w-full px-2 overflow-x-auto pb-4 custom-scrollbar">
+                     {forecastChartData.every(i => i.amount === 0) ? (
+                         <div className="w-full h-full flex flex-col items-center justify-center text-stone-500">
+                            <CalendarRange size={32} className="mb-2 opacity-20" />
+                            <span className="text-xs">No pending receivables for this period.</span>
+                         </div>
+                     ) : (
+                         forecastChartData.map((item, i) => {
+                           const maxVal = Math.max(...forecastChartData.map(m => m.amount)) || 1;
+                           const height = item.amount > 0 ? (item.amount / maxVal) * 100 : 0;
+                           
+                           return (
+                             <div key={i} className="flex-1 min-w-[30px] flex flex-col justify-end h-full group relative">
+                                <div className="text-xs font-bold text-[#C9A25D] text-center mb-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap absolute -top-6 w-full z-10">
+                                    {item.amount > 0 ? `₱${(item.amount/1000).toFixed(1)}k` : ''}
+                                </div>
+                                
+                                {/* Bar Track - Dark Grey Background (Slot look) */}
+                                <div className="relative w-full rounded-sm overflow-hidden h-40 flex items-end justify-center bg-stone-800/80">
+                                   <div 
+                                      style={{ height: `${height}%` }} 
+                                      className={`w-full transition-all duration-500 ${
+                                          item.amount > 0 
+                                          ? 'bg-[#C9A25D] opacity-100' // Solid Gold
+                                          : 'bg-transparent'
+                                      }`}
+                                   ></div>
+                                </div>
+                                <span className={`text-[9px] text-center mt-3 font-medium text-stone-500 group-hover:text-stone-300 transition-colors whitespace-nowrap overflow-hidden text-ellipsis`}>
+                                    {item.label}
+                                </span>
+                             </div>
+                           );
+                         })
+                     )}
                   </div>
                 </div>
               </FadeIn>
             </div>
 
-            {/* Chart B: Waste Analysis (UPDATED) */}
+            {/* REVENUE BY CATEGORY (UNCHANGED) */}
             <div className="lg:col-span-1">
-              <FadeIn delay={400}>
-                <div className={`border ${theme.border} ${theme.cardBg} p-8 h-full flex flex-col justify-center`}>
-                  <h3 className="font-serif text-2xl italic mb-2">Loss Impact</h3>
-                  <p className={`text-xs ${theme.subText} mb-8`}>Loss vs. Total Inventory Value</p>
-                  
-                  {/* Dynamic Donut Chart */}
-                  <div className="relative aspect-square max-w-[220px] mx-auto mb-8">
-                      {/* SVG Ring */}
-                      <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                        {/* Background Ring */}
-                        <path className="text-stone-100 dark:text-stone-800" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="2.5" />
-                        
-                        {/* Value Ring - NOW CALCULATED BASED ON ASSET VALUE */}
-                        <path
-                          className="text-rose-500 transition-all duration-1000 ease-out"
-                          strokeDasharray={`${(totalAssetValue + realWasteValue) > 0 ? ((realWasteValue / (totalAssetValue + realWasteValue)) * 100).toFixed(1) : 0}, 100`}
-                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                          fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-                        />
-                      </svg>
-                      
-                      {/* Center Text */}
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                         <span className="font-serif text-4xl text-rose-500">
-                            {(totalAssetValue + realWasteValue) > 0 
-                              ? ((realWasteValue / (totalAssetValue + realWasteValue)) * 100).toFixed(1) 
-                              : 0}%
-                         </span>
-                         <span className={`text-[9px] uppercase tracking-widest mt-1 ${theme.subText}`}>Of Assets Lost</span>
-                      </div>
+              <FadeIn delay={500}>
+                <div className={`border ${theme.border} ${theme.cardBg} p-8 h-full`}>
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-serif text-2xl italic">Top Performers</h3>
+                    <PieChart className="text-stone-400" size={20} />
                   </div>
 
-                  {/* Info Box */}
-                  <div className={`p-4 border ${theme.border} ${darkMode ? 'bg-stone-900/50' : 'bg-stone-50'} rounded-sm`}>
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="text-rose-500 mt-1" size={16} />
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide">Depreciation</p>
-                        <p className={`font-serif text-lg ${theme.text} mt-1`}>Inventory Loss</p>
-                        <p className={`text-[10px] ${theme.subText}`}>Value of lost items compared to total equipment value.</p>
-                      </div>
+                  <div className="space-y-6">
+                    <div className="p-4 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-sm mb-6">
+                        <span className="text-[9px] uppercase tracking-widest text-stone-400">Highest Grossing Category</span>
+                        <div className="flex items-center justify-between mt-2">
+                            <span className="font-serif text-xl">{topCategory}</span>
+                            <span className="text-sm font-bold text-[#C9A25D]">
+                                ₱{categoryStats[topCategory]?.revenue.toLocaleString() || 0}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        {Object.entries(categoryStats).map(([cat, stats], i) => {
+                            const totalRev = totals.contract || 1;
+                            const percent = ((stats.revenue / totalRev) * 100).toFixed(0);
+                            return (
+                                <div key={i} className="group">
+                                    <div className="flex justify-between text-xs mb-1">
+                                        <span className="font-medium">{cat} <span className="text-stone-400">({stats.count})</span></span>
+                                        <span className="text-stone-500">{percent}%</span>
+                                    </div>
+                                    <div className="w-full h-1.5 bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden">
+                                        <div style={{ width: `${percent}%` }} className="h-full bg-stone-400 dark:bg-stone-600 group-hover:bg-[#C9A25D] transition-colors duration-300"></div>
+                                    </div>
+                                </div>
+                            )
+                        })}
                     </div>
                   </div>
                 </div>
@@ -311,90 +453,63 @@ const Financials = () => {
             </div>
           </div>
 
-          {/* --- Section 3: Event Profitability Log --- */}
-          <FadeIn delay={500}>
+          {/* --- TRANSACTION LEDGER (UNCHANGED) --- */}
+          <FadeIn delay={600}>
             <div className={`border ${theme.border} ${theme.cardBg} rounded-sm min-h-[400px]`}>
               <div className="p-6 md:p-8 flex justify-between items-center border-b border-stone-100 dark:border-stone-800">
                 <div>
-                   <h3 className="font-serif text-2xl italic">Event Profitability Log</h3>
-                   <p className={`text-[10px] uppercase tracking-wider ${theme.subText} mt-1`}>Operational P&L (Excludes Inventory Loss)</p>
+                   <h3 className="font-serif text-2xl italic">Operational Ledger</h3>
+                   <p className={`text-[10px] uppercase tracking-wider ${theme.subText} mt-1`}>Active Bookings & P&L Status</p>
                 </div>
               </div>
 
+              {/* Table Header */}
               <div className={`grid grid-cols-12 gap-4 px-8 py-4 border-b ${theme.border} text-[10px] uppercase tracking-[0.2em] font-medium text-stone-400 select-none`}>
-                <div className="col-span-4">Event Name & Date</div>
-                <div className="col-span-2 text-right">Ops Cost</div>
-                <div className="col-span-2 text-right">Paid Amount</div>
-                <div className="col-span-2 text-right">Net Profit</div>
-                <div className="col-span-2 text-right">Margin</div>
+                <div className="col-span-3">Client & Event</div>
+                <div className="col-span-1">Date</div>
+                <div className="col-span-2 text-right">Revenue</div>
+                <div className="col-span-1.5 text-right">Expense</div>
+                <div className="col-span-1.5 text-right">Net</div>
+                <div className="col-span-1.5 text-right">Margin</div>
+                <div className="col-span-1.5 text-center">Balance</div>
               </div>
 
+              {/* Table Body */}
               <div className={`divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
-                {profitLogs.map((log) => {
-                  const profit = calculateNetProfit(log);
-                  return (
-                    <div key={log.id} className={`grid grid-cols-12 gap-4 px-8 py-5 items-center group ${theme.hoverBg} transition-colors duration-300`}>
-                      <div className="col-span-4">
-                        <span className={`font-serif text-lg block leading-tight ${theme.text}`}>{log.event}</span>
-                        <span className={`text-[10px] ${theme.subText} block mt-1`}>{log.date}</span>
+                {bookingsLoading ? (
+                    <div className="p-10 flex justify-center text-[#C9A25D]">Loading Data...</div>
+                ) : analytics.records.map((rec) => (
+                    <div key={rec.id} className={`grid grid-cols-12 gap-4 px-8 py-5 items-center group ${theme.hoverBg} transition-colors duration-300`}>
+                      <div className="col-span-3">
+                        <span className={`font-serif text-md block leading-tight ${theme.text}`}>{rec.client}</span>
+                        <span className={`text-[10px] ${theme.subText} block mt-1 uppercase tracking-wider`}>{rec.event}</span>
                       </div>
-                      <div className={`col-span-2 text-right text-sm ${theme.subText}`}>₱{log.cost.toLocaleString()}</div>
-                      <div className={`col-span-2 text-right text-sm ${theme.text}`}>₱{log.paid.toLocaleString()}</div>
-                      <div className={`col-span-2 text-right font-serif text-lg text-emerald-500`}>+₱{profit.toLocaleString()}</div>
-                      <div className="col-span-2 flex justify-end">
-                         <span className={`text-[10px] px-2 py-1 rounded border border-emerald-500/20 bg-emerald-500/10 text-emerald-500`}>{calculateMargin(log)}%</span>
+                      <div className={`col-span-1 text-xs ${theme.subText} truncate`}>{rec.date}</div>
+                      <div className={`col-span-2 text-right text-sm font-medium ${theme.text}`}>₱{rec.contractPrice.toLocaleString()}</div>
+                      <div className={`col-span-1.5 text-right text-sm text-rose-400`}>{rec.hasOpsData ? `(₱${rec.opsCost.toLocaleString()})` : '-'}</div>
+                      <div className={`col-span-1.5 text-right font-serif text-md text-emerald-500`}>{rec.hasOpsData ? `₱${rec.netProfit.toLocaleString()}` : '-'}</div>
+                      <div className={`col-span-1.5 text-right`}>
+                         {rec.margin !== null ? (
+                             <span className={`text-[10px] px-2 py-1 rounded border ${Number(rec.margin) > 40 ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500' : 'border-amber-500/20 bg-amber-500/10 text-amber-500'}`}>
+                                 {rec.margin}%
+                             </span>
+                         ) : (<span className="text-[10px] text-stone-400">-</span>)}
+                      </div>
+                      <div className="col-span-1.5 flex justify-center">
+                         {rec.balance === 0 ? (
+                             <div className="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center" title="Fully Paid"><DollarSign size={12} /></div>
+                         ) : (
+                             <span className="text-[9px] uppercase font-bold text-amber-500 tracking-widest border border-amber-500/30 px-2 py-1 rounded" title={`Due: ₱${rec.balance.toLocaleString()}`}>Due</span>
+                         )}
                       </div>
                     </div>
-                  );
-                })}
+                  ))}
               </div>
             </div>
           </FadeIn>
 
         </div>
       </main>
-
-      {/* --- Section 4: The Input Modal --- */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className={`w-full max-w-md ${theme.cardBg} border ${theme.border} shadow-2xl animate-in fade-in zoom-in duration-200`}>
-            <div className={`flex justify-between items-center p-6 border-b ${theme.border}`}>
-              <h3 className="font-serif text-2xl italic">Add Event Financials</h3>
-              <button onClick={() => setIsModalOpen(false)} className={`${theme.subText} hover:text-rose-500 transition-colors`}><X size={20} /></button>
-            </div>
-            
-            <div className="p-6 space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase tracking-widest opacity-60">Event Name</label>
-                <input type="text" name="event" placeholder="e.g. Smith Wedding" value={formData.event} onChange={handleInputChange} className={`w-full p-3 text-sm border ${theme.border} ${theme.inputBg} outline-none focus:border-[#C9A25D] transition-colors`} />
-              </div>
-              <div className="space-y-1">
-                 <label className="text-[10px] uppercase tracking-widest opacity-60">Operational Cost (Staff/Food/Transport)</label>
-                 <div className="relative">
-                    <span className="absolute left-3 top-3 text-xs opacity-50">₱</span>
-                    <input type="number" name="cost" placeholder="0.00" value={formData.cost} onChange={handleInputChange} className={`w-full p-3 pl-6 text-sm border ${theme.border} ${theme.inputBg} outline-none focus:border-[#C9A25D] transition-colors`} />
-                 </div>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase tracking-widest opacity-60">Amount Paid by Client</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-3 text-xs opacity-50">₱</span>
-                  <input type="number" name="paid" placeholder="0.00" value={formData.paid} onChange={handleInputChange} className={`w-full p-3 pl-6 text-sm border ${theme.border} ${theme.inputBg} outline-none focus:border-[#C9A25D] transition-colors`} />
-                </div>
-              </div>
-              <div className="p-3 bg-stone-100 dark:bg-stone-900 rounded-sm border border-stone-200 dark:border-stone-800">
-                  <p className="text-[10px] text-stone-500 flex items-center gap-2"><AlertCircle size={12} />Asset loss/waste is now tracked automatically via Inventory Logs.</p>
-              </div>
-            </div>
-
-            <div className={`p-6 pt-0 flex justify-end gap-3`}>
-               <button onClick={() => setIsModalOpen(false)} className={`px-4 py-2 text-xs uppercase tracking-widest hover:underline ${theme.subText}`}>Cancel</button>
-               <button onClick={handleSaveFinancials} className="bg-[#C9A25D] text-white px-6 py-2 text-xs uppercase tracking-widest hover:bg-[#b08d4d] transition-colors">Save Record</button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };

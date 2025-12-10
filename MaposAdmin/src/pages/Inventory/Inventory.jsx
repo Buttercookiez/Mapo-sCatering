@@ -1,10 +1,9 @@
 // src/pages/Inventory/Inventory.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Plus, ArrowUpDown, AlertTriangle, 
-  Package, Tag, X, ChevronDown, 
+  Plus, Package, Tag, X, ChevronDown, 
   Trash2, Pencil, Loader2,
-  ArrowRightLeft, History, Filter, Check, Clock
+  ArrowRightLeft, History, Filter, Check, Clock, AlertTriangle
 } from 'lucide-react';
 
 import Sidebar from '../../components/layout/Sidebar';
@@ -38,10 +37,62 @@ const FadeIn = ({ children, delay = 0, className = "" }) => {
   );
 };
 
+// --- DROPDOWN INPUT (Reusable for Modals) ---
+const DropdownInput = ({ label, value, options, onSelect, placeholder, theme, darkMode, compact = false }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => { 
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) setIsOpen(false); 
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className="group relative z-30 w-full" ref={dropdownRef}>
+      {label && <label className={`text-[10px] uppercase tracking-[0.2em] ${theme.subText} mb-1 block font-light font-sans`}>{label}</label>}
+      
+      <button 
+        type="button" 
+        onClick={() => setIsOpen(!isOpen)} 
+        className={`w-full text-left bg-transparent border-b ${theme.border} ${compact ? 'py-2 text-sm' : 'py-3 text-lg'} ${theme.text} font-light font-sans flex justify-between items-center focus:outline-none focus:border-[#C9A25D] transition-colors`}
+      >
+        <span className={value ? "" : "opacity-30"}>{value || placeholder}</span>
+        <ChevronDown className={`w-4 h-4 opacity-40 transition-transform duration-300 ${isOpen ? 'rotate-180 text-[#C9A25D] opacity-100' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div 
+          className={`absolute top-full left-0 w-full mt-2 max-h-60 overflow-y-auto shadow-2xl rounded-sm z-50 transition-all duration-300 ease-out origin-top no-scrollbar`} 
+          style={{ 
+            backgroundColor: darkMode ? '#1c1c1c' : '#ffffff', 
+            border: darkMode ? '1px solid #333' : '1px solid #e5e7eb',
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+        >
+          {options.length > 0 ? options.map((opt) => (
+              <div 
+                key={opt} 
+                onClick={() => { onSelect(opt); setIsOpen(false); }} 
+                className={`px-6 py-3 cursor-pointer transition-all duration-300 text-[10px] tracking-[0.25em] uppercase font-medium font-sans hover:pl-8 ${value === opt ? 'text-[#C9A25D]' : ''}`} 
+                style={{ color: value === opt ? '#C9A25D' : (darkMode ? '#d6d3d1' : '#000000') }}
+                onMouseEnter={(e) => { if(value !== opt) e.target.style.color = '#C9A25D'; }} 
+                onMouseLeave={(e) => { if(value !== opt) e.target.style.color = darkMode ? '#d6d3d1' : '#000000'; }}
+              >
+                {opt}
+              </div>
+          )) : <div className={`px-6 py-4 text-[10px] tracking-[0.25em] uppercase font-medium font-sans opacity-50 ${theme.subText}`}>No options available</div>}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // --- MODAL: ITEM ADD/EDIT ---
-const ItemModal = ({ isOpen, onClose, onSave, theme, categories, initialData }) => {
+const ItemModal = ({ isOpen, onClose, onSave, theme, categories, initialData, darkMode }) => {
   const [formData, setFormData] = useState({ name: '', category: '', price: '', quantity: '', unit: 'Pcs', threshold: '' });
-  const [categoryOpen, setCategoryOpen] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -79,236 +130,141 @@ const ItemModal = ({ isOpen, onClose, onSave, theme, categories, initialData }) 
 
   if (!isOpen) return null;
 
-  const inputBase = `w-full bg-transparent border-b ${theme.border} py-3 pl-0 text-sm ${theme.text} placeholder-stone-400 focus:outline-none focus:border-[#C9A25D] transition-colors relative z-10`;
+  const inputBase = `w-full bg-transparent border-b ${theme.border} py-3 pl-0 text-lg ${theme.text} font-light font-sans placeholder-stone-400 focus:outline-none focus:border-[#C9A25D] transition-colors relative z-10`;
+  const labelBase = `text-[10px] uppercase tracking-[0.2em] ${theme.subText} mb-1 block font-light font-sans`;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
       <div className="absolute inset-0" onClick={onClose}></div>
       <div className={`w-full max-w-xl ${theme.cardBg} rounded-sm shadow-2xl border ${theme.border} flex flex-col relative z-50 animate-in fade-in zoom-in duration-200`}>
         <div className={`p-8 border-b ${theme.border} flex justify-between items-center`}>
-          <h2 className={`font-serif text-3xl ${theme.text}`}>{initialData ? 'Edit Asset' : 'Add Item'}</h2>
+          <h2 className={`font-serif text-3xl ${theme.text} font-light tracking-wide`}>{initialData ? 'Edit Asset' : 'Add New Item'}</h2>
           <button onClick={onClose}><X size={20} className="text-stone-500 hover:text-stone-800 dark:hover:text-stone-200"/></button>
         </div>
         <div className="p-8 space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="md:col-span-2"><input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Item Name" className={inputBase} /></div>
-            <div className="relative md:col-span-2 z-20">
-               <button type="button" onClick={() => setCategoryOpen(!categoryOpen)} className={`${inputBase} text-left flex items-center justify-between`}>
-                  <span className={formData.category ? theme.text : "text-stone-400"}>{formData.category || "Select Category"}</span>
-                  <ChevronDown className="w-4 h-4 text-stone-400" />
-               </button>
-               {categoryOpen && (
-                 <div className={`absolute top-full left-0 w-full mt-1 p-2 shadow-xl z-50 border ${theme.border} ${theme.cardBg} max-h-48 overflow-y-auto`}>
-                   {categories.map(cat => (
-                     <div key={cat} onClick={() => { setFormData(p => ({...p, category: cat})); setCategoryOpen(false); }} className={`text-xs p-2 hover:bg-[#C9A25D] hover:text-white cursor-pointer ${theme.text}`}>{cat}</div>
-                   ))}
-                 </div>
-               )}
+            <div className="md:col-span-2">
+              <label className={labelBase}>Item Name</label>
+              <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="e.g. Tiffany Chair" className={inputBase} />
             </div>
-            <input type="number" name="price" value={formData.price} onChange={handleChange} placeholder="Price per unit" className={inputBase} />
-            <input type="number" name="quantity" value={formData.quantity} onChange={handleChange} placeholder="Total Stock Quantity" className={inputBase} />
+            <div className="relative md:col-span-2 z-20">
+               <DropdownInput label="Category" value={formData.category} options={categories} onSelect={(val) => setFormData(p => ({...p, category: val}))} placeholder="Select Category" theme={theme} darkMode={darkMode} />
+            </div>
+            <div>
+              <label className={labelBase}>Price (₱)</label>
+              <input type="number" name="price" value={formData.price} onChange={handleChange} placeholder="0.00" className={inputBase} />
+            </div>
+            <div>
+              <label className={labelBase}>Total Quantity</label>
+              <input type="number" name="quantity" value={formData.quantity} onChange={handleChange} placeholder="0" className={inputBase} />
+            </div>
             <div className="flex gap-4">
-               <input type="text" name="unit" value={formData.unit} onChange={handleChange} placeholder="Unit" className={`${inputBase} w-1/3`} />
-               <input type="number" name="threshold" value={formData.threshold} onChange={handleChange} placeholder="Alert Level" className={`${inputBase} w-2/3`} />
+              <div className="w-1/3">
+                 <label className={labelBase}>Unit</label>
+                 <input type="text" name="unit" value={formData.unit} onChange={handleChange} placeholder="Pcs" className={inputBase} />
+              </div>
+              <div className="w-2/3">
+                 <label className={labelBase}>Low Stock Alert</label>
+                 <input type="number" name="threshold" value={formData.threshold} onChange={handleChange} placeholder="10" className={inputBase} />
+              </div>
             </div>
           </div>
         </div>
         <div className={`p-6 border-t ${theme.border} flex justify-end gap-4`}>
-          <button onClick={onClose} className={`px-6 py-3 text-xs uppercase border ${theme.border} ${theme.text}`}>Cancel</button>
-          <button onClick={handleSubmit} className="px-8 py-3 bg-[#1c1c1c] text-white text-xs uppercase hover:bg-[#C9A25D] transition-colors">{initialData ? 'Update' : 'Save'}</button>
+          <button onClick={onClose} className={`px-6 py-3 text-[10px] tracking-[0.2em] uppercase font-light border ${theme.border} ${theme.text} hover:opacity-70 transition-opacity`}>Cancel</button>
+          <button onClick={handleSubmit} className="px-8 py-3 bg-[#C9A25D] text-white text-[10px] tracking-[0.2em] uppercase hover:bg-[#b08d4d] transition-colors">{initialData ? 'Update Item' : 'Save Item'}</button>
         </div>
       </div>
     </div>
   );
 };
 
-// --- UPDATED MODAL: STOCK MOVEMENT (Fixed UI) ---
-const StockMovementModal = ({ isOpen, onClose, onSave, item, theme }) => {
-  const [action, setAction] = useState('checkout'); // 'checkout' or 'return'
+// --- MODAL: STOCK MOVEMENT ---
+const StockMovementModal = ({ isOpen, onClose, onSave, item, theme, darkMode }) => {
+  const [action, setAction] = useState('checkout'); 
   const [amount, setAmount] = useState('');
   const [lostAmount, setLostAmount] = useState('');
   const [error, setError] = useState('');
 
-  useEffect(() => { 
-    setAmount(''); 
-    setLostAmount(''); 
-    setError(''); 
-    setAction('checkout'); 
-  }, [isOpen, item]);
-
+  useEffect(() => { setAmount(''); setLostAmount(''); setError(''); setAction('checkout'); }, [isOpen, item]);
   if (!isOpen || !item) return null;
 
-  // Stock Calculations
   const total = item.stock?.quantityTotal || 0;
   const inUse = item.stock?.quantityInUse || 0;
   const available = total - inUse;
 
-  // Helper to set max amount
-  const handleSetMax = () => {
-    setAmount(action === 'checkout' ? available.toString() : inUse.toString());
-    setError('');
-  };
+  const handleSetMax = () => { setAmount(action === 'checkout' ? available.toString() : inUse.toString()); setError(''); };
 
   const handleSubmit = () => {
     const val = parseInt(amount) || 0;
     const lostVal = parseInt(lostAmount) || 0;
-
-    if (val <= 0 && lostVal <= 0) { 
-      setError("Please enter a quantity greater than 0."); 
-      return; 
-    }
-
+    if (val <= 0 && lostVal <= 0) { setError("Please enter a quantity greater than 0."); return; }
     if (action === 'checkout') {
-      if (val > available) { 
-        setError(`Only ${available} items are available.`); 
-        return; 
-      }
+      if (val > available) { setError(`Only ${available} items are available.`); return; }
       onSave(item.id, 'checkout', val, 0);
     } else {
       const totalReturning = val + lostVal;
-      if (totalReturning > inUse) { 
-        setError(`Only ${inUse} are currently out.`); 
-        return; 
-      }
+      if (totalReturning > inUse) { setError(`Only ${inUse} are currently out.`); return; }
       onSave(item.id, 'return', val, lostVal);
     }
     onClose();
   };
 
-  // UI Colors
-  const accentColor = action === 'checkout' ? 'text-[#C9A25D]' : 'text-emerald-500';
   const borderColor = action === 'checkout' ? 'focus:border-[#C9A25D]' : 'focus:border-emerald-500';
   const btnBg = action === 'checkout' ? 'bg-[#C9A25D] hover:bg-[#b08d4d]' : 'bg-emerald-600 hover:bg-emerald-700';
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className="absolute inset-0" onClick={onClose}></div>
-
-      {/* Main Modal Card */}
-      <div className={`w-full max-w-md ${theme.cardBg} rounded-xl shadow-2xl border ${theme.border} relative z-50 animate-in fade-in zoom-in duration-200 flex flex-col overflow-hidden`}>
-        
-        {/* Header */}
+      <div className={`w-full max-w-md ${theme.cardBg} rounded-sm shadow-2xl border ${theme.border} relative z-50 animate-in fade-in zoom-in duration-200 flex flex-col overflow-hidden`}>
         <div className="p-6 pb-2 text-center">
-          <h3 className={`font-serif text-2xl ${theme.text}`}>Manage Stock</h3>
-          <p className={`text-sm ${theme.subText} mt-1 font-medium`}>{item.name}</p>
+          <h3 className={`font-serif text-3xl font-light ${theme.text}`}>Manage Stock</h3>
+          <p className={`text-xs uppercase tracking-widest ${theme.subText} mt-2`}>{item.name}</p>
         </div>
-
-        <div className="px-6 py-4 space-y-8">
-          
-          {/* 1. Toggle Switch */}
-          <div className={`flex p-1 rounded-lg border ${theme.border} ${theme.bg}`}>
-            <button 
-              onClick={() => setAction('checkout')}
-              className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${action === 'checkout' ? 'bg-[#C9A25D] text-white shadow-md' : 'text-stone-500 hover:text-stone-300'}`}
-            >
+        <div className="px-8 py-6 space-y-8">
+          <div className={`flex border-b ${theme.border}`}>
+            <button onClick={() => setAction('checkout')} className={`flex-1 py-3 text-[10px] font-medium uppercase tracking-[0.2em] transition-all relative ${action === 'checkout' ? 'text-[#C9A25D]' : theme.subText}`}>
               Release
+              {action === 'checkout' && <span className="absolute bottom-0 left-0 w-full h-[1px] bg-[#C9A25D]"></span>}
             </button>
-            <button 
-              onClick={() => setAction('return')}
-              className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${action === 'return' ? 'bg-emerald-600 text-white shadow-md' : 'text-stone-500 hover:text-stone-300'}`}
-            >
+            <button onClick={() => setAction('return')} className={`flex-1 py-3 text-[10px] font-medium uppercase tracking-[0.2em] transition-all relative ${action === 'return' ? 'text-emerald-500' : theme.subText}`}>
               Restock
+              {action === 'return' && <span className="absolute bottom-0 left-0 w-full h-[1px] bg-emerald-500"></span>}
             </button>
           </div>
-
-          {/* 2. Context Stats */}
-          <div className="flex justify-between text-sm px-2">
-            <div className="text-center w-1/2 border-r border-stone-800">
-              <span className="block text-[10px] uppercase tracking-widest text-stone-500">Available</span>
-              <span className={`block text-lg font-bold mt-1 ${theme.text}`}>{available}</span>
+          <div className="flex justify-between text-sm px-4">
+            <div className="text-center w-1/2 border-r border-stone-100 dark:border-stone-800">
+              <span className="block text-[9px] uppercase tracking-widest text-stone-400">Available</span>
+              <span className={`block text-2xl font-light mt-1 ${theme.text}`}>{available}</span>
             </div>
             <div className="text-center w-1/2">
-              <span className="block text-[10px] uppercase tracking-widest text-stone-500">In Use</span>
-              <span className={`block text-lg font-bold mt-1 ${action === 'return' ? 'text-white' : 'text-stone-500'}`}>{inUse}</span>
+              <span className="block text-[9px] uppercase tracking-widest text-stone-400">In Use</span>
+              <span className={`block text-2xl font-light mt-1 ${action === 'return' ? 'text-emerald-500' : 'text-stone-400'}`}>{inUse}</span>
             </div>
           </div>
-
-          {/* 3. Hero Input Section */}
-          <div className="space-y-4">
-            
-            {/* CSS to hide ugly browser spinners */}
-            <style>
-              {`
-                input[type=number]::-webkit-inner-spin-button, 
-                input[type=number]::-webkit-outer-spin-button { 
-                  -webkit-appearance: none; 
-                  margin: 0; 
-                }
-                input[type=number] {
-                  -moz-appearance: textfield;
-                }
-              `}
-            </style>
-
-            <div className="relative group">
-              <label className={`block text-center text-[10px] uppercase tracking-widest mb-2 ${accentColor}`}>
-                {action === 'checkout' ? 'Quantity to Release' : 'Quantity Returning'}
-              </label>
-              
+          <div className="space-y-6">
+            <div className="relative group pt-4">
+              <label className={`block text-center text-[9px] uppercase tracking-widest mb-4 ${theme.subText}`}>{action === 'checkout' ? 'Quantity to Release' : 'Quantity Returning'}</label>
               <div className="relative w-3/4 mx-auto flex items-center justify-center">
-                <input 
-                  type="number" 
-                  value={amount} 
-                  onChange={(e) => { setAmount(e.target.value); setError(''); }} 
-                  className={`w-full bg-transparent border-b-2 border-stone-700 ${borderColor} py-2 text-center text-4xl font-bold ${theme.text} focus:outline-none transition-colors placeholder-stone-700`} 
-                  placeholder="0" 
-                  autoFocus 
-                />
-                
-                {/* Fixed "MAX" Button - Vertically Centered & Spinner Free */}
-                <button 
-                  onClick={handleSetMax}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 text-[9px] uppercase font-extrabold text-stone-500 hover:text-white bg-stone-800 hover:bg-stone-700 px-2 py-1 rounded-sm transition-all shadow-sm"
-                  title="Select All Available"
-                >
-                  MAX
-                </button>
+                <input type="number" value={amount} onChange={(e) => { setAmount(e.target.value); setError(''); }} className={`w-full bg-transparent border-b ${theme.border} ${borderColor} py-2 text-center text-5xl font-light ${theme.text} focus:outline-none transition-colors placeholder-stone-200 dark:placeholder-stone-800`} placeholder="0" autoFocus />
+                <button onClick={handleSetMax} className={`absolute right-0 top-1/2 -translate-y-1/2 text-[9px] uppercase font-semibold px-2 py-1 rounded-sm transition-all shadow-sm ${darkMode ? 'bg-stone-800 text-stone-300 hover:bg-[#C9A25D] hover:text-white' : 'bg-stone-200 text-stone-600 hover:bg-[#C9A25D] hover:text-white'}`} title="Select All Available">MAX</button>
               </div>
             </div>
-
-            {/* Lost/Damaged Input (Only for Returns) */}
             {action === 'return' && (
               <div className="pt-2 animate-in fade-in slide-in-from-top-2">
                 <div className="w-3/4 mx-auto flex items-center justify-center gap-4">
-                  <label className="text-[10px] uppercase tracking-widest text-red-400 whitespace-nowrap">Lost / Damaged:</label>
-                  <input 
-                    type="number" 
-                    value={lostAmount} 
-                    onChange={(e) => { setLostAmount(e.target.value); setError(''); }} 
-                    className="w-16 bg-transparent border-b border-red-900 focus:border-red-500 py-1 text-center text-lg font-bold text-red-500 focus:outline-none placeholder-red-900/50" 
-                    placeholder="0" 
-                  />
+                  <label className="text-[9px] uppercase tracking-widest text-red-400 whitespace-nowrap">Lost / Damaged:</label>
+                  <input type="number" value={lostAmount} onChange={(e) => { setLostAmount(e.target.value); setError(''); }} className="w-16 bg-transparent border-b border-red-900/30 focus:border-red-500 py-1 text-center text-xl font-light text-red-500 focus:outline-none placeholder-red-900/20" placeholder="0" />
                 </div>
               </div>
             )}
-
-            {/* Error Message */}
-            {error && (
-              <div className="text-center">
-                <span className="inline-flex items-center gap-1.5 text-xs text-red-400 bg-red-900/20 px-3 py-1.5 rounded-full border border-red-900/50">
-                  <AlertTriangle size={12} /> {error}
-                </span>
-              </div>
-            )}
+            {error && <div className="text-center pt-2"><span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-red-400"><AlertTriangle size={12} /> {error}</span></div>}
           </div>
         </div>
-
-        {/* Footer Actions */}
         <div className={`p-6 border-t ${theme.border} flex justify-between items-center gap-4`}>
-           <button 
-             onClick={onClose} 
-             className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider rounded-md border ${theme.border} ${theme.text} hover:bg-stone-800 transition-colors`}
-           >
-             Cancel
-           </button>
-           <button 
-             onClick={handleSubmit} 
-             className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider rounded-md text-white shadow-lg transition-transform active:scale-95 ${btnBg}`}
-           >
-             Confirm
-           </button>
+           <button onClick={onClose} className={`flex-1 py-4 text-[10px] font-medium uppercase tracking-[0.2em] border ${theme.border} ${theme.text} hover:opacity-60 transition-opacity`}>Cancel</button>
+           <button onClick={handleSubmit} className={`flex-1 py-4 text-[10px] font-medium uppercase tracking-[0.2em] text-white transition-all ${btnBg}`}>Confirm</button>
         </div>
-
       </div>
     </div>
   );
@@ -317,23 +273,26 @@ const StockMovementModal = ({ isOpen, onClose, onSave, item, theme }) => {
 // --- MAIN PAGE ---
 const Inventory = () => {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  
+  // --- SIDEBAR STATE WITH LOCAL STORAGE ---
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const savedState = localStorage.getItem('sidebarState');
+    return savedState !== null ? savedState === 'true' : true;
+  });
+
   const [activeTab, setActiveTab] = useState('Inventory');
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   
-  // States for UI Interaction
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null); 
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [stockItem, setStockItem] = useState(null);
-  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
 
-  // Hook Data
-  const { inventoryData, logsData, loading, error, addItem, updateItem, deleteItem, moveStock } = useInventory();
+  const { inventoryData, logsData, loading, addItem, updateItem, deleteItem, moveStock } = useInventory();
   const safeInventory = inventoryData || [];
   const safeLogs = logsData || [];
-
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -356,7 +315,7 @@ const Inventory = () => {
     cardBg: darkMode ? 'bg-[#141414]' : 'bg-white',
     text: darkMode ? 'text-stone-200' : 'text-stone-900',
     subText: darkMode ? 'text-stone-500' : 'text-stone-500',
-    border: darkMode ? 'border-stone-800' : 'border-stone-200',
+    border: darkMode ? 'border-white/10' : 'border-stone-200',
     hoverBg: darkMode ? 'hover:bg-stone-900' : 'hover:bg-stone-50',
   };
 
@@ -387,16 +346,27 @@ const Inventory = () => {
 
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text} selection:bg-[#C9A25D] selection:text-white`}>
+      {/* 
+        FIX: Removed local font @import and definitions. 
+        Only keeping custom scrollbar and input tweaks to prevent font stacking/bolding issues.
+      */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap');
-        .font-serif { font-family: 'Cormorant Garamond', serif; }
-        .font-sans { font-family: 'Inter', sans-serif; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #57534e; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #C9A25D; }
         .custom-scrollbar { scrollbar-width: thin; scrollbar-color: #57534e transparent; }
+        
+        /* REMOVE SPINNERS */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+          -webkit-appearance: none; 
+          margin: 0; 
+        }
+        input[type=number] {
+          -moz-appearance: textfield;
+        }
       `}</style>
 
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={setActiveTab} theme={theme} />
@@ -435,19 +405,56 @@ const Inventory = () => {
                 
                 {/* ASSETS TABLE */}
                 <div className={`lg:col-span-7 flex flex-col border ${theme.border} ${theme.cardBg} shadow-sm rounded-sm overflow-hidden h-full`}>
-                  <div className="flex-none p-6 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center">
+                  {/* HEADER WITH FILTER */}
+                  <div className="flex-none p-6 border-b border-stone-100 dark:border-white/5 flex justify-between items-center">
                       <div><h3 className="font-serif text-2xl italic">Asset Overview</h3><p className={`text-xs ${theme.subText} mt-1`}>Manage equipment & supplies.</p></div>
-                      <div className="flex gap-2 relative">
+                      <div className="flex gap-4 items-end">
+                          
+                          {/* FILTER BUTTON & DROPDOWN */}
                           <div className="relative" ref={dropdownRef}>
-                              <button onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)} className={`flex items-center gap-2 px-4 py-2.5 border ${theme.border} text-[10px] uppercase tracking-widest hover:text-[#C9A25D] hover:border-[#C9A25D] transition-all bg-transparent ${theme.subText}`}><Filter size={14} /> {categoryFilter === "All" ? "Filter" : categoryFilter}</button>
+                              {/* Trigger Button: Boxed, Uppercase */}
+                              <button 
+                                onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)} 
+                                className={`flex items-center gap-2 px-6 py-3 border text-[10px] uppercase tracking-[0.25em] transition-all bg-transparent ${
+                                  darkMode 
+                                    ? 'border-stone-800 text-stone-500 hover:text-[#C9A25D] hover:border-[#C9A25D]' 
+                                    : 'border-stone-200 text-stone-500 hover:text-[#C9A25D] hover:border-[#C9A25D]'
+                                }`}
+                              >
+                                  <Filter size={14} strokeWidth={1.5} /> FILTER
+                              </button>
+                              
+                              {/* Dropdown Menu: Styled like the Modal Inputs */}
                               {isFilterDropdownOpen && (
-                                  <div className={`absolute top-full right-0 mt-2 w-48 ${theme.cardBg} border ${theme.border} shadow-xl z-20 py-2 rounded-sm`}>
-                                      <div className="px-4 py-2 border-b border-stone-100 dark:border-stone-800 text-[10px] uppercase tracking-widest text-stone-400 font-bold">Category</div>
-                                      {categories.map((cat) => (<button key={cat} onClick={() => { setCategoryFilter(cat); setIsFilterDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-xs hover:bg-[#C9A25D] hover:text-white flex justify-between items-center ${categoryFilter === cat ? 'text-[#C9A25D] font-bold' : theme.text}`}>{cat}{categoryFilter === cat && <Check size={12} />}</button>))}
+                                  <div 
+                                    className={`absolute top-full right-0 mt-2 w-56 max-h-60 overflow-y-auto shadow-2xl rounded-sm z-50 transition-all duration-300 ease-out origin-top no-scrollbar`}
+                                    style={{ 
+                                      backgroundColor: darkMode ? '#1c1c1c' : '#ffffff', 
+                                      border: darkMode ? '1px solid #333' : '1px solid #e5e7eb',
+                                      animation: 'fadeIn 0.2s ease-out'
+                                    }}
+                                  >
+                                      <div className={`px-6 py-4 border-b ${darkMode ? 'border-stone-800' : 'border-stone-100'} text-[10px] uppercase tracking-widest ${theme.subText} font-bold opacity-50`}>
+                                        Select Category
+                                      </div>
+                                      {categories.map((cat) => (
+                                        <div 
+                                          key={cat} 
+                                          onClick={() => { setCategoryFilter(cat); setIsFilterDropdownOpen(false); }} 
+                                          className={`px-6 py-3 cursor-pointer transition-all duration-300 text-[10px] tracking-[0.25em] uppercase font-medium font-sans hover:pl-8 flex justify-between items-center ${categoryFilter === cat ? 'text-[#C9A25D]' : ''}`}
+                                          style={{ color: categoryFilter === cat ? '#C9A25D' : (darkMode ? '#d6d3d1' : '#000000') }}
+                                          onMouseEnter={(e) => { if(categoryFilter !== cat) e.target.style.color = '#C9A25D'; }} 
+                                          onMouseLeave={(e) => { if(categoryFilter !== cat) e.target.style.color = darkMode ? '#d6d3d1' : '#000000'; }}
+                                        >
+                                          {cat}
+                                          {categoryFilter === cat && <Check size={12} />}
+                                        </div>
+                                      ))}
                                   </div>
                               )}
                           </div>
-                          <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-[#1c1c1c] text-white px-4 py-2.5 text-[10px] uppercase tracking-widest hover:bg-[#C9A25D] transition-colors shadow-md"><Plus size={14} /> Add Item</button>
+
+                          <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-[#1c1c1c] text-white px-5 py-3 text-[10px] uppercase tracking-widest hover:bg-[#C9A25D] transition-colors shadow-md h-fit"><Plus size={14} /> Add Item</button>
                       </div>
                   </div>
                   <div className={`flex-none grid grid-cols-12 gap-4 px-6 py-4 border-b ${theme.border} ${darkMode ? 'bg-[#1c1c1c] text-stone-400' : 'bg-stone-50 text-stone-600'} text-[10px] uppercase tracking-[0.2em] font-semibold sticky top-0`}>
@@ -456,10 +463,12 @@ const Inventory = () => {
                       <div className="col-span-3">Stock</div>
                       <div className="col-span-2 text-right">Actions</div>
                   </div>
-                  <div className={`flex-1 overflow-y-auto custom-scrollbar divide-y divide-stone-100 dark:divide-stone-800`}>
+                  
+                  {/* ASSET LIST - Using direct borders instead of divide-y for dark mode line fix */}
+                  <div className={`flex-1 overflow-y-auto custom-scrollbar`}>
                       {loading ? ( <div className="h-full flex flex-col items-center justify-center text-stone-400"><Loader2 size={32} className="animate-spin mb-4 text-[#C9A25D]" /><p className="text-xs uppercase">Loading Assets...</p></div> ) 
                       : filteredItems.length === 0 ? ( <div className="h-full flex flex-col items-center justify-center text-center"><Package size={40} className="mx-auto text-stone-300 mb-4" /><p className="text-stone-400 italic">No items found.</p></div> ) 
-                      : ( filteredItems.map((item) => {
+                      : ( filteredItems.map((item, index) => {
                           const stock = item.stock || {};
                           const qtyTotal = stock.quantityTotal || 0;
                           const qtyInUse = stock.quantityInUse || 0;
@@ -467,7 +476,10 @@ const Inventory = () => {
                           const threshold = stock.threshold || 0;
                           const inUsePct = qtyTotal > 0 ? (qtyInUse / qtyTotal) * 100 : 0;
                           return (
-                          <div key={item.id} className={`grid grid-cols-12 gap-4 px-6 py-4 items-center group ${theme.hoverBg} transition-colors`}>
+                          <div 
+                            key={item.id} 
+                            className={`grid grid-cols-12 gap-4 px-6 py-4 items-center group ${theme.hoverBg} transition-colors border-b border-stone-100 dark:border-white/5 last:border-0`}
+                          >
                               <div className="col-span-4"><span className={`font-serif text-base block leading-tight ${theme.text}`}>{item.name}</span><span className="text-[10px] text-stone-400 font-mono">{item.sku}</span></div>
                               <div className="col-span-3 hidden md:block"><span className={`text-[9px] uppercase px-2 py-1 border rounded-sm ${theme.border} text-stone-500`}>{item.category}</span></div>
                               <div className="col-span-3">
@@ -487,7 +499,7 @@ const Inventory = () => {
 
                 {/* LOGS SIDEBAR */}
                 <div className={`lg:col-span-3 flex flex-col border ${theme.border} ${theme.cardBg} shadow-sm rounded-sm overflow-hidden h-full`}>
-                   <div className="flex-none p-6 border-b border-stone-100 dark:border-stone-800"><h3 className="font-serif text-xl italic flex items-center gap-2"><History size={18} className="text-[#C9A25D]" /> Activity Log</h3></div>
+                   <div className="flex-none p-6 border-b border-stone-100 dark:border-white/5"><h3 className="font-serif text-xl italic flex items-center gap-2"><History size={18} className="text-[#C9A25D]" /> Activity Log</h3></div>
                    <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                       {safeLogs.length === 0 ? ( <div className="h-full flex flex-col items-center justify-center text-center opacity-50"><History size={32} className="mb-2" /><p className="text-xs">No recent activity</p></div> ) : (
                           <div className="space-y-0 relative">
@@ -512,8 +524,8 @@ const Inventory = () => {
         </div>
       </main>
 
-      <ItemModal isOpen={isItemModalOpen} onClose={() => setIsItemModalOpen(false)} onSave={handleSaveItem} theme={theme} categories={categories} initialData={editingItem} />
-      <StockMovementModal isOpen={isStockModalOpen} onClose={() => setIsStockModalOpen(false)} onSave={handleStockUpdate} item={stockItem} theme={theme} />
+      <ItemModal isOpen={isItemModalOpen} onClose={() => setIsItemModalOpen(false)} onSave={handleSaveItem} theme={theme} categories={categories} initialData={editingItem} darkMode={darkMode} />
+      <StockMovementModal isOpen={isStockModalOpen} onClose={() => setIsStockModalOpen(false)} onSave={handleStockUpdate} item={stockItem} theme={theme} darkMode={darkMode} />
     </div>
   );
 };

@@ -53,6 +53,16 @@ export const rejectBooking = async (payload) => {
   return response.data;
 };
 
+export const markBookingAs50PercentPaid = async (refId) => {
+  try {
+    const response = await api.post("/inquiries/mark-50-percent", { refId });
+    return response.data;
+  } catch (error) {
+    console.error("Error marking 50% payment:", error);
+    throw error;
+  }
+};
+
 export const markBookingAsFullyPaid = async (refId) => {
   try {
     // Adjust the URL if your routes are different (e.g. /inquiries/mark-full-payment)
@@ -73,3 +83,13 @@ export const sendPaymentReminder = async (refId) => {
     throw error;
   }
 };
+
+export const saveOperationalCost = async (refId, cost) => {
+  try {
+    const response = await api.post("/inquiries/update-cost", { refId, cost });
+    return response.data;
+  } catch (error) {
+    console.error("Error saving cost:", error);
+    throw error;
+  }
+};  

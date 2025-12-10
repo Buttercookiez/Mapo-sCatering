@@ -108,15 +108,17 @@ const createInquiry = async (req, res) => {
                 serviceStyle: data.serviceStyle,
                 eventType: data.eventType,
                 package: null,
-                addOns: data.addOns || []
+                addOns: {}
             },
             billing: {
                 totalCost: 0,
+                fiftyPercentPaymentStatus: "Unpaid",
+                fullPaymentStatus: "Unpaid",
                 amountPaid: 0,
-                remainingBalance: 0,
+                remainingBalance: 0,    
                 paymentStatus: "Unpaid"
             },
-            notes: data.notes || "",
+            notes: "",
             createdAt: new Date().toISOString()
         };
 
@@ -138,30 +140,54 @@ const createInquiry = async (req, res) => {
 // --- 2. GET INQUIRY DETAILS ---
 const getInquiryDetails = async (req, res) => {
     try {
-        const { refId } = req.params;
+        const { refId } = req.params; // This is receiving the Firestore Doc ID (e.g. "qYJjtT...")
 
-        const bookingSnapshot = await db.collection("bookings")
-            .where("bookingId", "==", refId)
-            .limit(1)
-            .get();
+        let docData = null;
+        let docId = null;
 
-        if (bookingSnapshot.empty) {
+        // STEP 1: Try finding it by Firestore Document ID (Direct Lookup)
+        // This fixes the issue where the Calendar sends the long ID string
+        const directDoc = await db.collection("bookings").doc(refId).get();
+
+        if (directDoc.exists) {
+            docData = directDoc.data();
+            docId = directDoc.id;
+        } else {
+            // STEP 2: Fallback - Try finding it by "bookingId" field (BK-xxx)
+            // This ensures other parts of your app using BK-001 still work
+            const bookingSnapshot = await db.collection("bookings")
+                .where("bookingId", "==", refId)
+                .limit(1)
+                .get();
+
+            if (!bookingSnapshot.empty) {
+                docData = bookingSnapshot.docs[0].data();
+                docId = bookingSnapshot.docs[0].id;
+            }
+        }
+
+        // Check if we found anything
+        if (!docData) {
             return res.status(404).json({ success: false, message: "Booking not found" });
         }
 
-        const docData = bookingSnapshot.docs[0].data();
-        const docId = bookingSnapshot.docs[0].id;
+        // STEP 3: Use the actual 'bookingId' (BK-xxx) for related collections
+        // We use docData.bookingId because Payments/Proposals usually use the BK-xxx ID as the document key
+        const actualBookingId = docData.bookingId; 
 
-        const paymentSnap = await db.collection("payments").doc(refId).get();
-        const proposalSnap = await db.collection("proposals").doc(refId).get();
+        // Fetch related data
+        const paymentSnap = await db.collection("payments").doc(actualBookingId).get();
+        const proposalSnap = await db.collection("proposals").doc(actualBookingId).get();
 
         const mappedData = {
             id: docId,
-            refId: docData.bookingId,
+            refId: actualBookingId, // Return the readable ID for display
             fullName: docData.profile?.name || "Unknown",
             client: docData.profile?.name || "Unknown",
             email: docData.profile?.email,
             phone: docData.profile?.contactNumber,
+            
+            // Event Details
             dateOfEvent: docData.eventDetails?.date,
             date: docData.eventDetails?.date,
             startTime: docData.eventDetails?.startTime,
@@ -172,9 +198,20 @@ const getInquiryDetails = async (req, res) => {
             venue: docData.eventDetails?.venue,
             serviceStyle: docData.eventDetails?.serviceStyle,
             eventType: docData.eventDetails?.eventType,
+            packageName: docData.eventDetails?.package || "Custom",
+            addOns: docData.eventDetails?.addOns || [],
+
+            // Status
             status: docData.bookingStatus,
             bookingStatus: docData.bookingStatus,
+            rejectionReason: docData.rejectionReason, 
+            cancellationReason: docData.cancellationReason,
+
+            // Financials (Passing full billing object so Modal can see breakdown)
             estimatedBudget: docData.billing?.totalCost || 0,
+            billing: docData.billing, 
+
+            // Related Docs
             payment: paymentSnap.exists ? paymentSnap.data() : {},
             proposal: proposalSnap.exists ? proposalSnap.data() : {},
             notes: docData.notes || ""
@@ -645,32 +682,37 @@ const verifyPayment = async (req, res) => {
         if (!paymentDoc.exists) return res.status(404).json({ message: "Payment not found" });
         
         const payData = paymentDoc.data();
+        const paidAmount = payData.amount || 5000; // Get amount from payment record
 
-        // 1. Update Payment
+        // 1. Update Payment Status
         await paymentDocRef.update({ status: "Verified" });
 
-        // 2. Update Booking
+        // 2. Update Booking Financials
         const bookingSnap = await db.collection("bookings").where("bookingId", "==", payData.bookingId).limit(1).get();
         
         if (!bookingSnap.empty) {
             const bookingDoc = bookingSnap.docs[0];
-            const bookingData = bookingDoc.data();
+            const currentData = bookingDoc.data();
             
-            // Calculate balance
-            // Note: In real app, you should recalculate based on pax * package + addOns
-            // Here we just mark as Paid/Reserved
-            
+            // --- NEW CALCULATION LOGIC ---
+            const totalCost = currentData.billing?.totalCost || 0;
+            const newAmountPaid = (currentData.billing?.amountPaid || 0) + paidAmount;
+            const newRemainingBalance = totalCost - newAmountPaid;
+
             await bookingDoc.ref.update({
                 bookingStatus: "Reserved",
-                "billing.paymentStatus": "Paid"
+                "billing.paymentStatus": "Paid", // Reservation Paid
+                "billing.amountPaid": newAmountPaid,
+                "billing.remainingBalance": newRemainingBalance, // Store the calculated balance
+                updatedAt: new Date().toISOString()
             });
 
             // 3. Send Email
-            const eventDate = bookingData.eventDetails?.date || "TBD";
+            const eventDate = currentData.eventDetails?.date || "TBD";
             await sendConfirmationEmail(payData.clientEmail, payData.clientName, payData.bookingId, eventDate);
         }
 
-        res.status(200).json({ success: true, message: "Verified & Email Sent" });
+        res.status(200).json({ success: true, message: "Verified & Balance Updated" });
 
     } catch (error) {
         console.error("Verification Error:", error);
@@ -769,6 +811,55 @@ const rejectBooking = async (req, res) => {
     }
 };
 
+// --- NEW: MARK 50% PAYMENT ---
+const mark50PercentPayment = async (req, res) => {
+    try {
+        const { refId } = req.body;
+
+        const snapshot = await db.collection("bookings")
+            .where("bookingId", "==", refId)
+            .limit(1)
+            .get();
+
+        if (snapshot.empty) {
+            return res.status(404).json({ success: false, message: "Booking not found" });
+        }
+
+        const doc = snapshot.docs[0];
+        const data = doc.data();
+
+        // 1. Calculate Financials
+        const totalCost = data.billing?.totalCost || 0;
+        const reservationFee = 5000; // Fixed fee
+        
+        // The Net Balance before any partial payment
+        const netBalance = totalCost - reservationFee;
+        
+        // 50% of the Net Balance
+        const fiftyPercentAmount = netBalance / 2;
+
+        // New Amount Paid (Reservation + 50%)
+        const newAmountPaid = reservationFee + fiftyPercentAmount;
+        
+        // New Remaining Balance
+        const newRemainingBalance = totalCost - newAmountPaid;
+
+        // 2. Update Database
+        await db.collection("bookings").doc(doc.id).update({
+            "billing.fiftyPercentPaymentStatus": "Paid", // Custom flag
+            "billing.amountPaid": newAmountPaid,
+            "billing.remainingBalance": newRemainingBalance,
+            updatedAt: new Date().toISOString()
+        });
+
+        res.status(200).json({ success: true, message: "50% payment recorded." });
+
+    } catch (error) {
+        console.error("50% Payment Error:", error);
+        res.status(500).json({ success: false, message: "Failed to update payment." });
+    }
+};
+
 // --- NEW: MARK FULL PAYMENT ---
 const markFullPayment = async (req, res) => {
     try {
@@ -784,17 +875,23 @@ const markFullPayment = async (req, res) => {
         }
 
         const doc = snapshot.docs[0];
+        const data = doc.data();
 
-        // Update Database
+        // 1. Get the Total Contract Price
+        const totalCost = data.billing?.totalCost || 0;
+
+        // 2. Update Database
         await db.collection("bookings").doc(doc.id).update({
-            // 1. Set the specific Full Payment flag
+            // Mark flags as Paid
             "billing.fullPaymentStatus": "Paid",
-            
-            // 2. Clear the remaining balance
-            "billing.remainingBalance": 0,
-            
-            // 3. Ensure paymentStatus remains "Paid" (to keep reservation valid)
+            "billing.fiftyPercentPaymentStatus": "Paid", // Implicitly paid if full is paid
             "billing.paymentStatus": "Paid",
+
+            // CRITICAL FIX: Update the Amount Paid to equal Total Cost
+            "billing.amountPaid": totalCost, 
+            
+            // Zero out the balance
+            "billing.remainingBalance": 0,
 
             updatedAt: new Date().toISOString()
         });
@@ -806,6 +903,7 @@ const markFullPayment = async (req, res) => {
         res.status(500).json({ success: false, message: "Failed to update payment." });
     }
 };
+
 const getConfirmedEvents = async (req, res) => {
     try {
         // Fetch bookings where status is "Reserved" (which happens after Payment Verification)
@@ -835,7 +933,7 @@ const getConfirmedEvents = async (req, res) => {
     }
 };
 
-// --- SEND PAYMENT REMINDER (Manual Trigger) ---
+// --- 1. SEND PAYMENT REMINDER (Manual Trigger) ---
 const sendPaymentReminder = async (req, res) => {
     try {
         const { refId } = req.body;
@@ -845,32 +943,67 @@ const sendPaymentReminder = async (req, res) => {
 
         const data = snapshot.docs[0].data();
         
-        // Calculate Balance
+        // Calculate Financials
         const total = data.billing?.totalCost || 0;
-        const paid = data.billing?.amountPaid || 0; // Likely 5000 reservation fee
+        const paid = data.billing?.amountPaid || 0; 
         const balance = total - paid;
         
-        // Calculate Deadline (5 Days before event)
-        const eventDate = new Date(data.eventDetails.date);
-        const deadlineDate = subDays(eventDate, 5); 
-        const formattedDeadline = format(deadlineDate, 'MMMM dd, yyyy');
+        // Check Payment Status
+        const is50PercentPaid = data.billing?.fiftyPercentPaymentStatus === "Paid";
+        const isFullyPaid = data.billing?.fullPaymentStatus === "Paid";
 
-        // Email Content
+        // Calculate 50% Target Amount
+        const reservationFee = 5000;
+        const netBalance = total - reservationFee;
+        const fiftyPercentTarget = reservationFee + (netBalance / 2);
+
+        // --- DATE CALCULATIONS ---
+        const eventDate = new Date(data.eventDetails.date);
+        const deadlineDate = subDays(eventDate, 4); 
+        
+        // 1. Format the Deadline
+        const formattedDeadline = format(deadlineDate, 'MMMM dd, yyyy'); 
+        
+        // 2. Format the Event Date (NEW) - e.g., "December 23, 2025"
+        const formattedEventDate = format(eventDate, 'MMMM dd, yyyy');
+
+        let emailSubject = `Payment Reminder: Due ${formattedDeadline}`;
+        let messageBody = "";
+
+        if (!is50PercentPaid) {
+            const amountDueFor50 = fiftyPercentTarget - paid;
+            messageBody = `
+                <div style="background-color: #fef2f2; padding: 15px; margin: 20px 0; border-left: 4px solid #ef4444;">
+                    <p style="margin: 0; color: #ef4444; font-weight: bold;">Action Required: 50% Partial Payment</p>
+                    <p style="margin: 10px 0 0;"><strong>Minimum Amount Due:</strong> ₱${amountDueFor50.toLocaleString()}</p>
+                    <p style="margin: 5px 0 0;"><strong>Deadline:</strong> ${formattedDeadline}</p>
+                </div>
+                <p style="color: #ef4444; font-size: 12px; font-style: italic;">
+                    <strong>Important:</strong> Failure to settle at least 50% of the balance by the deadline will result in automatic cancellation.
+                </p>
+            `;
+        } else if (!isFullyPaid) {
+            messageBody = `
+                <div style="background-color: #f9f9f9; padding: 15px; margin: 20px 0; border-left: 4px solid #C9A25D;">
+                    <p style="margin: 0;"><strong>Remaining Balance:</strong> ₱${balance.toLocaleString()}</p>
+                    <p style="margin: 10px 0 0;">Please settle the remaining balance at your earliest convenience or upon arrival.</p>
+                </div>
+            `;
+            emailSubject = `Payment Reminder: Remaining Balance`;
+        } else {
+            return res.status(400).json({ message: "Booking is already fully paid." });
+        }
+
+        // Email Content Wrapper
         const htmlContent = `
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; border: 1px solid #ddd; max-width: 600px;">
                 <h2 style="color: #C9A25D;">Payment Reminder</h2>
                 <p>Dear <strong>${data.profile.name}</strong>,</p>
-                <p>This is a friendly reminder regarding your upcoming event on <strong>${data.eventDetails.date}</strong>.</p>
                 
-                <div style="background-color: #f9f9f9; padding: 15px; margin: 20px 0; border-left: 4px solid #C9A25D;">
-                    <p style="margin: 0;"><strong>Remaining Balance:</strong> ₱${balance.toLocaleString()}</p>
-                    <p style="margin: 10px 0 0;"><strong>Payment Deadline:</strong> ${formattedDeadline}</p>
-                </div>
-
-                <p style="color: #ef4444; font-size: 12px; font-style: italic;">
-                    <strong>Important:</strong> As per our policy, full payment must be settled 5 days before the event (${formattedDeadline}). 
-                    Failure to settle may result in automatic cancellation of your booking.
-                </p>
+                <!-- UPDATED LINE BELOW -->
+                <p>This is a reminder regarding your upcoming event on <strong>${formattedEventDate}</strong>.</p>
+                
+                ${messageBody}
 
                 <p>Please contact us immediately if you have already sent payment.</p>
             </div>
@@ -879,7 +1012,7 @@ const sendPaymentReminder = async (req, res) => {
         await transporter.sendMail({
             from: `"Mapos Catering" <${process.env.EMAIL_USER}>`,
             to: data.profile.email,
-            subject: `Payment Reminder: Due ${formattedDeadline}`,
+            subject: emailSubject,
             html: htmlContent
         });
 
@@ -916,8 +1049,8 @@ const checkOverdueBookings = async () => {
             const eventDate = new Date(data.eventDetails.date);
             const daysUntilEvent = differenceInDays(eventDate, today);
 
-            // LOGIC: If less than 5 days left AND not paid
-            if (daysUntilEvent < 5 && daysUntilEvent >= 0) {
+            // LOGIC: If less than 4 days left AND not paid
+            if (daysUntilEvent < 4 && daysUntilEvent >= 0) {
                 console.log(`Cancelling Booking ${data.bookingId} (Event in ${daysUntilEvent} days)`);
                 
                 // 1. Update DB to Cancelled
@@ -962,10 +1095,134 @@ const checkOverdueBookings = async () => {
     }
 };
 
+// --- NEW: UPDATE OPERATIONAL COST ---
+const updateOperationalCost = async (req, res) => {
+    try {
+        const { refId, cost } = req.body;
+
+        const snapshot = await db.collection("bookings")
+            .where("bookingId", "==", refId)
+            .limit(1)
+            .get();
+
+        if (snapshot.empty) {
+            return res.status(404).json({ message: "Booking not found" });
+        }
+
+        const doc = snapshot.docs[0];
+
+        await db.collection("bookings").doc(doc.id).update({
+            "billing.operationalCost": Number(cost),
+            updatedAt: new Date().toISOString()
+        });
+
+        res.status(200).json({ success: true, message: "Cost updated." });
+
+    } catch (error) {
+        console.error("Cost Update Error:", error);
+        res.status(500).json({ success: false, message: "Failed to update cost." });
+    }
+};
+
+// --- HELPER: Parse 12 Hour Time (e.g., "11:00 PM" -> 23, 0) ---
+const parseTime12h = (timeStr) => {
+    if (!timeStr) return { hours: 0, minutes: 0 }; // Default to start of day
+    const [time, modifier] = timeStr.split(' ');
+    let [hours, minutes] = time.split(':');
+    if (hours === '12') hours = '00';
+    if (modifier === 'PM') hours = parseInt(hours, 10) + 12;
+    return { hours: parseInt(hours, 10), minutes: parseInt(minutes, 10) };
+};
+
+// --- 14. AUTOMATED CRON JOB: HANDLE ONGOING & COMPLETED ---
+const updateEventStatuses = async () => {
+    console.log("Running Event Status Check...");
+    try {
+        const now = new Date();
+
+        // 1. Get All Active Bookings (Reserved, Confirmed, Paid, OR Ongoing)
+        const snapshot = await db.collection("bookings")
+            .where("bookingStatus", "in", ["Reserved", "Confirmed", "Paid", "Ongoing"]) 
+            .get();
+
+        const batch = db.batch();
+        let updateCount = 0;
+
+        for (const doc of snapshot.docs) {
+            const data = doc.data();
+            const currentStatus = data.bookingStatus;
+            
+            const dateStr = data.eventDetails?.date;      
+            const startTimeStr = data.eventDetails?.startTime; 
+            const endTimeStr = data.eventDetails?.endTime;     
+
+            if (!dateStr || !startTimeStr || !endTimeStr) continue;
+
+            // 2. Construct Start Date Object
+            const eventStart = new Date(dateStr);
+            const startT = parseTime12h(startTimeStr);
+            eventStart.setHours(startT.hours, startT.minutes, 0);
+
+            // 3. Construct End Date Object
+            const eventEnd = new Date(dateStr); 
+            const endT = parseTime12h(endTimeStr);
+            eventEnd.setHours(endT.hours, endT.minutes, 0);
+
+            // 4. CROSS-DAY LOGIC (e.g., 11 PM to 5 AM)
+            if (eventEnd < eventStart) {
+                eventEnd.setDate(eventEnd.getDate() + 1);
+            }
+
+            // ============================================
+            // 5. STATUS LOGIC
+            // ============================================
+
+            // CASE A: MARK AS COMPLETED (Now is PAST End Time)
+            if (now >= eventEnd) {
+                if (currentStatus !== "Completed") {
+                    console.log(`Marking Completed: ${data.bookingId}`);
+                    batch.update(doc.ref, { 
+                        bookingStatus: "Completed",
+                        updatedAt: new Date().toISOString() 
+                    });
+                    updateCount++;
+                }
+            } 
+            // CASE B: MARK AS ONGOING (Now is BETWEEN Start and End)
+            else if (now >= eventStart && now < eventEnd) {
+                if (currentStatus !== "Ongoing") {
+                    console.log(`Marking Ongoing: ${data.bookingId}`);
+                    batch.update(doc.ref, { 
+                        bookingStatus: "Ongoing",
+                        updatedAt: new Date().toISOString() 
+                    });
+                    updateCount++;
+                }
+            }
+        }
+
+        if (updateCount > 0) {
+            await batch.commit();
+            console.log(`Updated status for ${updateCount} events.`);
+        }
+
+    } catch (error) {
+        console.error("Event Status Cron Error:", error);
+    }
+};
+
+
+
 // --- INITIALIZE CRON JOB ---
 // Schedule to run every day at 12:00 AM (Midnight)
 cron.schedule('0 0 * * *', () => {
     checkOverdueBookings();
+});
+
+// --- SCHEDULE: RUN EVERY 10 MINUTES ---
+// Since events start at specific times, we check frequently.
+cron.schedule('*/10 * * * *', () => {
+    updateEventStatuses();
 });
 
 module.exports = {
@@ -983,5 +1240,8 @@ module.exports = {
     rejectBooking,
     markFullPayment,
     sendPaymentReminder,
-    checkOverdueBookings 
+    checkOverdueBookings,
+    mark50PercentPayment,
+    updateOperationalCost,
+    updateEventStatuses
 };

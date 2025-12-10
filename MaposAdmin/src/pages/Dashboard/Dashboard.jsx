@@ -1,3 +1,4 @@
+// src/pages/Dashboard/Dashboard.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Calendar, CheckSquare, AlertCircle, DollarSign, ArrowUpRight
@@ -38,31 +39,27 @@ const FadeIn = ({ children, delay = 0 }) => {
 
 const Dashboard = () => {
   const [darkMode, setDarkMode] = useState(() => {
-  return localStorage.getItem('theme') === 'dark';
-});
+    return localStorage.getItem('theme') === 'dark';
+  });
 
-useEffect(() => {
-  if (darkMode) {
-    document.documentElement.classList.add('dark');
-    localStorage.setItem('theme', 'dark');
-  } else {
-    document.documentElement.classList.remove('dark');
-    localStorage.setItem('theme', 'light');
-  }
-}, [darkMode]);
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [darkMode]);
+
   // Initialize state based on Local Storage
-const [sidebarOpen, setSidebarOpen] = useState(() => {
-  const savedState = localStorage.getItem('sidebarState');
-  return savedState !== null ? savedState === 'true' : true;
-});
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const savedState = localStorage.getItem('sidebarState');
+    return savedState !== null ? savedState === 'true' : true;
+  });
+  
   const [activeTab, setActiveTab] = useState('Overview');
   const [searchQuery, setSearchQuery] = useState("");
-
-  // --- Theme Logic ---
-  useEffect(() => {
-    if (darkMode) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-  }, [darkMode]);
 
   // Theme Object passed to children
   const theme = {
@@ -93,22 +90,6 @@ const [sidebarOpen, setSidebarOpen] = useState(() => {
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text} selection:bg-[#C9A25D] selection:text-white transition-colors duration-500`}>
       
-      <style>
-        {`
-          @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap');
-          .font-serif { font-family: 'Cormorant Garamond', serif; }
-          .font-sans { font-family: 'Inter', sans-serif; }
-          .no-scrollbar::-webkit-scrollbar { display: none; }
-          
-          /* FIX: Global Transition to prevent Text Flickering */
-          *, *::before, *::after { 
-            transition-property: background-color, border-color, color, fill, stroke; 
-            transition-duration: 500ms; 
-            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-          }
-        `}
-      </style>
-
       {/* --- 1. Imported Sidebar --- */}
       <Sidebar 
         sidebarOpen={sidebarOpen} 

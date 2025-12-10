@@ -16,12 +16,14 @@
   const inventoryRoute = require("./routes/inventoryRoute");
   const packageRoute = require("./routes/packageRoute")
   const calendarRoutes = require('./routes/calendarRoutes');
+  const addonRoute = require('./routes/addonRoute')
 
   // Use routes
   app.use("/api/inquiries", inquiryRoute);
   app.use("/api/inventory", inventoryRoute);
   app.use("/api/packages", packageRoute);
   app.use('/api/calendar', calendarRoutes);
+  app.use("/api/addons", addonRoute);
 
   // Start server
   const PORT = 5000;

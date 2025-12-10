@@ -1,3 +1,4 @@
+// src/pages/Bookings/Bookings.jsx
 import React, { useState, useEffect } from "react";
 import Sidebar from "../../components/layout/Sidebar";
 import DashboardNavbar from "../../components/layout/Navbar";
@@ -74,11 +75,12 @@ const Bookings = () => {
 
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text} selection:bg-[#C9A25D] selection:text-white`}>
+      {/* 
+        FIX: Removed local @import of fonts to prevent double-loading/bolding.
+        Only keeping the scrollbar utility here.
+      */}
       <style>
         {`
-          @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap');
-          .font-serif { font-family: 'Cormorant Garamond', serif; }
-          .font-sans { font-family: 'Inter', sans-serif; }
           .no-scrollbar::-webkit-scrollbar { display: none; }
         `}
       </style>
