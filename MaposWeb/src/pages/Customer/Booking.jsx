@@ -185,7 +185,7 @@ const Booking = () => {
     const fetchAvailability = async () => {
         try {
             // Using '/calendar/data' which returns both events and blockedDates
-            const res = await api.get('/calendar/data'); 
+            const res = await api.get(`/calendar/data?t=${new Date().getTime()}`);
             
             if (isMounted) {
                 const { events, blockedDates } = res.data;
@@ -217,7 +217,7 @@ const Booking = () => {
     };
 
     // Initial Fetch
-    fetchAvailability();
+    fetchAvailability();  
 
     // 3. Set Interval for Polling (Every 5 seconds)
     const intervalId = setInterval(fetchAvailability, 5000);
