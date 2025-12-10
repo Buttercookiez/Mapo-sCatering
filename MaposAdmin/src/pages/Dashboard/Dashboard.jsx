@@ -119,8 +119,8 @@ const AssetDonutChart = ({ data, size = 160, strokeWidth = 20, theme }) => {
   );
 };
 
-// --- COMPONENT: STAT CARD ---
-const StatCard = ({ label, value, subValue, icon: Icon, trend, theme, isLoading, delay }) => (
+// --- COMPONENT: STAT CARD (UPDATED: Removed Status/Trend) ---
+const StatCard = ({ label, value, subValue, icon: Icon, theme, isLoading, delay }) => (
   <FadeIn delay={delay} className="h-full">
     <div className={`p-6 border ${theme.border} ${theme.cardBg} group hover:border-[#C9A25D]/50 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 h-full flex flex-col justify-between relative overflow-hidden rounded-sm`}>
       {/* Background Decor */}
@@ -147,11 +147,8 @@ const StatCard = ({ label, value, subValue, icon: Icon, trend, theme, isLoading,
              <div className="h-full bg-[#C9A25D] w-2/3 opacity-80 group-hover:w-full group-hover:opacity-100 transition-all duration-700 ease-out"></div>
         </div>
 
-        <div className="flex justify-between items-end">
-           <span className="text-[10px] font-medium text-stone-400 flex items-center gap-1">
-              <span className={trend === 'Low Stock' ? 'text-red-400' : 'text-emerald-500'}>{trend}</span>
-              {trend !== 'Low Stock' && <ArrowUpRight size={10} />}
-           </span>
+        {/* Removed Trend/Status Section, kept subValue */}
+        <div className="flex justify-start items-end">
            <span className="text-[9px] uppercase tracking-wider text-stone-500 opacity-60">{subValue}</span>
         </div>
       </div>
@@ -239,7 +236,6 @@ const Dashboard = () => {
               value={formatCurrency(totalRevenue)} 
               subValue="Current Fiscal Year"
               icon={DollarSign} 
-              trend="+12%" 
               theme={theme} 
               isLoading={bookingsLoading}
               delay={0}
@@ -249,7 +245,6 @@ const Dashboard = () => {
               value={events.length.toString().padStart(2, '0')} 
               subValue="Confirmed Bookings"
               icon={Calendar} 
-              trend="Healthy" 
               theme={theme} 
               isLoading={calendarLoading}
               delay={100}
@@ -259,7 +254,6 @@ const Dashboard = () => {
               value={bookings.filter(b => b.status === 'Pending').length.toString().padStart(2, '0')} 
               subValue="Requires Attention"
               icon={CheckSquare} 
-              trend="Action Needed" 
               theme={theme} 
               isLoading={bookingsLoading}
               delay={200}
@@ -269,7 +263,6 @@ const Dashboard = () => {
               value={lowStockItems.length.toString().padStart(2,'0')} 
               subValue="Items below threshold"
               icon={AlertCircle} 
-              trend="Low Stock" 
               theme={theme} 
               isLoading={inventoryLoading}
               delay={300}
@@ -286,7 +279,6 @@ const Dashboard = () => {
                   <div className="p-6 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center">
                     <div>
                       <h3 className="font-serif text-2xl italic">Upcoming Schedule</h3>
-                      <p className={`text-xs ${theme.subText} mt-1`}>Next 5 confirmed events</p>
                     </div>
                     <button className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full transition-colors"><MoreHorizontal size={18} className={theme.subText} /></button>
                   </div>
