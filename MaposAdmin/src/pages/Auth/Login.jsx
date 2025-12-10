@@ -1,6 +1,7 @@
 // src/pages/Auth/Login.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom'; 
+import axios from 'axios'; // Ensure axios is installed
 import { 
   Mail, 
   Lock, 
@@ -23,7 +24,7 @@ const Login = () => {
   // Handle Input Change
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError(''); // Clear error on typing
+    setError('');
   };
 
   // Handle Submit
@@ -33,24 +34,30 @@ const Login = () => {
     setError('');
 
     try {
-        // Simulating API Call delay
-        setTimeout(() => {
-            // HARDCODED CREDENTIALS FOR DEMO
-            if (formData.email === "admin@mapos.com" && formData.password === "admin") {
-                
-                // --- CRITICAL: SAVE LOGIN STATE ---
-                // This allows the App.jsx ProtectedRoute to let you in
-                localStorage.setItem('isAuthenticated', 'true'); 
-                
-                // Redirect to Dashboard
-                navigate('/dashboard'); 
-            } else {
-                setError('Invalid credentials. Please try again.');
-                setIsLoading(false);
-            }
-        }, 1500);
+        // --- API CALL TO YOUR BACKEND ---
+        // Ensure your server is running on port 5000
+        const response = await axios.post('http://localhost:5000/api/auth/login', {
+            email: formData.email,
+            password: formData.password
+        });
+
+        if (response.data.success) {
+            // 1. Save Token and User Data
+            localStorage.setItem('isAuthenticated', 'true'); 
+            localStorage.setItem('token', response.data.token); // Save JWT
+            
+            // 2. Redirect
+            navigate('/dashboard'); 
+        }
+
     } catch (err) {
-        setError('An unexpected error occurred.');
+        // Handle Errors (Backend sends 401 for bad pass, 500 for server error)
+        if (err.response && err.response.data) {
+            setError(err.response.data.message);
+        } else {
+            setError('Unable to connect to server.');
+        }
+    } finally {
         setIsLoading(false);
     }
   };
@@ -60,7 +67,6 @@ const Login = () => {
       
       {/* LEFT SIDE: Image/Branding (Hidden on mobile) */}
       <div className="hidden lg:flex w-1/2 relative overflow-hidden bg-stone-900 items-center justify-center">
-        {/* Background Image Overlay */}
         <div className="absolute inset-0 z-0">
             <img 
                 src="https://images.unsplash.com/photo-1555244162-803834f70033?q=80&w=2070&auto=format&fit=crop" 
@@ -70,7 +76,6 @@ const Login = () => {
             <div className="absolute inset-0 bg-gradient-to-r from-[#0c0c0c] via-[#0c0c0c]/60 to-transparent"></div>
         </div>
 
-        {/* Content over image */}
         <div className="relative z-10 p-12 max-w-lg animate-in fade-in slide-in-from-left-8 duration-1000">
             <div className="w-16 h-16 bg-[#C9A25D] rounded-full flex items-center justify-center mb-8 shadow-[0_0_30px_rgba(201,162,93,0.3)]">
                 <ChefHat className="text-white" size={32} />
@@ -88,16 +93,13 @@ const Login = () => {
       <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8 sm:p-12 relative">
         <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-8 duration-700">
             
-            {/* Header */}
             <div className="mb-12">
                 <h2 className="font-serif text-3xl mb-2 text-white">Welcome Back</h2>
                 <p className="text-stone-500 text-sm uppercase tracking-widest">Mapo's Catering Admin Portal</p>
             </div>
 
-            {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-8">
                 
-                {/* Email Input */}
                 <div className="group">
                     <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2 font-bold group-focus-within:text-[#C9A25D] transition-colors">
                         Email Address
@@ -116,7 +118,6 @@ const Login = () => {
                     </div>
                 </div>
 
-                {/* Password Input */}
                 <div className="group">
                     <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2 font-bold group-focus-within:text-[#C9A25D] transition-colors">
                         Password
@@ -143,17 +144,14 @@ const Login = () => {
                     </div>
                 </div>
 
-                {/* Error Message */}
                 {error && (
                     <div className="p-4 bg-red-900/10 border border-red-900/20 text-red-400 text-xs text-center rounded-sm">
                         {error}
                     </div>
                 )}
 
-                {/* Actions (Remember Me & Forgot Password) */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        {/* Custom Styled Checkbox using Accent Color */}
                         <input 
                             id="remember-me"
                             type="checkbox" 
@@ -172,7 +170,6 @@ const Login = () => {
                     </a>
                 </div>
 
-                {/* Submit Button - Changed text to LOGIN */}
                 <button 
                     type="submit" 
                     disabled={isLoading}
@@ -193,7 +190,6 @@ const Login = () => {
 
             </form>
             
-            {/* Footer */}
             <div className="mt-12 text-center">
                 <p className="text-[10px] text-stone-600 uppercase tracking-widest">
                     &copy; {new Date().getFullYear()} Mapo's Catering Services
