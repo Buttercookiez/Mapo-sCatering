@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { db } from '../config/firebase'; 
-// Added 'limit' and 'orderBy' to imports
 import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
 
 const useRealtimeNotifications = () => {
   const [notifications, setNotifications] = useState([]);
   
-  // 1. Initialize Read State from LocalStorage
+  // 1. Initialize Read State
   const [readIds, setReadIds] = useState(() => {
     try {
       const saved = localStorage.getItem('mapos_read_notifications');
@@ -16,9 +15,7 @@ const useRealtimeNotifications = () => {
   });
 
   useEffect(() => {
-    // --- QUERY DEFINITIONS ---
-    
-    // A. Pending Payments (Limit to last 20 to prevent overload)
+    // --- 1. PAYMENTS QUERY (Unchanged - this works well) ---
     const qPayments = query(
       collection(db, "payments"),
       where("status", "==", "Pending"),
@@ -26,11 +23,18 @@ const useRealtimeNotifications = () => {
       limit(20) 
     );
 
-    // B. Active Bookings
-    // CRITICAL FIX: Added orderBy and limit to prevent caching thousands of old completed events
+    // --- 2. BOOKINGS QUERY (UPDATED) ---
+    // Added: "Verifying", "Reserved", "Cancelled" to the list
     const qBookings = query(
       collection(db, "bookings"),
-      where("bookingStatus", "in", ["Pending", "Ongoing", "Completed"]),
+      where("bookingStatus", "in", [
+        "Pending",    // New Inquiry
+        "Verifying",  // Client Accepted Proposal (MISSING BEFORE)
+        "Reserved",   // Payment Verified (MISSING BEFORE)
+        "Ongoing",    // Happening Now
+        "Completed",  // Needs OpEx
+        "Cancelled"   // System Auto-Cancel (MISSING BEFORE)
+      ]),
       orderBy("createdAt", "desc"), 
       limit(50) 
     );
@@ -40,7 +44,7 @@ const useRealtimeNotifications = () => {
       const paymentNotifs = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
-          id: `pay-${doc.id}`,
+          id: `pay-${doc.id}`, // Unique ID per payment doc
           title: "Payment Approval Needed",
           desc: `${data.clientName} sent ₱${data.amount?.toLocaleString()}. Ref: ${data.refNumber || data.referenceNumber}`,
           time: data.submittedAt ? formatTimeAgo(data.submittedAt) : "Just now",
@@ -51,20 +55,17 @@ const useRealtimeNotifications = () => {
         };
       });
       updateCombinedNotifications(paymentNotifs, 'payments');
-    }, (error) => {
-      console.error("Payment Listener Error:", error);
     });
 
-    // --- LISTENER 2: BOOKINGS ---
+    // --- LISTENER 2: BOOKINGS (UPDATED LOGIC) ---
     const unsubBookings = onSnapshot(qBookings, (snapshot) => {
       const bookingNotifs = [];
 
       snapshot.docs.forEach(doc => {
         const data = doc.data();
-        // Use createdAt as fallback for date
         const dateRef = data.updatedAt || data.createdAt || new Date().toISOString();
         
-        // Condition 1: New Inquiry
+        // --- 1. NEW INQUIRY ---
         if (data.bookingStatus === "Pending") {
           bookingNotifs.push({
             id: `bk-new-${doc.id}`,
@@ -73,12 +74,42 @@ const useRealtimeNotifications = () => {
             time: formatTimeAgo(data.createdAt),
             type: "info",
             rawDate: new Date(data.createdAt),
-            link: '/bookings',
-            data: { openBookingId: doc.id }
+            linkData: { openBookingId: doc.id }
           });
         }
 
-        // Condition 2: Ongoing Event
+        // --- 2. PROPOSAL ACCEPTED (Client Selected Package) ---
+        // Matches controller: confirmSelection
+        if (data.bookingStatus === "Verifying") {
+          bookingNotifs.push({
+            id: `bk-verify-${doc.id}`, // Unique ID for this stage
+            title: "Proposal Accepted",
+            desc: `${data.profile?.name} selected a package. Please verify details.`,
+            time: formatTimeAgo(data.updatedAt),
+            type: "alert", // High priority
+            rawDate: new Date(data.updatedAt),
+            linkData: { openBookingId: doc.id }
+          });
+        }
+
+        // --- 3. RESERVATION CONFIRMED ---
+        // Matches controller: verifyPayment
+        if (data.bookingStatus === "Reserved") {
+           // We only show this if it happened recently (e.g., last 3 days) to avoid clutter
+           // or rely on "Mark as read"
+           bookingNotifs.push({
+            id: `bk-res-${doc.id}`,
+            title: "Reservation Confirmed",
+            desc: `${data.profile?.name}'s event is officially booked.`,
+            time: formatTimeAgo(data.updatedAt),
+            type: "success",
+            rawDate: new Date(data.updatedAt),
+            linkData: { openBookingId: doc.id }
+          });
+        }
+
+        // --- 4. ONGOING EVENT ---
+        // Matches controller: updateEventStatuses
         if (data.bookingStatus === "Ongoing") {
           bookingNotifs.push({
             id: `bk-ongoing-${doc.id}`,
@@ -87,12 +118,25 @@ const useRealtimeNotifications = () => {
             time: "Ongoing",
             type: "success",
             rawDate: new Date(),
-            link: '/events', // Assuming you have an events page, or redirect to bookings
-            data: { openBookingId: doc.id }
+            linkData: { openBookingId: doc.id }
           });
         }
 
-        // Condition 3: Missing OpEx
+        // --- 5. SYSTEM AUTO-CANCELLATION ---
+        // Matches controller: checkOverdueBookings
+        if (data.bookingStatus === "Cancelled" && data.cancellationReason?.includes("System")) {
+           bookingNotifs.push({
+            id: `bk-cancel-${doc.id}`,
+            title: "System Auto-Cancellation",
+            desc: `Booking for ${data.profile?.name} was cancelled due to non-payment.`,
+            time: formatTimeAgo(data.updatedAt),
+            type: "alert",
+            rawDate: new Date(data.updatedAt),
+            linkData: { openBookingId: doc.id }
+          });
+        }
+
+        // --- 6. MISSING OPEX (Completed) ---
         const opCost = data.billing?.operationalCost;
         if (data.bookingStatus === "Completed" && (!opCost || opCost === 0)) {
           bookingNotifs.push({
@@ -102,14 +146,11 @@ const useRealtimeNotifications = () => {
             time: formatTimeAgo(dateRef),
             type: "alert",
             rawDate: new Date(dateRef),
-            link: '/bookings',
-            data: { openBookingId: doc.id }
+            linkData: { openBookingId: doc.id }
           });
         }
       });
       updateCombinedNotifications(bookingNotifs, 'bookings');
-    }, (error) => {
-      console.error("Booking Listener Error:", error);
     });
 
     // --- MERGE LOGIC ---
@@ -131,9 +172,9 @@ const useRealtimeNotifications = () => {
       unsubPayments();
       unsubBookings();
     };
-  }, []);
+  }, []); // Remove dependencies to ensure singular subscription
 
-  // --- ACTIONS ---
+  // --- ACTIONS (Unchanged) ---
   const markAsRead = (id) => {
     if (!readIds.includes(id)) {
       const newReadIds = [...readIds, id];
@@ -164,6 +205,7 @@ const useRealtimeNotifications = () => {
   };
 };
 
+// Helper
 const formatTimeAgo = (dateString) => {
   if (!dateString) return "";
   try {
