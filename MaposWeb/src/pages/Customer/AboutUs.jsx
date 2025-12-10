@@ -341,7 +341,7 @@ const AboutUs = () => {
                 </h2>
                 <div className={`space-y-6 ${theme.subText} font-light text-lg leading-relaxed text-justify md:text-left`}>
                   <p>
-                    Mapo's Catering began 19 years ago not in a grand ballroom, but in a modest school canteen. For 16 years, it was a daily struggle and a labor of love, serving Halo-Halo and Pancit to the locals of Alaminos.
+                    Mapo's Catering began 21 years ago not in a grand ballroom, but in a modest school canteen. For 16 years, it was a daily struggle and a labor of love, serving Halo-Halo and Pancit to the locals of Alaminos.
                   </p>
                   <p>
                     <strong className={theme.text}>Marivic</strong>, a working mother and student, dreamed of something bigger. She believed that poverty was not a hindrance but an inspiration.
