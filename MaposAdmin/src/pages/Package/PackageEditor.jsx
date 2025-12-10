@@ -1,3 +1,4 @@
+// src/pages/Packages/PackageEditor.jsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Search, Plus, AlertTriangle, CheckCircle, Edit3, Trash2, Loader2, Eye, Filter,
@@ -24,21 +25,26 @@ const EVENT_TYPES = ["Wedding", "Corporate Gala", "Private Dinner", "Birthday", 
 // --- HELPER: SAFE DATE PARSER ---
 const getSafeDate = (val) => {
     if (!val) return 0;
-    // Handle Firestore Timestamp (if applicable) or String/Date
     const date = val.toDate ? val.toDate() : new Date(val);
     return isNaN(date.getTime()) ? 0 : date.getTime();
 };
 
-// Animation Wrapper
+// --- FIXED ANIMATION WRAPPER ---
+// Changed from IntersectionObserver to simple useEffect to ensure content always renders
 const FadeIn = ({ children, delay = 0 }) => {
   const [isVisible, setIsVisible] = useState(false);
-  const ref = useRef(null);
+
   useEffect(() => {
-    const observer = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) setIsVisible(true); }, { threshold: 0.1 });
-    if (ref.current) observer.observe(ref.current);
-    return () => { if (ref.current) observer.unobserve(ref.current); };
-  }, []);
-  return <div ref={ref} className={`transition-all duration-700 ease-out ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: `${delay}ms` }}>{children}</div>;
+    // Trigger animation immediately on mount
+    const timer = setTimeout(() => setIsVisible(true), 50 + delay);
+    return () => clearTimeout(timer);
+  }, [delay]);
+
+  return (
+    <div className={`transition-all duration-700 ease-out transform ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
+      {children}
+    </div>
+  );
 };
 
 const PackageEditor = () => {
@@ -83,7 +89,6 @@ const PackageEditor = () => {
   }, [darkMode]);
 
   // --- RESET FILTERS ON TAB CHANGE ---
-  // This ensures the category filter from one tab doesn't break the other tab
   useEffect(() => {
       setActiveFilter("All");
       setActiveCategory("All");
@@ -172,15 +177,13 @@ const PackageEditor = () => {
                     }
                 }
 
-                // Tier Filter (Budget/Mid/High)
-                // SAFETY: Ensure we don't accidentally filter by "Food" or "Service" here if state lags
+                // Tier Filter
                 const validTiers = ["budget", "mid", "high"];
                 let matchesCategory = true;
                 if (activeCategory !== "All") {
                     if (validTiers.includes(activeCategory)) {
                         matchesCategory = pkg.categoryId === activeCategory;
                     } else {
-                        // If activeCategory is "Food", ignore it for packages to prevent empty screen
                         matchesCategory = true; 
                     }
                 }
@@ -198,7 +201,6 @@ const PackageEditor = () => {
                 const matchesSearch = (item.name || "").toLowerCase().includes(searchQuery.toLowerCase());
                 
                 // Category Filter (Food/Service)
-                // SAFETY: Ensure we don't filter by "budget" here
                 const validTypes = ["Food", "Service"];
                 let matchesCategory = true;
                 if (activeCategory !== "All") {
