@@ -2,19 +2,7 @@
 import api from '../api/api'; 
 
 export const calendarService = {
-  // 1. Fetch Events and Blocked Dates
-  // Calls: GET http://localhost:5000/api/calendar/data
-  fetchCalendarData: async () => {
-    try {
-      const response = await api.get('/calendar/data');
-      return response.data;
-    } catch (error) {
-      console.error("Service Error (Fetch Data):", error);
-      throw error;
-    }
-  },
-
-  // 2. Toggle a Blocked Date
+  // 1. Toggle a Blocked Date (Still uses API because it's an Admin Write Action)
   // Calls: POST http://localhost:5000/api/calendar/toggle-block
   toggleBlockDate: async (dateStr) => {
     try {
@@ -26,10 +14,15 @@ export const calendarService = {
     }
   },
 
-  // 3. Get Single Event Details
+  // 2. Get Single Event Details
   // Reuse your inquiry endpoint: GET http://localhost:5000/api/inquiries/:id
   getEventDetails: async (refId) => {
     try {
+      if (!refId) throw new Error("No Event ID provided");
+      
+      // Make sure this matches your Route file. 
+      // If your server.js uses app.use('/api/inquiries', inquiryRoutes)
+      // Then this must be /inquiries/
       const response = await api.get(`/inquiries/${refId}`);
       return response.data;
     } catch (error) {

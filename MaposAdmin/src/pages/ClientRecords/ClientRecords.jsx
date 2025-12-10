@@ -10,6 +10,19 @@ import useClientRecords from '../../hooks/useClientRecords';
 import Sidebar from '../../components/layout/Sidebar';
 import DashboardNavbar from '../../components/layout/Navbar';
 
+// --- STYLES FOR HIDING SCROLLBAR ---
+const NoScrollbarStyle = () => (
+  <style>{`
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
+    }
+  `}</style>
+);
+
 // --- ANIMATION WRAPPER ---
 const FadeIn = ({ children, delay = 0 }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -33,7 +46,6 @@ const FadeIn = ({ children, delay = 0 }) => {
 // --- COMPONENT 1: CLIENT LIST ---
 const ClientList = ({ clients, bookings, onSelectClient, theme, darkMode, loading, error }) => {
   
-  // Logic: Sum of 'amountPaid' from all bookings linked to this client
   const getClientSpend = (clientId) => {
     if (!bookings) return 0;
     return bookings
@@ -59,8 +71,8 @@ const ClientList = ({ clients, bookings, onSelectClient, theme, darkMode, loadin
             <div className="col-span-2 text-right">Action</div>
           </div>
 
-          {/* List Body */}
-          <div className={`flex-1 overflow-y-auto custom-scrollbar ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
+          {/* List Body - REPLACED custom-scrollbar with no-scrollbar */}
+          <div className={`flex-1 overflow-y-auto no-scrollbar ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
             {loading ? (
                <div className="h-full flex flex-col items-center justify-center text-stone-400">
                   <Loader2 size={32} className="animate-spin mb-4 text-[#C9A25D]" />
@@ -104,8 +116,6 @@ const ClientList = ({ clients, bookings, onSelectClient, theme, darkMode, loadin
 const ClientDetails = ({ client, clientBookings, clientTransactions, onBack, theme, darkMode, loading }) => {
   const [activeTab, setActiveTab] = useState('bookings');
 
-  // --- FIX: CALCULATE SPEND FROM BOOKINGS (Source of Truth) ---
-  // Previously we used transactions, but manual admin updates don't always create transaction records.
   const totalLifetimeSpend = clientBookings
     .reduce((sum, b) => sum + (b.billing?.amountPaid || 0), 0);
 
@@ -125,7 +135,7 @@ const ClientDetails = ({ client, clientBookings, clientTransactions, onBack, the
 
       <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
         
-        {/* LEFT: Profile Info */}
+        {/* LEFT: Profile Info - has no-scrollbar */}
         <div className={`w-full lg:w-96 border-r ${theme.border} ${theme.cardBg} p-8 lg:p-10 overflow-y-auto scroll-smooth no-scrollbar z-10`}>
            <div className={`flex flex-col items-center text-center mb-10 pb-10 border-b border-dashed ${theme.border}`}>
              <div className={`w-24 h-24 rounded-full flex items-center justify-center text-[#C9A25D] text-4xl font-serif italic mb-5 border ${theme.border} bg-stone-50 dark:bg-stone-900 shadow-sm leading-none pt-1`}>
@@ -177,12 +187,12 @@ const ClientDetails = ({ client, clientBookings, clientTransactions, onBack, the
                         <div className="col-span-2 text-right">Payment Status</div>
                         <div className="col-span-2 text-right">Status</div>
                      </div>
-                     <div className={`flex-1 overflow-y-auto divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
+                     {/* ADDED no-scrollbar HERE */}
+                     <div className={`flex-1 overflow-y-auto no-scrollbar divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
                          {clientBookings.length === 0 ? (
                              <div className="p-8 text-center text-xs text-stone-500">No bookings found for this client.</div>
                          ) : clientBookings.map((booking, i) => {
                              
-                             // 50% & Full Payment Logic
                              const isFullPaid = booking.billing?.fullPaymentStatus === 'Paid';
                              const is50Paid = booking.billing?.fiftyPercentPaymentStatus === 'Paid';
                              const isResPaid = booking.billing?.paymentStatus === 'Paid';
@@ -193,7 +203,6 @@ const ClientDetails = ({ client, clientBookings, clientTransactions, onBack, the
                                  <div className="col-span-3 text-sm font-medium">{booking.eventDetails?.date}</div>
                                  <div className={`col-span-3 text-sm ${theme.subText}`}>{booking.eventDetails?.eventType}</div>
                                  
-                                 {/* Payment Badges */}
                                  <div className="col-span-2 text-right flex justify-end gap-1">
                                     {isFullPaid ? (
                                         <span className="flex items-center gap-1 text-[10px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-bold uppercase"><CheckCircle size={10} /> Full</span>
@@ -231,7 +240,8 @@ const ClientDetails = ({ client, clientBookings, clientTransactions, onBack, the
                         <div className="col-span-3 text-right">Amount</div>
                         <div className="col-span-2 text-right">Status</div>
                      </div>
-                     <div className={`flex-1 overflow-y-auto divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
+                     {/* ADDED no-scrollbar HERE */}
+                     <div className={`flex-1 overflow-y-auto no-scrollbar divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
                          {clientTransactions.length === 0 ? (
                              <div className="p-8 text-center text-xs text-stone-500">No transactions found for this client.</div>
                          ) : clientTransactions.map((t, i) => (
@@ -299,6 +309,9 @@ const ClientRecords = () => {
   
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text}`}>
+      {/* Inject Styles */}
+      <NoScrollbarStyle />
+      
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} theme={theme} />
       <main className="flex-1 flex flex-col relative overflow-hidden">
         <DashboardNavbar activeTab="Client Records" theme={theme} darkMode={darkMode} setDarkMode={setDarkMode} searchQuery={searchQuery} setSearchQuery={setSearchQuery} />

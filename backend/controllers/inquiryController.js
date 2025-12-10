@@ -140,30 +140,54 @@ const createInquiry = async (req, res) => {
 // --- 2. GET INQUIRY DETAILS ---
 const getInquiryDetails = async (req, res) => {
     try {
-        const { refId } = req.params;
+        const { refId } = req.params; // This is receiving the Firestore Doc ID (e.g. "qYJjtT...")
 
-        const bookingSnapshot = await db.collection("bookings")
-            .where("bookingId", "==", refId)
-            .limit(1)
-            .get();
+        let docData = null;
+        let docId = null;
 
-        if (bookingSnapshot.empty) {
+        // STEP 1: Try finding it by Firestore Document ID (Direct Lookup)
+        // This fixes the issue where the Calendar sends the long ID string
+        const directDoc = await db.collection("bookings").doc(refId).get();
+
+        if (directDoc.exists) {
+            docData = directDoc.data();
+            docId = directDoc.id;
+        } else {
+            // STEP 2: Fallback - Try finding it by "bookingId" field (BK-xxx)
+            // This ensures other parts of your app using BK-001 still work
+            const bookingSnapshot = await db.collection("bookings")
+                .where("bookingId", "==", refId)
+                .limit(1)
+                .get();
+
+            if (!bookingSnapshot.empty) {
+                docData = bookingSnapshot.docs[0].data();
+                docId = bookingSnapshot.docs[0].id;
+            }
+        }
+
+        // Check if we found anything
+        if (!docData) {
             return res.status(404).json({ success: false, message: "Booking not found" });
         }
 
-        const docData = bookingSnapshot.docs[0].data();
-        const docId = bookingSnapshot.docs[0].id;
+        // STEP 3: Use the actual 'bookingId' (BK-xxx) for related collections
+        // We use docData.bookingId because Payments/Proposals usually use the BK-xxx ID as the document key
+        const actualBookingId = docData.bookingId; 
 
-        const paymentSnap = await db.collection("payments").doc(refId).get();
-        const proposalSnap = await db.collection("proposals").doc(refId).get();
+        // Fetch related data
+        const paymentSnap = await db.collection("payments").doc(actualBookingId).get();
+        const proposalSnap = await db.collection("proposals").doc(actualBookingId).get();
 
         const mappedData = {
             id: docId,
-            refId: docData.bookingId,
+            refId: actualBookingId, // Return the readable ID for display
             fullName: docData.profile?.name || "Unknown",
             client: docData.profile?.name || "Unknown",
             email: docData.profile?.email,
             phone: docData.profile?.contactNumber,
+            
+            // Event Details
             dateOfEvent: docData.eventDetails?.date,
             date: docData.eventDetails?.date,
             startTime: docData.eventDetails?.startTime,
@@ -174,9 +198,20 @@ const getInquiryDetails = async (req, res) => {
             venue: docData.eventDetails?.venue,
             serviceStyle: docData.eventDetails?.serviceStyle,
             eventType: docData.eventDetails?.eventType,
+            packageName: docData.eventDetails?.package || "Custom",
+            addOns: docData.eventDetails?.addOns || [],
+
+            // Status
             status: docData.bookingStatus,
             bookingStatus: docData.bookingStatus,
+            rejectionReason: docData.rejectionReason, 
+            cancellationReason: docData.cancellationReason,
+
+            // Financials (Passing full billing object so Modal can see breakdown)
             estimatedBudget: docData.billing?.totalCost || 0,
+            billing: docData.billing, 
+
+            // Related Docs
             payment: paymentSnap.exists ? paymentSnap.data() : {},
             proposal: proposalSnap.exists ? proposalSnap.data() : {},
             notes: docData.notes || ""

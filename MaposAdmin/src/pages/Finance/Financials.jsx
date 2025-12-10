@@ -4,7 +4,7 @@ import {
   ArrowUpRight, ArrowDownRight,
   Package, Trash2, AlertCircle, 
   Wallet, Coins, CalendarRange, PieChart, Users,
-  BarChart3
+  BarChart3, Filter, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 import Sidebar from '../../components/layout/Sidebar';
@@ -45,6 +45,10 @@ const Financials = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('Finance');
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // --- Forecast Filter State ---
+  const [forecastFilter, setForecastFilter] = useState('Month'); // 'Day', 'Week', 'Month'
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   const { inventoryData, logsData } = useInventory();
   const { bookings, isLoading: bookingsLoading } = useBookings();
@@ -69,6 +73,27 @@ const Financials = () => {
     hoverBg: darkMode ? 'hover:bg-stone-900' : 'hover:bg-stone-50',
   };
 
+  // --- DATE NAVIGATION HANDLERS ---
+  const handlePrev = () => {
+    const newDate = new Date(selectedDate);
+    if (forecastFilter === 'Month') {
+      newDate.setFullYear(newDate.getFullYear() - 1);
+    } else {
+      newDate.setMonth(newDate.getMonth() - 1);
+    }
+    setSelectedDate(newDate);
+  };
+
+  const handleNext = () => {
+    const newDate = new Date(selectedDate);
+    if (forecastFilter === 'Month') {
+      newDate.setFullYear(newDate.getFullYear() + 1);
+    } else {
+      newDate.setMonth(newDate.getMonth() + 1);
+    }
+    setSelectedDate(newDate);
+  };
+
   // ==========================================
   // 1. BUSINESS INTELLIGENCE LOGIC
   // ==========================================
@@ -90,22 +115,42 @@ const Financials = () => {
   const analytics = useMemo(() => {
     if (!bookings) return { 
         records: [], 
-        monthlyForecast: [], // Changed from {} to []
+        forecastChartData: [], 
         categoryStats: {}, 
         totals: { contract: 0, collected: 0, receivables: 0, expenses: 0, profit: 0, pax: 0 } 
     };
 
     const records = [];
-    const forecastMap = {}; // Temporary map for aggregation
     const categoryStats = {};   
     let totalPax = 0;
+
+    // --- PREPARE CHART BUCKETS ---
+    let chartBuckets = [];
+    const viewYear = selectedDate.getFullYear();
+    const viewMonth = selectedDate.getMonth(); 
+
+    if (forecastFilter === 'Month') {
+        for (let i = 0; i < 12; i++) {
+            const label = new Date(viewYear, i, 1).toLocaleString('default', { month: 'short' });
+            chartBuckets.push({ label, sortKey: i, amount: 0 });
+        }
+    } else if (forecastFilter === 'Day') {
+        const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+        for (let i = 1; i <= daysInMonth; i++) {
+            chartBuckets.push({ label: `${i}`, sortKey: i, amount: 0 });
+        }
+    } else if (forecastFilter === 'Week') {
+        for (let i = 1; i <= 5; i++) {
+            chartBuckets.push({ label: `Week ${i}`, sortKey: i, amount: 0 });
+        }
+    }
 
     const activeBookings = bookings.filter(b => 
         b.status !== "Cancelled" && b.status !== "Rejected"
     );
 
     activeBookings.forEach(b => {
-        // 1. Core Financials
+        // Core Financials
         const contractPrice = b.billing?.totalCost || 0;
         const collected = b.billing?.amountPaid || 0;
         const balance = b.billing?.remainingBalance !== undefined 
@@ -120,26 +165,38 @@ const Financials = () => {
             ? ((netProfit / contractPrice) * 100).toFixed(1)
             : null;
 
-        // 2. Date Parsing
+        // Chart Logic
         const eventDate = new Date(b.dateOfEvent);
         
-        // --- FIX: FORECAST GROUPING & SORTING ---
         if (!isNaN(eventDate)) {
-            // Create a sortable key (YYYY-MM)
-            const sortKey = `${eventDate.getFullYear()}-${String(eventDate.getMonth() + 1).padStart(2, '0')}`;
-            // Create display label (Dec 2025)
-            const label = eventDate.toLocaleString('default', { month: 'short', year: 'numeric' });
+            const eventYear = eventDate.getFullYear();
+            const eventMonth = eventDate.getMonth();
+            const eventDay = eventDate.getDate();
 
-            if (!forecastMap[sortKey]) {
-                forecastMap[sortKey] = { label, amount: 0, sortKey };
-            }
-            // Only add positive balances to the forecast
-            if (balance > 0) {
-                forecastMap[sortKey].amount += balance;
+            if (balance > 0) { 
+                if (forecastFilter === 'Month') {
+                    if (eventYear === viewYear) {
+                        chartBuckets[eventMonth].amount += balance;
+                    }
+                } else {
+                    if (eventYear === viewYear && eventMonth === viewMonth) {
+                        if (forecastFilter === 'Day') {
+                            if(chartBuckets[eventDay - 1]) {
+                                chartBuckets[eventDay - 1].amount += balance;
+                            }
+                        } else if (forecastFilter === 'Week') {
+                            const weekNum = Math.ceil(eventDay / 7); 
+                            const bucketIndex = Math.min(weekNum, 5) - 1; 
+                            if(chartBuckets[bucketIndex]) {
+                                chartBuckets[bucketIndex].amount += balance;
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        // 3. Category Stats
+        // Category Stats
         const type = b.eventType || "Other";
         if (!categoryStats[type]) categoryStats[type] = { count: 0, revenue: 0 };
         categoryStats[type].count += 1;
@@ -166,13 +223,9 @@ const Financials = () => {
 
     records.sort((a, b) => a.dateObj - b.dateObj);
 
-    // --- FIX: CONVERT MAP TO SORTED ARRAY ---
-    const monthlyForecast = Object.values(forecastMap)
-        .sort((a, b) => a.sortKey.localeCompare(b.sortKey)); // Sort chronologically
-
     return {
         records,
-        monthlyForecast, // Now a sorted Array
+        forecastChartData: chartBuckets,
         categoryStats,
         totals: {
             contract: records.reduce((acc, r) => acc + r.contractPrice, 0),
@@ -183,10 +236,9 @@ const Financials = () => {
             pax: totalPax
         }
     };
-  }, [bookings]);
+  }, [bookings, forecastFilter, selectedDate]);
 
-  // C. Derived KPIs
-  const { totals, monthlyForecast, categoryStats } = analytics;
+  const { totals, forecastChartData, categoryStats } = analytics;
   
   const topCategory = Object.keys(categoryStats).reduce((a, b) => 
     (categoryStats[a]?.revenue > categoryStats[b]?.revenue ? a : b), "N/A"
@@ -194,8 +246,31 @@ const Financials = () => {
   
   const globalMargin = totals.contract > 0 ? ((totals.profit / totals.contract) * 100).toFixed(0) : 0;
 
+  const getDisplayDate = () => {
+    if (forecastFilter === 'Month') return selectedDate.getFullYear();
+    return selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+  };
+
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text} selection:bg-[#C9A25D] selection:text-white transition-colors duration-500`}>
+      {/* --- CUSTOM SCROLLBAR STYLES --- */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #2a2a2a; /* Dark track to match screenshot */
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #C9A25D; 
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #b08d55; 
+        }
+      `}</style>
+
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={setActiveTab} theme={theme} />
       
       <main className="flex-1 flex flex-col relative overflow-hidden">
@@ -203,7 +278,7 @@ const Financials = () => {
 
         <div className="flex-1 overflow-y-auto p-6 md:p-12 scroll-smooth no-scrollbar">
           
-          {/* HEADER & SCOREBOARD (Unchanged) */}
+          {/* HEADER */}
           <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
             <div>
               <h2 className="font-serif text-3xl italic">Financial Intelligence</h2>
@@ -217,6 +292,7 @@ const Financials = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+             {/* Scorecards */}
             <FadeIn delay={0}>
                 <div className={`p-6 border ${theme.border} ${theme.cardBg} h-32 flex flex-col justify-between group hover:border-emerald-500/30 transition-colors`}>
                     <div className="flex justify-between items-start"><span className={`text-[10px] uppercase tracking-[0.2em] ${theme.subText}`}>Liquidity</span><Wallet size={16} className="text-emerald-500" /></div>
@@ -243,39 +319,88 @@ const Financials = () => {
             </FadeIn>
           </div>
 
-          {/* --- CHARTS SECTION (FIXED FORECAST RENDER) --- */}
+          {/* --- CHARTS SECTION --- */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
             
             {/* CASH FLOW FORECAST CHART */}
             <div className="lg:col-span-2">
               <FadeIn delay={400}>
                 <div className={`border ${theme.border} ${theme.cardBg} p-8 h-full min-h-[350px] flex flex-col`}>
-                  <div className="flex justify-between items-center mb-8">
+                  <div className="flex flex-col md:flex-row justify-between md:items-center mb-8 gap-4">
                     <div>
                         <h3 className="font-serif text-2xl italic">Cash Flow Forecast</h3>
-                        <p className={`text-[10px] uppercase tracking-wider ${theme.subText} mt-1`}>Projected Inflow (Receivables) by Month</p>
+                        <p className={`text-[10px] uppercase tracking-wider ${theme.subText} mt-1`}>
+                            {forecastFilter === 'Month' ? 'Monthly' : 'Daily'} Projections for <span className="text-[#C9A25D] font-bold">{getDisplayDate()}</span>
+                        </p>
                     </div>
-                    <CalendarRange className="text-[#C9A25D]" size={20} />
+                    
+                    <div className="flex items-center gap-6">
+                        {/* Date Navigation - Minimal */}
+                        <div className="flex items-center gap-2">
+                            <button onClick={handlePrev} className="p-1 text-stone-400 hover:text-white transition-colors bg-stone-800/50 rounded hover:bg-stone-700">
+                                <ChevronLeft size={14}/>
+                            </button>
+                            <div className="px-3 text-[10px] font-bold uppercase min-w-[80px] text-center text-stone-300 tracking-wider">
+                                {getDisplayDate()}
+                            </div>
+                            <button onClick={handleNext} className="p-1 text-stone-400 hover:text-white transition-colors bg-stone-800/50 rounded hover:bg-stone-700">
+                                <ChevronRight size={14}/>
+                            </button>
+                        </div>
+
+                        {/* Filter Switcher - High Contrast (White Active on Dark) */}
+                        <div className="flex gap-1 bg-transparent">
+                            {['Day', 'Week', 'Month'].map((filter) => (
+                                <button
+                                    key={filter}
+                                    onClick={() => setForecastFilter(filter)}
+                                    className={`
+                                        px-4 py-1.5 text-[10px] uppercase tracking-widest rounded transition-all duration-300 font-bold border
+                                        ${forecastFilter === filter 
+                                            ? 'bg-white text-[#C9A25D] border-white' // Matches screenshot: White box, gold text
+                                            : 'bg-transparent text-stone-500 border-transparent hover:text-stone-300'
+                                        }
+                                    `}
+                                >
+                                    {filter}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                   </div>
                   
                   {/* Forecast Visualization */}
-                  <div className="flex-1 flex items-end gap-6 w-full px-2 overflow-x-auto pb-2 scrollbar-none">
-                     {monthlyForecast.length === 0 ? (
-                         <div className="w-full text-center text-stone-500 text-xs py-10">No pending payments scheduled.</div>
+                  <div className="flex-1 flex items-end gap-2 w-full px-2 overflow-x-auto pb-4 custom-scrollbar">
+                     {forecastChartData.every(i => i.amount === 0) ? (
+                         <div className="w-full h-full flex flex-col items-center justify-center text-stone-500">
+                            <CalendarRange size={32} className="mb-2 opacity-20" />
+                            <span className="text-xs">No pending receivables for this period.</span>
+                         </div>
                      ) : (
-                         monthlyForecast.map((item, i) => {
-                           const maxVal = Math.max(...monthlyForecast.map(m => m.amount)) || 1;
-                           const height = (item.amount / maxVal) * 100;
+                         forecastChartData.map((item, i) => {
+                           const maxVal = Math.max(...forecastChartData.map(m => m.amount)) || 1;
+                           const height = item.amount > 0 ? (item.amount / maxVal) * 100 : 0;
                            
                            return (
-                             <div key={i} className="flex-1 min-w-[60px] flex flex-col justify-end h-full group relative">
-                                <div className="text-xs font-bold text-[#C9A25D] text-center mb-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    ₱{(item.amount/1000).toFixed(1)}k
+                             <div key={i} className="flex-1 min-w-[30px] flex flex-col justify-end h-full group relative">
+                                <div className="text-xs font-bold text-[#C9A25D] text-center mb-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap absolute -top-6 w-full z-10">
+                                    {item.amount > 0 ? `₱${(item.amount/1000).toFixed(1)}k` : ''}
                                 </div>
-                                <div className="relative w-full rounded-t-sm overflow-hidden h-40 bg-stone-100 dark:bg-stone-900">
-                                   <div style={{ height: `${height}%` }} className="absolute bottom-0 w-full bg-[#C9A25D] opacity-80 group-hover:opacity-100 transition-all duration-500"></div>
+                                
+                                {/* Bar Track - Dark Grey Background (Slot look) */}
+                                <div className="relative w-full rounded-sm overflow-hidden h-40 flex items-end justify-center bg-stone-800/80">
+                                   <div 
+                                      style={{ height: `${height}%` }} 
+                                      className={`w-full transition-all duration-500 ${
+                                          item.amount > 0 
+                                          ? 'bg-[#C9A25D] opacity-100' // Solid Gold
+                                          : 'bg-transparent'
+                                      }`}
+                                   ></div>
                                 </div>
-                                <span className={`text-[10px] text-center mt-3 font-medium ${theme.subText}`}>{item.label.split(' ')[0]}</span>
+                                <span className={`text-[9px] text-center mt-3 font-medium text-stone-500 group-hover:text-stone-300 transition-colors whitespace-nowrap overflow-hidden text-ellipsis`}>
+                                    {item.label}
+                                </span>
                              </div>
                            );
                          })
@@ -285,7 +410,7 @@ const Financials = () => {
               </FadeIn>
             </div>
 
-            {/* REVENUE BY CATEGORY */}
+            {/* REVENUE BY CATEGORY (UNCHANGED) */}
             <div className="lg:col-span-1">
               <FadeIn delay={500}>
                 <div className={`border ${theme.border} ${theme.cardBg} p-8 h-full`}>
@@ -328,7 +453,7 @@ const Financials = () => {
             </div>
           </div>
 
-          {/* --- TRANSACTION LEDGER --- */}
+          {/* --- TRANSACTION LEDGER (UNCHANGED) --- */}
           <FadeIn delay={600}>
             <div className={`border ${theme.border} ${theme.cardBg} rounded-sm min-h-[400px]`}>
               <div className="p-6 md:p-8 flex justify-between items-center border-b border-stone-100 dark:border-stone-800">
@@ -355,43 +480,24 @@ const Financials = () => {
                     <div className="p-10 flex justify-center text-[#C9A25D]">Loading Data...</div>
                 ) : analytics.records.map((rec) => (
                     <div key={rec.id} className={`grid grid-cols-12 gap-4 px-8 py-5 items-center group ${theme.hoverBg} transition-colors duration-300`}>
-                      
                       <div className="col-span-3">
                         <span className={`font-serif text-md block leading-tight ${theme.text}`}>{rec.client}</span>
                         <span className={`text-[10px] ${theme.subText} block mt-1 uppercase tracking-wider`}>{rec.event}</span>
                       </div>
-                      
                       <div className={`col-span-1 text-xs ${theme.subText} truncate`}>{rec.date}</div>
-                      
                       <div className={`col-span-2 text-right text-sm font-medium ${theme.text}`}>₱{rec.contractPrice.toLocaleString()}</div>
-                      
-                      <div className={`col-span-1.5 text-right text-sm text-rose-400`}>
-                          {rec.hasOpsData ? `(₱${rec.opsCost.toLocaleString()})` : '-'}
-                      </div>
-                      
-                      <div className={`col-span-1.5 text-right font-serif text-md text-emerald-500`}>
-                        {rec.hasOpsData ? `₱${rec.netProfit.toLocaleString()}` : '-'}
-                      </div>
-
+                      <div className={`col-span-1.5 text-right text-sm text-rose-400`}>{rec.hasOpsData ? `(₱${rec.opsCost.toLocaleString()})` : '-'}</div>
+                      <div className={`col-span-1.5 text-right font-serif text-md text-emerald-500`}>{rec.hasOpsData ? `₱${rec.netProfit.toLocaleString()}` : '-'}</div>
                       <div className={`col-span-1.5 text-right`}>
                          {rec.margin !== null ? (
-                             <span className={`text-[10px] px-2 py-1 rounded border ${
-                                 Number(rec.margin) > 40 
-                                 ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500' 
-                                 : 'border-amber-500/20 bg-amber-500/10 text-amber-500'
-                             }`}>
+                             <span className={`text-[10px] px-2 py-1 rounded border ${Number(rec.margin) > 40 ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500' : 'border-amber-500/20 bg-amber-500/10 text-amber-500'}`}>
                                  {rec.margin}%
                              </span>
-                         ) : (
-                             <span className="text-[10px] text-stone-400">-</span>
-                         )}
+                         ) : (<span className="text-[10px] text-stone-400">-</span>)}
                       </div>
-                      
                       <div className="col-span-1.5 flex justify-center">
                          {rec.balance === 0 ? (
-                             <div className="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center" title="Fully Paid">
-                                <DollarSign size={12} />
-                             </div>
+                             <div className="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center" title="Fully Paid"><DollarSign size={12} /></div>
                          ) : (
                              <span className="text-[9px] uppercase font-bold text-amber-500 tracking-widest border border-amber-500/30 px-2 py-1 rounded" title={`Due: ₱${rec.balance.toLocaleString()}`}>Due</span>
                          )}

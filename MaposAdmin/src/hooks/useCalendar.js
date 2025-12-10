@@ -1,65 +1,78 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '../config/firebase'; // <--- ADJUST THIS PATH to your firebase config file
 import { calendarService } from '../services/calendarService';
 
 export const useCalendar = () => {
   const [events, setEvents] = useState([]);
   const [blockedDates, setBlockedDates] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  // Ref to track if the initial load is done (to prevent spinner on background updates)
-  const initialLoadDone = useRef(false);
 
-  const fetchData = useCallback(async () => {
-    if (!initialLoadDone.current) setLoading(true);
+  useEffect(() => {
+    setLoading(true);
 
-    try {
-      const data = await calendarService.fetchCalendarData();
-      
-      const processedEvents = (data.events || []).map(ev => ({
-        ...ev,
-        dateObj: new Date(ev.date)
-      }));
+    // 1. Real-time Listener for Bookings
+    // We fetch "Reserved", "Confirmed", "Paid", "Ongoing", "Cancelled"
+    const bookingsRef = collection(db, "bookings");
+    const q = query(
+      bookingsRef, 
+      where("bookingStatus", "in", ["Reserved", "Confirmed", "Paid", "Ongoing", "Cancelled"])
+    );
 
-      // Optimization: Only update state if stringified data changed to avoid re-renders
-      setEvents(prev => JSON.stringify(prev) !== JSON.stringify(processedEvents) ? processedEvents : prev);
-      setBlockedDates(prev => JSON.stringify(prev) !== JSON.stringify(data.blockedDates) ? data.blockedDates : prev);
+    const unsubscribeEvents = onSnapshot(q, (snapshot) => {
+      const loadedEvents = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: data.bookingId,       // The human-readable ID (e.g., #BK-123)
+          refId: doc.id,            // The Firestore Document ID (Required for Modal Details)
+          date: data.eventDetails?.date, 
+          dateObj: new Date(data.eventDetails?.date),
+          title: data.profile?.name || "Unknown Client",
+          status: data.bookingStatus,
+          type: data.packageDetails?.packageName || "Event", // Optional fallback
+          time: `${data.eventDetails?.startTime} - ${data.eventDetails?.endTime}`
+        };
+      });
+      setEvents(loadedEvents);
+    }, (error) => {
+      console.error("Error listening to bookings:", error);
+    });
 
-    } catch (err) {
-      console.error("Failed to load calendar data:", err);
-    } finally {
-      if (!initialLoadDone.current) {
-        setLoading(false);
-        initialLoadDone.current = true;
-      }
-    }
+    // 2. Real-time Listener for Blocked Dates
+    const blockedRef = collection(db, "blocked_dates");
+    const unsubscribeBlocked = onSnapshot(blockedRef, (snapshot) => {
+      const loadedBlocked = snapshot.docs.map(doc => doc.id); // Assuming Doc ID is the date string
+      setBlockedDates(loadedBlocked);
+      setLoading(false); // Stop loading once data arrives
+    }, (error) => {
+      console.error("Error listening to blocked dates:", error);
+      setLoading(false);
+    });
+
+    // Cleanup listeners on unmount
+    return () => {
+      unsubscribeEvents();
+      unsubscribeBlocked();
+    };
   }, []);
 
-  // Set up Interval for Auto-Refresh (Polling)
-  useEffect(() => {
-    fetchData(); // Fetch immediately
-    const interval = setInterval(() => {
-        fetchData(); // Silent fetch every 5 seconds
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [fetchData]);
-
+  // Admin Action: Toggle Block Date via API
   const toggleBlockDate = async (dateObj) => {
     const dateStr = dateObj.toLocaleDateString('en-CA'); 
 
-    // Optimistic Update
+    // Optimistic UI Update (Client side immediate feedback)
     const isAlreadyBlocked = blockedDates.includes(dateStr);
     setBlockedDates(prev => 
       isAlreadyBlocked ? prev.filter(d => d !== dateStr) : [...prev, dateStr]
     );
 
     try {
+      // Call Backend API to update Firestore
       await calendarService.toggleBlockDate(dateStr);
-      // We don't need to manually refresh here because the interval will catch it, 
-      // or we can call fetchData() if we want instant confirmation.
+      // No need to fetch; the onSnapshot listener will verify the change automatically
     } catch (error) {
       console.error("Failed to toggle block:", error);
-      // Revert if failed
+      // Revert if API fails
       setBlockedDates(prev => 
         isAlreadyBlocked ? [...prev, dateStr] : prev.filter(d => d !== dateStr)
       );
@@ -70,7 +83,6 @@ export const useCalendar = () => {
     events,
     blockedDates,
     loading,
-    refreshCalendar: fetchData,
     toggleBlockDate
   };
 };

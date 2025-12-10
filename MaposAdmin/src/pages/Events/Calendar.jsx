@@ -21,11 +21,14 @@ const FadeIn = ({ children }) => (
 const ViewEventModal = ({ isOpen, onClose, eventId, theme, darkMode }) => {
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
 
   // Fetch Full Details when Modal Opens
   useEffect(() => {
     if (isOpen && eventId) {
       setLoading(true);
+      setError(false);
+      
       calendarService.getEventDetails(eventId)
         .then(data => {
           setDetails(data);
@@ -33,10 +36,12 @@ const ViewEventModal = ({ isOpen, onClose, eventId, theme, darkMode }) => {
         })
         .catch(err => {
           console.error("Modal Fetch Error:", err);
+          setError(true);
           setLoading(false);
         });
     } else {
       setDetails(null);
+      setError(false);
     }
   }, [isOpen, eventId]);
 
@@ -88,6 +93,12 @@ const ViewEventModal = ({ isOpen, onClose, eventId, theme, darkMode }) => {
                 <Loader2 size={32} className="animate-spin mb-4 text-[#C9A25D]" />
                 <p className="text-xs uppercase tracking-widest">Retrieving Booking Information...</p>
              </div>
+          ) : error ? (
+            <div className="h-64 flex flex-col items-center justify-center text-red-500">
+                <AlertCircle size={32} className="mb-4" />
+                <p className="text-xs uppercase tracking-widest">Failed to load details</p>
+                <p className="text-[10px] mt-2">ID: {eventId}</p>
+            </div>
           ) : details ? (
             <div className="space-y-6">
               
@@ -206,7 +217,7 @@ const ViewEventModal = ({ isOpen, onClose, eventId, theme, darkMode }) => {
               )}
 
             </div>
-          ) : <div className="text-center text-stone-500 mt-10">Failed to load details.</div>}
+          ) : <div className="text-center text-stone-500 mt-10">No data found.</div>}
         </div>
 
         {/* FOOTER */}
@@ -260,6 +271,17 @@ const CalendarPage = () => {
     subText: darkMode ? 'text-stone-500' : 'text-stone-500',
     border: darkMode ? 'border-stone-800' : 'border-stone-200',
     hoverBg: darkMode ? 'hover:bg-stone-800' : 'hover:bg-stone-100',
+  };
+
+  // Handler to Open Modal
+  const handleEventClick = (event) => {
+    // We use refId (Firestore Doc ID) for the API call in the modal
+    if (event.refId) {
+        setSelectedEventId(event.refId);
+        setViewModalOpen(true);
+    } else {
+        console.error("Event missing refId", event);
+    }
   };
 
   const renderCalendarGrid = () => {
@@ -337,14 +359,11 @@ const CalendarPage = () => {
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text}`}>
       
-      {/* --- UPDATED STYLE BLOCK WITH NO-SCROLLBAR CLASS --- */}
+      {/* --- UPDATED STYLE BLOCK --- */}
       <style>{`
         .bg-stripes-dark { background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, #262626 10px, #262626 20px); }
-        
-        /* ADDED: Hide Scrollbars for 'no-scrollbar' class */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #57534e; border-radius: 2px; }
@@ -443,7 +462,7 @@ const CalendarPage = () => {
                           return (
                             <div 
                               key={event.id} 
-                              onClick={() => { setSelectedEventId(event.refId); setViewModalOpen(true); }}
+                              onClick={() => handleEventClick(event)}
                               className={`p-4 border transition-all group relative cursor-pointer
                                 ${isCancelled 
                                   ? 'border-red-500 bg-red-50 dark:bg-red-900/10 opacity-70' 
