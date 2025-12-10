@@ -22,11 +22,6 @@ const createInquiry = async (req, res) => {
 
         // 1. WALK-IN EMAIL LOGIC
         let clientEmail = data.email;
-        const isWalkIn = !data.email; 
-        if (isWalkIn) {
-            const cleanPhone = data.phone.replace(/[^0-9]/g, '');
-            clientEmail = `no-email-${cleanPhone}@mapos-system.local`;
-        }
 
         // 2. GENERATE ID
         const bookingSnapshot = await db.collection("bookings").orderBy("bookingId", "desc").limit(1).get();
@@ -47,12 +42,6 @@ const createInquiry = async (req, res) => {
         let readableClientId;
         let clientDocId;
         let clientQuery;
-
-        if (!isWalkIn) {
-             clientQuery = await db.collection("clients").where("profile.email", "==", clientEmail).limit(1).get();
-        } else {
-             clientQuery = await db.collection("clients").where("profile.contactNumber", "==", data.phone).limit(1).get();
-        }
 
         if (!clientQuery.empty) {
             const clientDoc = clientQuery.docs[0];
@@ -77,7 +66,6 @@ const createInquiry = async (req, res) => {
             batch.set(newClientRef, {
                 clientId: readableClientId,
                 profile: { name: data.name, email: clientEmail, contactNumber: data.phone || "" },
-                isWalkIn: isWalkIn,
                 createdAt: new Date().toISOString()
             });
         }
@@ -103,7 +91,6 @@ const createInquiry = async (req, res) => {
                 email: clientEmail,
                 contactNumber: data.phone || ""
             },
-            isWalkIn: isWalkIn, 
             eventDetails: {
                 date: data.date,
                 startTime: data.startTime,
