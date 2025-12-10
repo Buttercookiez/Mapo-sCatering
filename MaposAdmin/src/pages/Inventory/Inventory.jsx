@@ -273,7 +273,13 @@ const StockMovementModal = ({ isOpen, onClose, onSave, item, theme, darkMode }) 
 // --- MAIN PAGE ---
 const Inventory = () => {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  
+  // --- SIDEBAR STATE WITH LOCAL STORAGE ---
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const savedState = localStorage.getItem('sidebarState');
+    return savedState !== null ? savedState === 'true' : true;
+  });
+
   const [activeTab, setActiveTab] = useState('Inventory');
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -340,10 +346,11 @@ const Inventory = () => {
 
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text} selection:bg-[#C9A25D] selection:text-white`}>
+      {/* 
+        FIX: Removed local font @import and definitions. 
+        Only keeping custom scrollbar and input tweaks to prevent font stacking/bolding issues.
+      */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap');
-        .font-serif { font-family: 'Cormorant Garamond', serif; }
-        .font-sans { font-family: 'Inter', sans-serif; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }

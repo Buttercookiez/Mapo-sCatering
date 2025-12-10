@@ -285,7 +285,7 @@ const Transactions = () => {
           setSearchQuery={setSearchQuery}
         />
 
-        {/* Main Layout Container - Matches ClientRecords structure */}
+        {/* Main Layout Container */}
         <div className="h-full flex flex-col p-6 md:p-12 pb-12 overflow-hidden">
           {/* Header Section (Fixed) */}
           <div className="flex-none flex justify-between items-end mb-8">
@@ -322,8 +322,9 @@ const Transactions = () => {
               </div>
 
               {/* TABLE BODY (Scrollable) */}
+              {/* NOTE: 'no-scrollbar' class is used here to hide the visual scrollbar while keeping scroll functionality */}
               <div
-                className={`flex-1 overflow-y-auto custom-scrollbar divide-y ${
+                className={`flex-1 overflow-y-auto no-scrollbar divide-y ${
                   darkMode ? "divide-stone-800" : "divide-stone-100"
                 }`}
               >
