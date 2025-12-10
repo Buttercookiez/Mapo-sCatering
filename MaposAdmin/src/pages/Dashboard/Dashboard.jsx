@@ -1,10 +1,13 @@
 // src/pages/Dashboard/Dashboard.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Calendar, CheckSquare, AlertCircle, DollarSign, ArrowUpRight
+  Calendar, CheckSquare, AlertCircle, DollarSign, ArrowUpRight, Loader2
 } from 'lucide-react';
 
-// Import separated components
+// Import Hooks
+import { useCalendar } from '../../hooks/useCalendar';
+
+// Import Layout Components
 import Sidebar from '../../components/layout/Sidebar';
 import DashboardNavbar from '../../components/layout/Navbar';
 
@@ -38,10 +41,19 @@ const FadeIn = ({ children, delay = 0 }) => {
 };
 
 const Dashboard = () => {
-  const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem('theme') === 'dark';
+  // --- 1. Theme & Layout State ---
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const savedState = localStorage.getItem('sidebarState');
+    return savedState !== null ? savedState === 'true' : true;
   });
+  const [activeTab, setActiveTab] = useState('Overview');
+  const [searchQuery, setSearchQuery] = useState("");
 
+  // --- 2. Calendar Data Integration ---
+  const { events, loading: calendarLoading } = useCalendar();
+
+  // Handle Theme Side Effects
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -52,16 +64,6 @@ const Dashboard = () => {
     }
   }, [darkMode]);
 
-  // Initialize state based on Local Storage
-  const [sidebarOpen, setSidebarOpen] = useState(() => {
-    const savedState = localStorage.getItem('sidebarState');
-    return savedState !== null ? savedState === 'true' : true;
-  });
-  
-  const [activeTab, setActiveTab] = useState('Overview');
-  const [searchQuery, setSearchQuery] = useState("");
-
-  // Theme Object passed to children
   const theme = {
     bg: darkMode ? 'bg-[#0c0c0c]' : 'bg-[#FAFAFA]',
     sidebarBg: darkMode ? 'bg-[#111]' : 'bg-white',
@@ -74,23 +76,49 @@ const Dashboard = () => {
     rowHover: darkMode ? 'hover:bg-stone-900' : 'hover:bg-stone-50',
   };
 
-  // --- Mock Data ---
-  const events = [
-    { id: 1, date: '24', month: 'OCT', client: 'Alcantara Wedding', type: 'Full Catering', guests: 150, status: 'Confirmed' },
-    { id: 2, date: '26', month: 'OCT', client: 'TechSolutions Gala', type: 'Cocktail Service', guests: 300, status: 'Prep' },
-    { id: 3, date: '28', month: 'OCT', client: 'Isabella Debut', type: 'Buffet', guests: 80, status: 'Pending' },
-    { id: 4, date: '02', month: 'NOV', client: 'Mayor\'s Private Dinner', type: 'Plated', guests: 20, status: 'Confirmed' },
-  ];
+  // --- 3. Process Events (Filter Future & Search) ---
+  const getProcessedEvents = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
 
-  const filteredEvents = events.filter(event => 
-    event.client.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    event.type.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    // 1. Filter: Only future/today events, Not Cancelled
+    let upcoming = events.filter(e => {
+        const eventDate = e.dateObj || new Date(e.date); // Handle both formats if necessary
+        const isNotCancelled = e.status !== 'Cancelled' && e.status !== 'Rejected';
+        return eventDate >= today && isNotCancelled;
+    });
+
+    // 2. Sort: Closest date first
+    upcoming.sort((a, b) => (a.dateObj || new Date(a.date)) - (b.dateObj || new Date(b.date)));
+
+    // 3. Search Filter
+    if (searchQuery) {
+        upcoming = upcoming.filter(event => 
+            event.title?.toLowerCase().includes(searchQuery.toLowerCase()) || // Client Name/Title
+            event.type?.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }
+
+    // 4. Limit to top 5 for dashboard
+    return upcoming.slice(0, 5);
+  };
+
+  const dashboardEvents = getProcessedEvents();
+
+  // Helper for Date Display (e.g., "24 OCT")
+  const formatDateDisplay = (dateObj) => {
+    if (!dateObj) return { day: '--', month: '---' };
+    const d = new Date(dateObj);
+    return {
+        day: d.getDate().toString().padStart(2, '0'),
+        month: d.toLocaleString('default', { month: 'short' }).toUpperCase()
+    };
+  };
 
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text} selection:bg-[#C9A25D] selection:text-white transition-colors duration-500`}>
       
-      {/* --- 1. Imported Sidebar --- */}
+      {/* Sidebar */}
       <Sidebar 
         sidebarOpen={sidebarOpen} 
         setSidebarOpen={setSidebarOpen} 
@@ -99,10 +127,10 @@ const Dashboard = () => {
         theme={theme} 
       />
 
-      {/* --- MAIN CONTENT AREA --- */}
+      {/* Main Content */}
       <main className="flex-1 flex flex-col relative overflow-hidden">
         
-        {/* --- 2. Imported Navbar --- */}
+        {/* Navbar */}
         <DashboardNavbar 
           activeTab={activeTab}
           theme={theme}
@@ -112,14 +140,14 @@ const Dashboard = () => {
           setSearchQuery={setSearchQuery}
         />
 
-        {/* Scrollable Dashboard Content */}
+        {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-8 md:p-12 scroll-smooth no-scrollbar">
           
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
             {[
-              { label: 'Total Revenue', value: '$124,500', trend: '+12%', icon: DollarSign },
-              { label: 'Active Events', value: '08', trend: '2 This Week', icon: Calendar },
+              { label: 'Total Revenue', value: '₱124,500', trend: '+12%', icon: DollarSign },
+              { label: 'Active Events', value: events.length.toString().padStart(2, '0'), trend: 'Total Booked', icon: Calendar },
               { label: 'Pending Inquiries', value: '14', trend: 'Needs Action', icon: CheckSquare },
               { label: 'Inventory Alert', value: '03', trend: 'Low Stock', icon: AlertCircle },
             ].map((stat, idx) => (
@@ -144,44 +172,59 @@ const Dashboard = () => {
           {/* Split View */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
             
-            {/* Upcoming Schedule */}
+            {/* Upcoming Schedule (Dynamic Data) */}
             <div className="lg:col-span-2">
               <FadeIn delay={400}>
-                <div className={`border ${theme.border} ${theme.cardBg} p-8 h-full min-h-[400px]`}>
+                <div className={`border ${theme.border} ${theme.cardBg} p-8 h-full min-h-[400px] flex flex-col`}>
                   <div className="flex justify-between items-end mb-8">
                     <h3 className="font-serif text-2xl italic">Upcoming Schedule</h3>
                     <button className={`text-[10px] uppercase tracking-[0.2em] ${theme.subText} hover:text-[#C9A25D] border-b border-transparent hover:border-[#C9A25D] pb-1 transition-all`}>View Calendar</button>
                   </div>
 
-                  <div className="space-y-2">
-                    {filteredEvents.length > 0 ? (
-                      filteredEvents.map((event) => (
-                        <div 
-                          key={event.id} 
-                          className={`flex items-center justify-between p-4 border-b ${theme.border} last:border-0 group ${theme.rowHover} transition-colors rounded-sm`}
-                        >
-                          <div className="flex items-center gap-6">
-                            <div className="flex flex-col items-center justify-center w-12">
-                               <span className="text-xs font-bold uppercase tracking-widest text-[#C9A25D]">{event.month}</span>
-                               <span className="font-serif text-2xl leading-none">{event.date}</span>
-                            </div>
-                            <div>
-                              <h4 className={`font-serif text-lg ${theme.text} group-hover:text-[#C9A25D] transition-colors`}>{event.client}</h4>
-                              <div className={`flex gap-4 text-xs ${darkMode ? 'text-stone-400' : 'text-stone-500'} mt-1 uppercase tracking-wide`}>
-                                <span>{event.type}</span>
-                                <span>•</span>
-                                <span>{event.guests} Guests</span>
+                  <div className="space-y-2 flex-1">
+                    {calendarLoading ? (
+                       <div className="h-full flex flex-col items-center justify-center text-stone-400 min-h-[200px]">
+                          <Loader2 size={24} className="animate-spin mb-2 text-[#C9A25D]" />
+                          <span className="text-xs uppercase tracking-widest">Loading Schedule...</span>
+                       </div>
+                    ) : dashboardEvents.length > 0 ? (
+                      dashboardEvents.map((event) => {
+                        const { day, month } = formatDateDisplay(event.dateObj);
+                        return (
+                          <div 
+                            key={event.id} 
+                            className={`flex items-center justify-between p-4 border-b ${theme.border} last:border-0 group ${theme.rowHover} transition-colors rounded-sm`}
+                          >
+                            <div className="flex items-center gap-6">
+                              <div className="flex flex-col items-center justify-center w-12 shrink-0">
+                                 <span className="text-xs font-bold uppercase tracking-widest text-[#C9A25D]">{month}</span>
+                                 <span className="font-serif text-2xl leading-none">{day}</span>
+                              </div>
+                              <div>
+                                <h4 className={`font-serif text-lg ${theme.text} group-hover:text-[#C9A25D] transition-colors line-clamp-1`}>
+                                    {event.title}
+                                </h4>
+                                <div className={`flex gap-4 text-xs ${darkMode ? 'text-stone-400' : 'text-stone-500'} mt-1 uppercase tracking-wide`}>
+                                  <span className="truncate max-w-[120px]">{event.type}</span>
+                                  <span>•</span>
+                                  {/* Assuming 'guests' is part of event object, if not stored in basic event, might need logic */}
+                                  <span>{event.time || "All Day"}</span> 
+                                </div>
                               </div>
                             </div>
+                            <div className={`hidden sm:block px-3 py-1 text-[10px] uppercase tracking-[0.2em] border ${theme.border} rounded-full whitespace-nowrap
+                                ${event.status === 'Confirmed' ? 'bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300' : 
+                                  event.status === 'Pending' ? 'text-orange-500 border-orange-500/30' :
+                                  'text-[#C9A25D] border-[#C9A25D]/30'}`}>
+                               {event.status}
+                            </div>
                           </div>
-                          <div className={`px-3 py-1 text-[10px] uppercase tracking-[0.2em] border ${theme.border} rounded-full ${event.status === 'Confirmed' ? 'bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300' : 'text-[#C9A25D] border-[#C9A25D]/30'}`}>
-                             {event.status}
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
-                      <div className="py-10 text-center text-stone-400 text-sm italic">
-                        No events found matching "{searchQuery}"
+                      <div className="h-full flex flex-col items-center justify-center text-stone-400 min-h-[200px] border border-dashed border-stone-200 dark:border-stone-800">
+                        <span className="text-sm italic">No upcoming events found.</span>
+                        {searchQuery && <span className="text-xs mt-1">Try clearing your search.</span>}
                       </div>
                     )}
                   </div>
@@ -189,7 +232,7 @@ const Dashboard = () => {
               </FadeIn>
             </div>
 
-            {/* Inventory Watch */}
+            {/* Inventory Watch (Static for now) */}
             <div className="lg:col-span-1">
               <FadeIn delay={500}>
                 <div className={`border ${theme.border} ${theme.cardBg} p-8 h-full`}>
@@ -264,7 +307,6 @@ const Dashboard = () => {
                </div>
             </div>
           </FadeIn>
-
         </div>
       </main>
     </div>
