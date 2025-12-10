@@ -41,13 +41,21 @@ const createInquiry = async (req, res) => {
         // 3. CLIENT CREATION/LOOKUP
         let readableClientId;
         let clientDocId;
-        let clientQuery;
+
+        // --- FIX START: Query the database for the client ---
+        const clientQuery = await db.collection("clients")
+            .where("profile.email", "==", clientEmail)
+            .limit(1)
+            .get();
+        // --- FIX END ---
 
         if (!clientQuery.empty) {
+            // Client Exists: Use their ID
             const clientDoc = clientQuery.docs[0];
             clientDocId = clientDoc.id;
             readableClientId = clientDoc.data().clientId;
         } else {
+            // Client Does Not Exist: Create New
             const clientSnapshot = await db.collection("clients").orderBy("clientId", "desc").limit(1).get();
             let newClientNum = 1;
             if (!clientSnapshot.empty) {
@@ -63,6 +71,7 @@ const createInquiry = async (req, res) => {
             readableClientId = `CL-${newClientNum.toString().padStart(3, "0")}`;
             const newClientRef = db.collection("clients").doc();
             clientDocId = newClientRef.id;
+            
             batch.set(newClientRef, {
                 clientId: readableClientId,
                 profile: { name: data.name, email: clientEmail, contactNumber: data.phone || "" },
@@ -127,13 +136,13 @@ const createInquiry = async (req, res) => {
                 paymentId: paymentRef.id,
                 bookingId: readableBookingId,
                 clientName: data.name,
-                clientEmail: clientEmail, // Will sort by bookingId mostly anyway
+                clientEmail: clientEmail,
                 amount: resFee,
                 date: new Date().toLocaleDateString(),
-                status: "Verified", // Walk-ins are verified immediately
+                status: "Verified",
                 method: "Cash/Walk-in",
                 accountName: "Walk-in Payment",
-                refNumber: "WALKIN-" + Date.now().toString().slice(-6), // Auto-gen ref number
+                refNumber: "WALKIN-" + Date.now().toString().slice(-6),
                 submittedAt: new Date().toISOString()
             });
         }
