@@ -1,16 +1,37 @@
+/* --- 0. FONTS IMPORT (Moved here to fix stacking issue) --- */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Inter:wght@300;400;500;600&display=swap');
+
 /* --- 1. REQUIRED: Initialize Tailwind CSS --- */
 /* Without these 3 lines, bg-white and other classes will NOT work */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* --- 2. Global Resets --- */
+/* --- 2. Base Configuration (Font Smoothing & Families) --- */
+/* This ensures text is crisp and not bold/blurry */
+@layer base {
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Define font families globally so you don't need <style> tags in JSX */
+.font-serif {
+  font-family: 'Cormorant Garamond', serif;
+}
+
+.font-sans {
+  font-family: 'Inter', sans-serif;
+}
+
+/* --- 3. Global Resets --- */
 .App {
   /* text-align: center;  <-- REMOVED: This breaks form layouts */
   min-height: 100vh;
 }
 
-/* --- 3. FORCE FIX FOR DROPDOWNS --- */
+/* --- 4. FORCE FIX FOR DROPDOWNS --- */
 /* This forces the browser to respect the white background in light mode */
 .bg-white {
   background-color: #ffffff !important;
@@ -21,7 +42,7 @@ input, select, textarea, button {
   background-color: transparent;
 }
 
-/* --- 4. Custom Scrollbar (Optional - matches your Gold theme) --- */
+/* --- 5. Custom Scrollbar (Optional - matches your Gold theme) --- */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -39,7 +60,7 @@ input, select, textarea, button {
   background-color: #b08d4b;
 }
 
-/* --- 5. Legacy Styles (Kept these just in case you use the logo elsewhere) --- */
+/* --- 6. Legacy Styles (Kept these just in case you use the logo elsewhere) --- */
 .App-logo {
   height: 40vmin;
   pointer-events: none;
