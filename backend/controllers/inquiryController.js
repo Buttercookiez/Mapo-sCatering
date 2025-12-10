@@ -136,13 +136,13 @@ const createInquiry = async (req, res) => {
                 paymentId: paymentRef.id,
                 bookingId: readableBookingId,
                 clientName: data.name,
-                clientEmail: clientEmail, // Will sort by bookingId mostly anyway
+                clientEmail: clientEmail,
                 amount: resFee,
                 date: new Date().toLocaleDateString(),
-                status: "Verified", // Walk-ins are verified immediately
+                status: "Verified",
                 method: "Cash/Walk-in",
                 accountName: "Walk-in Payment",
-                refNumber: "WALKIN-" + Date.now().toString().slice(-6), // Auto-gen ref number
+                refNumber: "WALKIN-" + Date.now().toString().slice(-6),
                 submittedAt: new Date().toISOString()
             });
         }

@@ -1,3 +1,4 @@
+// src/pages/Admin/EventInfoTab.jsx
 import React, { useState, useEffect } from "react";
 import {
   Calendar, MapPin, Clock, FileText, Utensils,
@@ -48,12 +49,11 @@ const ToastNotification = ({ message, type, onClose }) => {
   );
 };
 
-// --- 2. CONFIRMATION MODAL (Updated to match Transaction Records Design) ---
+// --- 2. CONFIRMATION MODAL ---
 const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, isLoading, confirmText = "Confirm", theme }) => {
   if (!isOpen) return null;
 
   return (
-    // Fixed overlay with high Z-index to cover sidebar/navbar
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all duration-300">
       <div
         className={`w-full max-w-md p-6 rounded-sm border shadow-2xl transform scale-100 ${theme.cardBg} ${theme.border} ${theme.text}`}
@@ -157,7 +157,7 @@ const EventInfoTab = ({
   const isEventCompleted = currentStatus === "Completed";
   const secureStatuses = ["Reserved", "Confirmed", "Paid", "Completed"];
   const isReservationPaid = secureStatuses.includes(currentStatus) || billing.paymentStatus === "Paid";
-  const reservationBadgeStatus = isReservationPaid ? "Paid" : "Unpaid";
+  
   const isFullyPaid = billing.fullPaymentStatus === "Paid";
   const is50PercentPaid = billing.fiftyPercentPaymentStatus === "Paid";
 
@@ -264,7 +264,7 @@ const EventInfoTab = ({
   return (
     <div className="max-w-4xl mx-auto relative">
       
-      {/* TOAST CONTAINER (Positioned Top Right, Stacked) */}
+      {/* TOAST CONTAINER */}
       <div className="fixed top-24 right-8 z-[100] flex flex-col gap-3 pointer-events-none">
         {toasts.map(t => (
           <ToastNotification 
@@ -276,7 +276,7 @@ const EventInfoTab = ({
         ))}
       </div>
 
-      {/* CONFIRM MODAL (Now passed the theme) */}
+      {/* CONFIRM MODAL */}
       <ConfirmModal 
         isOpen={modalConfig.isOpen}
         title={modalConfig.title}
@@ -352,14 +352,27 @@ const EventInfoTab = ({
           <div className={`mt-8 mb-8 border ${theme.border} ${theme.cardBg} rounded-sm p-6 shadow-sm`}>
              
              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start mb-8 border-b border-dashed border-stone-200 dark:border-stone-800 pb-8">
-                {/* 1. RESERVATION FEE */}
+                
+                {/* 1. RESERVATION FEE (UPDATED UI) */}
                 <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="p-2 bg-[#C9A25D]/10 rounded-full text-[#C9A25D]"><Wallet size={18} strokeWidth={1.5} /></div>
                         <p className="text-[10px] uppercase tracking-widest text-stone-400 font-bold">Reservation Fee</p>
                     </div>
                     <span className={`font-serif text-xl font-medium ${theme.text}`}>₱ {reservationFee.toLocaleString()}</span>
-                    <div className="mt-1"><StatusBadge status={reservationBadgeStatus} /></div>
+                    
+                    {/* UPDATED STATUS INDICATOR */}
+                    {isReservationPaid ? (
+                        <div className="flex items-center gap-1.5 mt-2 text-emerald-600 dark:text-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 px-2.5 py-1 rounded-sm border border-emerald-200 dark:border-emerald-900/30 w-fit">
+                            <CheckCircle size={12} strokeWidth={2.5} />
+                            <span className="text-[10px] font-bold uppercase tracking-wide">Paid</span>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-1.5 mt-2 text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-900/10 px-2.5 py-1 rounded-sm border border-amber-200 dark:border-amber-900/30 w-fit">
+                            <Clock size={12} strokeWidth={2.5} />
+                            <span className="text-[10px] font-bold uppercase tracking-wide">Pending</span>
+                        </div>
+                    )}
                 </div>
 
                 {/* 2. ADD-ONS */}

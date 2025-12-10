@@ -1,3 +1,4 @@
+// src/pages/Packages/ProposalTab.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Utensils,
@@ -39,7 +40,6 @@ const ProposalTab = ({
     const hoursPassed = diffInMs / (1000 * 60 * 60);
 
     // If less than 24 hours passed AND status is still "Proposal Sent"
-    // (If they replied and status changed to 'Accepted', we might want to allow sending again)
     return hoursPassed < 24 && details.status === "Proposal Sent";
   }, [details.lastProposalSentAt, details.status]);
 
@@ -146,8 +146,8 @@ const ProposalTab = ({
     );
 
   return (
-    <div className="max-w-6xl mx-auto pb-24">
-      {/* ... (Header and Package Grid Code remains the same) ... */}
+    <div className="max-w-6xl mx-auto pb-32">
+      {/* --- HEADER --- */}
        <div className="flex justify-between items-end mb-8 border-b border-stone-200 dark:border-stone-800 pb-4">
         <div>
           <h3 className={`font-serif text-2xl ${theme.text}`}>
@@ -164,7 +164,6 @@ const ProposalTab = ({
 
       {/* --- RENDER 3 COLUMNS --- */}
       {["budget", "mid", "high"].map((tierKey) => {
-          // ... (Existing Grid Code - No Changes needed here) ...
           const tierTitle =
           tierKey === "budget"
             ? "Budget Friendly"
@@ -242,52 +241,56 @@ const ProposalTab = ({
         );
       })}
 
-      {/* --- ACTION BAR --- */}
+      {/* --- UPDATED ACTION BAR (Better Alignment) --- */}
       <div
-        className={`fixed bottom-0 left-0 right-0 p-4 border-t ${theme.border} ${theme.cardBg} z-30 flex justify-center shadow-2xl`}
+        className={`fixed bottom-0 left-0 right-0 py-6 px-8 border-t ${theme.border} ${theme.cardBg} z-30 flex justify-center shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)]`}
       >
-        <div className="max-w-4xl w-full flex items-center justify-between gap-6">
+        {/* Changed max-w-4xl to max-w-6xl to match the page grid */}
+        <div className="max-w-6xl w-full flex items-center justify-between gap-6">
           
           {/* Left Side: Status Message */}
           <div className="hidden md:block">
-             {isCoolingDown && (
+             {isCoolingDown ? (
                 <p className="text-xs text-stone-500 flex items-center gap-2">
-                    <Clock size={14} className="text-orange-400"/>
-                    Proposal sent. Re-send available in: <span className="font-mono font-bold text-orange-400">{timeRemaining}</span>
+                    <Clock size={16} className="text-orange-400"/>
+                    Proposal sent. Re-send available in: <span className="font-mono font-bold text-orange-400 text-sm">{timeRemaining}</span>
+                </p>
+             ) : (
+                <p className={`text-xs uppercase tracking-widest ${theme.subText}`}>
+                   Ready to Send
                 </p>
              )}
           </div>
 
-          {/* Right Side: Button */}
+          {/* Right Side: Button (Made wider and padding adjusted) */}
           <button
             onClick={() =>
               handleSendProposal({
                 options: [selections.budget, selections.mid, selections.high],
               })
             }
-            // --- UPDATED DISABLED LOGIC ---
             disabled={
               isSending || 
               emailStatus === "success" || 
               !hasAllSelections || 
-              isCoolingDown // Blocks click if within 24 hours
+              isCoolingDown
             }
-            className={`px-8 py-3 rounded-sm text-sm uppercase tracking-wider font-bold transition-all shadow-lg flex items-center gap-2 ${
+            className={`px-10 py-4 rounded-sm text-sm uppercase tracking-widest font-bold transition-all shadow-lg flex items-center justify-center gap-3 min-w-[240px] transform hover:-translate-y-0.5 ${
               emailStatus === "success"
                 ? "bg-emerald-600 text-white"
-                : isCoolingDown // Visually grey out if cooling down
-                ? "bg-stone-300 dark:bg-stone-700 text-stone-500 cursor-not-allowed"
-                : "bg-[#C9A25D] text-white hover:bg-[#b08d55]"
-            } disabled:opacity-70`}
+                : isCoolingDown
+                ? "bg-stone-300 dark:bg-stone-700 text-stone-500 cursor-not-allowed shadow-none"
+                : "bg-[#C9A25D] text-white hover:bg-[#b08d55] shadow-[#C9A25D]/30"
+            } disabled:opacity-70 disabled:transform-none`}
           >
             {isSending ? (
-              <Loader2 className="animate-spin" size={16} />
+              <Loader2 className="animate-spin" size={18} />
             ) : emailStatus === "success" ? (
-               <CheckCircle size={16} />
+               <CheckCircle size={18} />
             ) : isCoolingDown ? (
-               <Clock size={16} /> // Show Clock icon when cooling down
+               <Clock size={18} />
             ) : (
-              <Send size={16} />
+              <Send size={18} />
             )}
             
             {/* Button Text Logic */}

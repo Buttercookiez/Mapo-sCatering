@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { useLocation } from "react-router-dom"; // <--- ADDED IMPORT
+import { useLocation } from "react-router-dom"; 
 import {
   Filter,
   Download,
@@ -80,8 +80,7 @@ const ConfirmationModal = ({
             </h3>
             <p className={`text-sm ${theme.subText} mb-6 leading-relaxed`}>
               Are you sure you want to verify this payment? This will mark the
-              transaction as complete and send a confirmation email to the
-              client.
+              transaction as complete, update the booking status to "Reserved", and send a confirmation email to the client.
             </p>
 
             <div className="flex justify-end gap-3">
@@ -173,7 +172,7 @@ const Transactions = () => {
     type: "success",
   });
 
-  const location = useLocation(); // <--- INITIALIZE LOCATION HOOK
+  const location = useLocation();
 
   // Theme Management
   useEffect(() => {
@@ -219,19 +218,13 @@ const Transactions = () => {
     return () => unsubscribe();
   }, []);
 
-  // --- 2. HANDLE NOTIFICATION REDIRECT (NEW) ---
+  // --- 2. HANDLE NOTIFICATION REDIRECT ---
   useEffect(() => {
-    // Only run if we have transactions loaded and there is a state from navigation
     if (!isLoading && transactions.length > 0 && location.state?.verifyId) {
       const targetId = location.state.verifyId;
-      
-      // Check if transaction exists in current list
       const exists = transactions.find(t => t.id === targetId);
-      
-      // If it exists and is Pending, open modal immediately
       if (exists && exists.status === 'Pending') {
         setModalState({ isOpen: true, targetId: targetId });
-        
         // Clean up history so it doesn't reopen on refresh
         window.history.replaceState({}, document.title);
       }
@@ -240,13 +233,11 @@ const Transactions = () => {
 
   // --- 3. ACTION HANDLERS ---
 
-  // Step A: Trigger the Modal
   const requestVerification = (id, e) => {
     e.stopPropagation();
     setModalState({ isOpen: true, targetId: id });
   };
 
-  // Step B: Execute Logic (Called by Modal)
   const confirmVerification = async () => {
     const id = modalState.targetId;
     if (!id) return;
@@ -254,19 +245,28 @@ const Transactions = () => {
     setProcessingId(id);
 
     try {
+      // 1. Send API Request
       await axios.patch(
         `http://localhost:5000/api/inquiries/payments/${id}/verify`
       );
 
-      // Success Toast
+      // 2. OPTIMISTIC UI UPDATE
+      // Immediately mark as Verified in local state without waiting for snapshot
+      setTransactions(prevTransactions => 
+        prevTransactions.map(item => 
+            item.id === id ? { ...item, status: "Verified" } : item
+        )
+      );
+
+      // 3. Show Success Toast
       setToast({
         show: true,
         message: "Payment verified and email sent successfully.",
         type: "success",
       });
+
     } catch (error) {
       console.error(error);
-      // Error Toast
       setToast({
         show: true,
         message: "Failed to verify payment. Please try again.",
@@ -308,7 +308,7 @@ const Transactions = () => {
 
         {/* Main Layout Container */}
         <div className="h-full flex flex-col p-6 md:p-12 pb-12 overflow-hidden">
-          {/* Header Section (Fixed) */}
+          {/* Header Section */}
           <div className="flex-none flex justify-between items-end mb-8">
             <div>
               <h2 className={`font-serif text-3xl italic ${theme.text}`}>
@@ -320,12 +320,12 @@ const Transactions = () => {
             </div>
           </div>
 
-          {/* Table Container (Fills remaining space) */}
+          {/* Table Container */}
           <FadeIn className="flex-1 min-h-0 flex flex-col">
             <div
               className={`flex-1 min-h-0 flex flex-col border ${theme.border} ${theme.cardBg} rounded-sm shadow-sm`}
             >
-              {/* TABLE HEADER (Fixed) */}
+              {/* TABLE HEADER */}
               <div
                 className={`flex-none grid grid-cols-12 gap-4 px-6 py-4 border-b ${
                   theme.border
@@ -342,7 +342,7 @@ const Transactions = () => {
                 <div className="col-span-1 text-center">Action</div>
               </div>
 
-              {/* TABLE BODY (Scrollable) */}
+              {/* TABLE BODY */}
               <div
                 className={`flex-1 overflow-y-auto no-scrollbar divide-y ${
                   darkMode ? "divide-stone-800" : "divide-stone-100"
