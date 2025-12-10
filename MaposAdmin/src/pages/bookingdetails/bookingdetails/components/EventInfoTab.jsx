@@ -15,7 +15,7 @@ import {
   saveOperationalCost 
 } from "../../../../api/bookingService";
 
-// --- 1. TOAST NOTIFICATION (Luxury Dark Theme) ---
+// --- 1. TOAST NOTIFICATION ---
 const ToastNotification = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(() => onClose(), 4000);
@@ -48,51 +48,46 @@ const ToastNotification = ({ message, type, onClose }) => {
   );
 };
 
-// --- 2. CONFIRMATION MODAL (Matches Your Dark Screenshot) ---
-const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, isLoading, confirmText = "Confirm" }) => {
+// --- 2. CONFIRMATION MODAL (Updated to match Transaction Records Design) ---
+const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, isLoading, confirmText = "Confirm", theme }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-[2px] p-4 animate-in fade-in duration-200">
-      
-      {/* Modal Container */}
-      <div className="bg-[#141414] border border-stone-800 w-full max-w-[500px] p-8 shadow-2xl rounded-sm flex gap-6 relative">
-        
-        {/* Icon Section (Gold Warning) */}
-        <div className="flex-shrink-0">
-            <div className="w-10 h-10 rounded-full bg-[#C9A25D]/10 flex items-center justify-center border border-[#C9A25D]/20 mt-1">
-                <AlertTriangle className="text-[#C9A25D]" size={20} strokeWidth={2} />
-            </div>
-        </div>
-
-        {/* Content Section */}
-        <div className="flex-1">
-            <h3 className="font-serif text-xl text-stone-100 mb-2 tracking-wide">
-                {title}
+    // Fixed overlay with high Z-index to cover sidebar/navbar
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all duration-300">
+      <div
+        className={`w-full max-w-md p-6 rounded-sm border shadow-2xl transform scale-100 ${theme.cardBg} ${theme.border} ${theme.text}`}
+      >
+        <div className="flex items-start gap-4">
+          <div className="p-3 bg-[#C9A25D]/10 rounded-full flex-shrink-0">
+            <AlertTriangle className="text-[#C9A25D]" size={24} />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-serif font-medium mb-2">
+              {title}
             </h3>
-            <p className="text-sm text-stone-400 leading-relaxed mb-8 font-light">
-                {message}
+            <p className={`text-sm ${theme.subText} mb-6 leading-relaxed`}>
+              {message}
             </p>
 
-            {/* Buttons */}
-            <div className="flex justify-end items-center gap-4">
-                 <button
-                    onClick={onCancel}
-                    disabled={isLoading}
-                    className="px-4 py-2 text-[11px] font-bold text-stone-500 uppercase tracking-widest hover:text-stone-300 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  
-                  <button
-                    onClick={onConfirm}
-                    disabled={isLoading}
-                    className="bg-[#C9A25D] text-black text-[11px] font-bold uppercase tracking-[0.15em] px-6 py-3 rounded-sm hover:bg-[#b08d55] transition-colors flex items-center gap-2 shadow-lg shadow-[#C9A25D]/10"
-                  >
-                    {isLoading && <Loader2 size={12} className="animate-spin" />}
-                    {confirmText}
-                  </button>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={onCancel}
+                disabled={isLoading}
+                className={`px-4 py-2 text-xs uppercase tracking-widest font-semibold border ${theme.border} hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors rounded-sm`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onConfirm}
+                disabled={isLoading}
+                className="px-4 py-2 bg-[#C9A25D] text-white text-xs uppercase tracking-widest font-semibold hover:bg-[#b08d4d] transition-colors rounded-sm flex items-center gap-2"
+              >
+                {isLoading && <Loader2 size={12} className="animate-spin" />}
+                {isLoading ? "Processing..." : confirmText}
+              </button>
             </div>
+          </div>
         </div>
       </div>
     </div>
@@ -281,7 +276,7 @@ const EventInfoTab = ({
         ))}
       </div>
 
-      {/* CONFIRM MODAL */}
+      {/* CONFIRM MODAL (Now passed the theme) */}
       <ConfirmModal 
         isOpen={modalConfig.isOpen}
         title={modalConfig.title}
@@ -290,6 +285,7 @@ const EventInfoTab = ({
         onCancel={closeConfirm}
         confirmText={modalConfig.confirmText}
         isLoading={isUpdatingPayment || isSendingReminder}
+        theme={theme}
       />
 
       {isBookingRejected ? (
