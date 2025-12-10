@@ -30,12 +30,10 @@ const getSafeDate = (val) => {
 };
 
 // --- FIXED ANIMATION WRAPPER ---
-// Changed from IntersectionObserver to simple useEffect to ensure content always renders
 const FadeIn = ({ children, delay = 0 }) => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    // Trigger animation immediately on mount
     const timer = setTimeout(() => setIsVisible(true), 50 + delay);
     return () => clearTimeout(timer);
   }, [delay]);
@@ -43,6 +41,38 @@ const FadeIn = ({ children, delay = 0 }) => {
   return (
     <div className={`transition-all duration-700 ease-out transform ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
       {children}
+    </div>
+  );
+};
+
+// --- MODAL: DELETE CONFIRMATION ---
+// This matches the UI of your Inventory Delete Modal
+const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, itemName, theme }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="absolute inset-0" onClick={onClose}></div>
+      <div className={`w-full max-w-sm ${theme.cardBg} rounded-sm shadow-2xl border ${theme.border} relative z-50 animate-in fade-in zoom-in duration-200 flex flex-col overflow-hidden`}>
+        <div className="p-8 text-center">
+          <div className="mx-auto w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+            <Trash2 size={24} className="text-red-500" />
+          </div>
+          <h3 className={`font-serif text-2xl ${theme.text} mb-2`}>Delete Item?</h3>
+          <p className={`text-xs ${theme.subText} leading-relaxed`}>
+            Are you sure you want to delete <span className={`font-bold ${theme.text}`}>{itemName}</span>?
+            <br />This action cannot be undone.
+          </p>
+        </div>
+        <div className={`flex border-t ${theme.border}`}>
+          <button onClick={onClose} className={`flex-1 py-4 text-[10px] uppercase tracking-widest font-medium ${theme.text} hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors`}>
+            Cancel
+          </button>
+          <button onClick={onConfirm} className="flex-1 py-4 text-[10px] uppercase tracking-widest font-medium text-white bg-red-500 hover:bg-red-600 transition-colors">
+            Delete
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -69,6 +99,10 @@ const PackageEditor = () => {
   const [currentItem, setCurrentItem] = useState(null);
   const [modalMode, setModalMode] = useState("create");
   const [isSaving, setIsSaving] = useState(false);
+
+  // --- DELETE MODAL STATE ---
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
 
   const dropdownRef = useRef(null);
 
@@ -135,17 +169,26 @@ const PackageEditor = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure? This cannot be undone.")) return;
+  // --- DELETE HANDLER (Triggers Modal) ---
+  const handleOpenDelete = (item) => {
+    setItemToDelete(item);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
     try {
         if (activeTab === 'packages') {
-            await packageService.delete(id);
+            await packageService.delete(itemToDelete.id);
         } else {
-            await addonService.delete(id);
+            await addonService.delete(itemToDelete.id);
         }
     } catch (err) {
         console.error("Failed to delete:", err);
         alert("Error deleting item.");
+    } finally {
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
     }
   };
 
@@ -333,7 +376,8 @@ const PackageEditor = () => {
                           <div className="flex flex-col"><span className="text-[9px] uppercase tracking-widest text-stone-400">Price Per Head</span><span className={`font-serif text-xl ${theme.text}`}>₱{pkg.pricePerHead?.toLocaleString() || "0"}</span></div>
                           <div className="flex gap-2">
                             <button onClick={() => openModal('view', pkg)} className="p-2 rounded-sm border border-stone-200 dark:border-stone-800 text-stone-500 dark:text-stone-400 hover:text-[#C9A25D] hover:border-[#C9A25D] transition-all bg-transparent"><Eye size={16} /></button>
-                            <button onClick={() => handleDelete(pkg.id)} className="p-2 rounded-sm border border-stone-200 dark:border-stone-800 text-stone-500 dark:text-stone-400 hover:text-red-500 hover:border-red-500 transition-all bg-transparent"><Trash2 size={16} /></button>
+                            {/* UPDATED: Triggers Delete Modal */}
+                            <button onClick={() => handleOpenDelete(pkg)} className="p-2 rounded-sm border border-stone-200 dark:border-stone-800 text-stone-500 dark:text-stone-400 hover:text-red-500 hover:border-red-500 transition-all bg-transparent"><Trash2 size={16} /></button>
                             <button onClick={() => openModal('edit', pkg)} className="p-2 rounded-sm border border-stone-200 dark:border-stone-800 text-stone-500 dark:text-stone-400 hover:text-[#C9A25D] hover:border-[#C9A25D] transition-all bg-transparent"><Edit3 size={16} /></button>
                           </div>
                         </div>
@@ -352,7 +396,11 @@ const PackageEditor = () => {
                             <div className="flex-1 mb-4"><h3 className={`font-serif text-lg ${theme.text} mb-2 leading-tight group-hover:text-[#C9A25D] transition-colors`}>{item.name}</h3><p className={`text-xs ${theme.subText} line-clamp-2`}>{item.description}</p></div>
                             <div className={`pt-4 border-t ${theme.border} border-dashed flex items-center justify-between`}>
                                 <div className="flex flex-col"><span className="text-[9px] uppercase tracking-widest text-stone-400">Price</span><span className={`font-serif text-lg ${theme.text}`}>₱{item.price?.toLocaleString()}</span></div>
-                                <div className="flex gap-2"><button onClick={() => handleDelete(item.id)} className="p-2 text-stone-400 hover:text-red-500 transition-colors"><Trash2 size={16} /></button><button onClick={() => openModal('edit', item)} className="p-2 text-stone-400 hover:text-[#C9A25D] transition-colors"><Edit3 size={16} /></button></div>
+                                <div className="flex gap-2">
+                                  {/* UPDATED: Triggers Delete Modal */}
+                                  <button onClick={() => handleOpenDelete(item)} className="p-2 text-stone-400 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
+                                  <button onClick={() => openModal('edit', item)} className="p-2 text-stone-400 hover:text-[#C9A25D] transition-colors"><Edit3 size={16} /></button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -366,12 +414,22 @@ const PackageEditor = () => {
           )}
         </div>
 
-        {/* MODAL */}
+        {/* --- MODALS --- */}
         {activeTab === 'packages' ? (
             <PackageFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} packageData={currentItem} onSave={handleSave} isSaving={isSaving} theme={theme} mode={modalMode} />
         ) : (
             <AddonFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} itemData={currentItem} onSave={handleSave} isSaving={isSaving} theme={theme} mode={modalMode} />
         )}
+
+        {/* NEW: DELETE MODAL */}
+        <DeleteConfirmationModal 
+          isOpen={isDeleteModalOpen} 
+          onClose={() => setIsDeleteModalOpen(false)} 
+          onConfirm={handleConfirmDelete} 
+          itemName={itemToDelete?.name} 
+          theme={theme} 
+        />
+
       </main>
     </div>
   );

@@ -1,3 +1,4 @@
+// src/components/Sidebar/BookingSidebar.jsx
 import React from "react";
 import {
   Mail,
@@ -75,7 +76,9 @@ const BookingSidebar = ({ details, theme, handleUpdateStatus }) => {
         {/* --- ACTION / STATUS BOX --- */}
         {showActionBox && (
           <div
-            className={`mt-8 p-5 rounded-sm border ${theme.border} ${theme.bg === 'bg-white' ? 'bg-stone-50' : 'bg-stone-900/30'}`}
+            // FIXED: Using 'bg-stone-50' for Light and 'dark:bg-stone-900/30' for Dark.
+            // This ensures it is very light gray (almost white) in light mode.
+            className={`mt-8 p-5 rounded-sm border ${theme.border} bg-stone-50 dark:bg-stone-900/20`}
           >
             {/* CASE 1: PENDING (Decide) */}
             {(status === "Pending" || status === "Pending Review") && (
@@ -87,7 +90,6 @@ const BookingSidebar = ({ details, theme, handleUpdateStatus }) => {
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleUpdateStatus("Accepted")}
-                    // Changed bg-blue-600 to bg-emerald-600
                     className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-sm text-xs font-bold uppercase transition-colors shadow-sm"
                   >
                     <Check size={14} /> Accept
@@ -107,7 +109,6 @@ const BookingSidebar = ({ details, theme, handleUpdateStatus }) => {
 
             {/* CASE 2: ACCEPTED (Feedback) */}
             {status === "Accepted" && (
-              // Changed text-blue-600 to text-emerald-600/emerald-500
               <div className="flex flex-col items-center justify-center py-2 text-emerald-600 dark:text-emerald-500 animate-in fade-in duration-500">
                 <CheckCircle size={28} className="mb-2" />
                 <span className="text-xs font-bold uppercase tracking-widest">
