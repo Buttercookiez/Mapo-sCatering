@@ -328,7 +328,7 @@ const Financials = () => {
                 <div className={`border ${theme.border} ${theme.cardBg} p-8 h-full min-h-[350px] flex flex-col`}>
                   <div className="flex flex-col md:flex-row justify-between md:items-center mb-8 gap-4">
                     <div>
-                        <h3 className="font-serif text-2xl italic">Cash Flow Forecast</h3>
+                        <h3 className="font-serif text-2xl italic">Cash Flow </h3>
                         <p className={`text-[10px] uppercase tracking-wider ${theme.subText} mt-1`}>
                             {forecastFilter === 'Month' ? 'Monthly' : 'Daily'} Projections for <span className="text-[#C9A25D] font-bold">{getDisplayDate()}</span>
                         </p>

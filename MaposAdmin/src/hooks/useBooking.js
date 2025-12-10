@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { subscribeToBookings } from "../services/bookingService"; 
 // Import other write functions if you need them (e.g., apiCreateBooking)
 
@@ -28,11 +28,21 @@ export const useBookings = () => {
     };
   }, []);
 
+  // --- NEW: Calculate Total Revenue ---
+  const totalRevenue = useMemo(() => {
+    return bookings.reduce((total, booking) => {
+      // Convert to number to be safe, default to 0
+      const cost = Number(booking.billing?.totalCost) || 0;
+      return total + cost;
+    }, 0);
+  }, [bookings]); // Re-calculates whenever 'bookings' updates from Firebase
+
   return { 
     bookings, 
+    totalRevenue, // Export the calculated total
     isLoading, 
     error,
-    // Add your write methods here if needed, just like useInventory:
+    // Add your write methods here if needed:
     // addBooking, 
     // updateBookingStatus 
   };

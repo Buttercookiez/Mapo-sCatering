@@ -88,7 +88,7 @@ exports.updateItem = async (req, res) => {
   }
 };
 
-// 3. DELETE Item
+// 3. DELETE Itemput
 exports.deleteItem = async (req, res) => {
   try {
     const { id } = req.params;
