@@ -205,7 +205,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, theme }) => {
         >
           <div className="w-10 h-10 rounded-full overflow-hidden border border-stone-200 grayscale hover:grayscale-0 transition-all cursor-pointer">
             <img
-              src="https://randomuser.me/api/portraits/men/32.jpg"
+              src="/mapoporfile.jpg"
               alt="Admin"
               className="w-full h-full object-cover"
             />
