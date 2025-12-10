@@ -1,6 +1,7 @@
+// src/hooks/useRealtimeNotifications.js
 import { useState, useEffect } from 'react';
-import { db } from '../config/firebase'; // Adjust path to your firebase config
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { db } from '../config/firebase'; 
+import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
 
 const useRealtimeNotifications = () => {
@@ -8,21 +9,33 @@ const useRealtimeNotifications = () => {
   
   // 1. Initialize State from LocalStorage
   const [readIds, setReadIds] = useState(() => {
-    const saved = localStorage.getItem('mapos_read_notifications');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('mapos_read_notifications');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
   });
 
   useEffect(() => {
     // --- QUERY DEFINITIONS ---
+    
+    // 1. Payments: Get last 20 pending payments
     const qPayments = query(
       collection(db, "payments"),
       where("status", "==", "Pending"),
-      orderBy("submittedAt", "desc")
+      orderBy("submittedAt", "desc"),
+      limit(20)
     );
 
+    // 2. Bookings: Get last 50 active/recent bookings
+    // Note: You might need to create a Firestore Index for this query. 
+    // Check your browser console; if it asks for an index, click the link provided.
     const qBookings = query(
       collection(db, "bookings"),
-      where("bookingStatus", "in", ["Pending", "Ongoing", "Completed"])
+      where("bookingStatus", "in", ["Pending", "Ongoing", "Completed"]),
+      orderBy("createdAt", "desc"), // Ensure we only listen to recent ones
+      limit(50) 
     );
 
     // --- LISTENER: PAYMENTS ---
@@ -32,14 +45,17 @@ const useRealtimeNotifications = () => {
         return {
           id: `pay-${doc.id}`,
           title: "Payment Approval Needed",
-          desc: `${data.clientName} sent ₱${data.amount?.toLocaleString()}. Ref: ${data.referenceNumber}`,
+          desc: `${data.clientName || 'Client'} sent ₱${Number(data.amount || 0).toLocaleString()}. Ref: ${data.referenceNumber || 'N/A'}`,
           time: data.submittedAt ? formatTimeAgo(data.submittedAt) : "Just now",
           type: "alert",
-          rawDate: new Date(data.submittedAt),
-          linkData: { verifyId: doc.id } // Store link data for click handler
+          rawDate: data.submittedAt ? new Date(data.submittedAt) : new Date(),
+          linkData: { verifyId: doc.id } 
         };
       });
       updateCombinedNotifications(paymentNotifs, 'payments');
+    }, (error) => {
+      console.warn("Payment Notification Listener Error:", error);
+      // Prevents app crash on permission/index errors
     });
 
     // --- LISTENER: BOOKINGS ---
@@ -55,10 +71,10 @@ const useRealtimeNotifications = () => {
           bookingNotifs.push({
             id: `bk-new-${doc.id}`,
             title: "New Client Inquiry",
-            desc: `${data.profile?.name} inquired for ${data.eventDetails?.venue || 'an event'}.`,
+            desc: `${data.profile?.name || 'Unknown'} inquired for ${data.eventDetails?.venue || 'an event'}.`,
             time: formatTimeAgo(data.createdAt),
             type: "info",
-            rawDate: new Date(data.createdAt),
+            rawDate: data.createdAt ? new Date(data.createdAt) : new Date(),
             linkData: { openBookingId: doc.id }
           });
         }
@@ -68,10 +84,10 @@ const useRealtimeNotifications = () => {
           bookingNotifs.push({
             id: `bk-ongoing-${doc.id}`,
             title: "Event Happening Now",
-            desc: `${data.profile?.name}'s event is currently ongoing.`,
+            desc: `${data.profile?.name || 'Unknown'}'s event is currently ongoing.`,
             time: "Ongoing",
             type: "success",
-            rawDate: new Date(),
+            rawDate: new Date(), // Always top
             linkData: { openBookingId: doc.id }
           });
         }
@@ -82,15 +98,18 @@ const useRealtimeNotifications = () => {
           bookingNotifs.push({
             id: `bk-opex-${doc.id}`,
             title: "Missing Operational Cost",
-            desc: `Event for ${data.profile?.name} is done. Please enter expenses.`,
+            desc: `Event for ${data.profile?.name || 'Client'} is done. Please enter expenses.`,
             time: formatTimeAgo(updatedAt),
             type: "alert",
-            rawDate: new Date(updatedAt),
+            rawDate: updatedAt ? new Date(updatedAt) : new Date(),
             linkData: { openBookingId: doc.id }
           });
         }
       });
       updateCombinedNotifications(bookingNotifs, 'bookings');
+    }, (error) => {
+       console.warn("Booking Notification Listener Error:", error);
+       // If you see "The query requires an index" in console, click the link!
     });
 
     // --- MERGE LOGIC ---
@@ -116,7 +135,6 @@ const useRealtimeNotifications = () => {
 
   // --- ACTIONS ---
 
-  // Mark a single notification as read
   const markAsRead = (id) => {
     if (!readIds.includes(id)) {
       const newReadIds = [...readIds, id];
@@ -125,20 +143,15 @@ const useRealtimeNotifications = () => {
     }
   };
 
-  // Mark all visible notifications as read
   const markAllAsRead = () => {
     const allIds = notifications.map(n => n.id);
-    // Merge with existing read IDs to ensure we don't lose history of older ones if needed
     const uniqueIds = [...new Set([...readIds, ...allIds])];
     setReadIds(uniqueIds);
     localStorage.setItem('mapos_read_notifications', JSON.stringify(uniqueIds));
   };
 
-  // --- DERIVED STATE ---
-  // Return the raw notifications list, but also return the count of UNREAD items
   const unreadCount = notifications.filter(n => !readIds.includes(n.id)).length;
 
-  // Add the 'isRead' property to the notifications for the UI to use
   const notificationsWithStatus = notifications.map(n => ({
     ...n,
     isRead: readIds.includes(n.id)
