@@ -1,11 +1,9 @@
 // src/pages/Finance/Financials.jsx
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
-  DollarSign, TrendingUp, Download, 
-  ArrowUpRight, ArrowDownRight,
-  Package, Trash2, AlertCircle, 
-  Wallet, Coins, CalendarRange, PieChart, Users,
-  BarChart3, Filter, ChevronLeft, ChevronRight
+  DollarSign, Download, 
+  Trash2, Wallet, Coins, CalendarRange, 
+  BarChart3, ChevronLeft, ChevronRight, PieChart
 } from 'lucide-react';
 
 import Sidebar from '../../components/layout/Sidebar';
@@ -130,19 +128,28 @@ const Financials = () => {
     const viewYear = selectedDate.getFullYear();
     const viewMonth = selectedDate.getMonth(); 
 
+    // Helper to create bucket
+    const createBucket = (label, sortKey) => ({ 
+        label, 
+        sortKey, 
+        receivable: 0, 
+        revenue: 0, 
+        profit: 0 
+    });
+
     if (forecastFilter === 'Month') {
         for (let i = 0; i < 12; i++) {
             const label = new Date(viewYear, i, 1).toLocaleString('default', { month: 'short' });
-            chartBuckets.push({ label, sortKey: i, amount: 0 });
+            chartBuckets.push(createBucket(label, i));
         }
     } else if (forecastFilter === 'Day') {
         const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
         for (let i = 1; i <= daysInMonth; i++) {
-            chartBuckets.push({ label: `${i}`, sortKey: i, amount: 0 });
+            chartBuckets.push(createBucket(`${i}`, i));
         }
     } else if (forecastFilter === 'Week') {
         for (let i = 1; i <= 5; i++) {
-            chartBuckets.push({ label: `Week ${i}`, sortKey: i, amount: 0 });
+            chartBuckets.push(createBucket(`Week ${i}`, i));
         }
     }
 
@@ -173,31 +180,34 @@ const Financials = () => {
             const eventYear = eventDate.getFullYear();
             const eventMonth = eventDate.getMonth();
             const eventDay = eventDate.getDate();
+            
+            // Logic to determine which bucket this booking belongs to
+            let bucketIndex = -1;
 
-            if (balance > 0) { 
-                if (forecastFilter === 'Month') {
-                    if (eventYear === viewYear) {
-                        chartBuckets[eventMonth].amount += balance;
+            if (forecastFilter === 'Month') {
+                if (eventYear === viewYear) bucketIndex = eventMonth;
+            } else {
+                if (eventYear === viewYear && eventMonth === viewMonth) {
+                    if (forecastFilter === 'Day') {
+                        bucketIndex = eventDay - 1;
+                    } else if (forecastFilter === 'Week') {
+                        const weekNum = Math.ceil(eventDay / 7); 
+                        bucketIndex = Math.min(weekNum, 5) - 1; 
                     }
-                } else {
-                    if (eventYear === viewYear && eventMonth === viewMonth) {
-                        if (forecastFilter === 'Day') {
-                            if(chartBuckets[eventDay - 1]) {
-                                chartBuckets[eventDay - 1].amount += balance;
-                            }
-                        } else if (forecastFilter === 'Week') {
-                            const weekNum = Math.ceil(eventDay / 7); 
-                            const bucketIndex = Math.min(weekNum, 5) - 1; 
-                            if(chartBuckets[bucketIndex]) {
-                                chartBuckets[bucketIndex].amount += balance;
-                            }
-                        }
-                    }
+                }
+            }
+
+            // Add to bucket if valid
+            if (bucketIndex >= 0 && chartBuckets[bucketIndex]) {
+                chartBuckets[bucketIndex].revenue += contractPrice;
+                chartBuckets[bucketIndex].profit += netProfit;
+                if (balance > 0) {
+                    chartBuckets[bucketIndex].receivable += balance;
                 }
             }
         }
 
-        // Category Stats
+        // Category Stats & Totals Logic
         const type = b.eventType || "Other";
         if (!categoryStats[type]) categoryStats[type] = { count: 0, revenue: 0 };
         categoryStats[type].count += 1;
@@ -260,7 +270,7 @@ const Financials = () => {
           height: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-          background: #2a2a2a; /* Dark track to match screenshot */
+          background: #2a2a2a; 
           border-radius: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
@@ -323,20 +333,38 @@ const Financials = () => {
           {/* --- CHARTS SECTION --- */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
             
-            {/* CASH FLOW FORECAST CHART */}
+            {/* CASH FLOW & REVENUE FORECAST CHART */}
             <div className="lg:col-span-2">
               <FadeIn delay={400}>
                 <div className={`border ${theme.border} ${theme.cardBg} p-8 h-full min-h-[350px] flex flex-col`}>
-                  <div className="flex flex-col md:flex-row justify-between md:items-center mb-8 gap-4">
+                  
+                  {/* CHART HEADER */}
+                  <div className="flex flex-col md:flex-row justify-between md:items-start mb-6 gap-4">
                     <div>
-                        <h3 className="font-serif text-2xl italic">Cash Flow Forecast</h3>
+                        <h3 className="font-serif text-2xl italic">Financial Forecast</h3>
                         <p className={`text-[10px] uppercase tracking-wider ${theme.subText} mt-1`}>
-                            {forecastFilter === 'Month' ? 'Monthly' : 'Daily'} Projections for <span className="text-[#C9A25D] font-bold">{getDisplayDate()}</span>
+                            Revenue, Profit & Cash Flow for <span className="text-[#C9A25D] font-bold">{getDisplayDate()}</span>
                         </p>
+                        
+                        {/* LEGEND */}
+                        <div className="flex items-center gap-4 mt-4">
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full bg-stone-300 dark:bg-stone-600"></div>
+                                <span className={`text-[10px] uppercase tracking-wider ${theme.subText}`}>Revenue</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                                <span className={`text-[10px] uppercase tracking-wider ${theme.subText}`}>Net Profit</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full bg-[#C9A25D]"></div>
+                                <span className={`text-[10px] uppercase tracking-wider ${theme.subText}`}>Receivable</span>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div className="flex items-center gap-6">
-                        {/* Date Navigation - Minimal */}
+                    <div className="flex flex-col items-end gap-3">
+                        {/* Date Navigation */}
                         <div className="flex items-center gap-2">
                             <button onClick={handlePrev} className="p-1 text-stone-400 hover:text-white transition-colors bg-stone-800/50 rounded hover:bg-stone-700">
                                 <ChevronLeft size={14}/>
@@ -349,7 +377,7 @@ const Financials = () => {
                             </button>
                         </div>
 
-                        {/* UPDATED: Tab Filter Style from PackageEditor */}
+                        {/* Filter Tabs */}
                         <div className={`flex bg-stone-200 dark:bg-stone-800 p-1 rounded-sm`}>
                             {['Day', 'Week', 'Month'].map((filter) => (
                                 <button
@@ -368,35 +396,71 @@ const Financials = () => {
                     </div>
                   </div>
                   
-                  {/* Forecast Visualization */}
-                  <div className="flex-1 flex items-end gap-2 w-full px-2 overflow-x-auto pb-4 custom-scrollbar">
-                     {forecastChartData.every(i => i.amount === 0) ? (
+                  {/* CHART VISUALIZATION */}
+                  <div className="flex-1 flex items-end gap-2 w-full px-2 overflow-x-auto pb-2 custom-scrollbar">
+                     {forecastChartData.every(i => i.revenue === 0) ? (
                          <div className="w-full h-full flex flex-col items-center justify-center text-stone-500">
                             <CalendarRange size={32} className="mb-2 opacity-20" />
-                            <span className="text-xs">No pending receivables for this period.</span>
+                            <span className="text-xs">No financial activity for this period.</span>
                          </div>
                      ) : (
                          forecastChartData.map((item, i) => {
-                           const maxVal = Math.max(...forecastChartData.map(m => m.amount)) || 1;
-                           const height = item.amount > 0 ? (item.amount / maxVal) * 100 : 0;
+                           // Scale everything relative to the highest Revenue in the set
+                           const maxVal = Math.max(...forecastChartData.map(m => m.revenue)) || 1;
+                           
+                           // Calculate heights percentages
+                           const hRev = (item.revenue / maxVal) * 100;
+                           const hProf = (item.profit / maxVal) * 100;
+                           const hRec = (item.receivable / maxVal) * 100;
+                           
+                           // Avoid division by zero for margin
+                           const marginPct = item.revenue > 0 ? ((item.profit / item.revenue) * 100).toFixed(1) : 0;
                            
                            return (
-                             <div key={i} className="flex-1 min-w-[30px] flex flex-col justify-end h-full group relative">
-                                <div className="text-xs font-bold text-[#C9A25D] text-center mb-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap absolute -top-6 w-full z-10">
-                                    {item.amount > 0 ? `₱${(item.amount/1000).toFixed(1)}k` : ''}
+                             <div key={i} className="flex-1 min-w-[40px] flex flex-col justify-end h-full group relative hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded transition-colors px-1 pt-4">
+                                
+                                {/* TOOLTIP (Hover) */}
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max bg-stone-900 text-white text-[10px] p-2 rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none border border-stone-700">
+                                    <div className="font-bold mb-1 border-b border-stone-700 pb-1 text-[#C9A25D]">{item.label}</div>
+                                    <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                                        <span className="text-stone-400">Revenue:</span>
+                                        <span className="text-right">₱{(item.revenue/1000).toFixed(1)}k</span>
+                                        
+                                        <span className="text-blue-400">Net Profit:</span>
+                                        <span className="text-right text-blue-400">₱{(item.profit/1000).toFixed(1)}k</span>
+                                        
+                                        <span className="text-stone-500">Margin:</span>
+                                        <span className="text-right text-stone-300">{marginPct}%</span>
+
+                                        <span className="text-[#C9A25D]">Due:</span>
+                                        <span className="text-right text-[#C9A25D]">₱{(item.receivable/1000).toFixed(1)}k</span>
+                                    </div>
                                 </div>
                                 
-                                {/* Bar Track - Dark Grey Background (Slot look) */}
-                                <div className="relative w-full rounded-sm overflow-hidden h-40 flex items-end justify-center bg-stone-800/80">
+                                {/* BARS CONTAINER */}
+                                <div className="relative w-full h-40 flex items-end justify-center gap-[2px]">
+                                   
+                                   {/* 1. Revenue Bar (Grey) */}
                                    <div 
-                                      style={{ height: `${height}%` }} 
-                                      className={`w-full transition-all duration-500 ${
-                                          item.amount > 0 
-                                          ? 'bg-[#C9A25D] opacity-100' // Solid Gold
-                                          : 'bg-transparent'
-                                      }`}
+                                      style={{ height: `${hRev}%` }} 
+                                      className={`w-1.5 md:w-2.5 rounded-t-sm transition-all duration-700 bg-stone-300 dark:bg-stone-700 group-hover:bg-stone-400 dark:group-hover:bg-stone-600`}
                                    ></div>
+
+                                   {/* 2. Profit Bar (Blue) */}
+                                   <div 
+                                      style={{ height: `${hProf}%` }} 
+                                      className={`w-1.5 md:w-2.5 rounded-t-sm transition-all duration-700 delay-75 bg-blue-400/80 group-hover:bg-blue-400`}
+                                   ></div>
+
+                                   {/* 3. Receivable Bar (Gold) */}
+                                   <div 
+                                      style={{ height: `${hRec}%` }} 
+                                      className={`w-1.5 md:w-2.5 rounded-t-sm transition-all duration-700 delay-150 ${item.receivable > 0 ? 'bg-[#C9A25D]' : 'bg-transparent'}`}
+                                   ></div>
+
                                 </div>
+
+                                {/* X-AXIS LABEL */}
                                 <span className={`text-[9px] text-center mt-3 font-medium text-stone-500 group-hover:text-stone-300 transition-colors whitespace-nowrap overflow-hidden text-ellipsis`}>
                                     {item.label}
                                 </span>
@@ -409,7 +473,7 @@ const Financials = () => {
               </FadeIn>
             </div>
 
-            {/* REVENUE BY CATEGORY (UNCHANGED) */}
+            {/* REVENUE BY CATEGORY */}
             <div className="lg:col-span-1">
               <FadeIn delay={500}>
                 <div className={`border ${theme.border} ${theme.cardBg} p-8 h-full`}>
@@ -452,7 +516,7 @@ const Financials = () => {
             </div>
           </div>
 
-          {/* --- TRANSACTION LEDGER (UNCHANGED) --- */}
+          {/* --- TRANSACTION LEDGER --- */}
           <FadeIn delay={600}>
             <div className={`border ${theme.border} ${theme.cardBg} rounded-sm min-h-[400px]`}>
               <div className="p-6 md:p-8 flex justify-between items-center border-b border-stone-100 dark:border-stone-800">
