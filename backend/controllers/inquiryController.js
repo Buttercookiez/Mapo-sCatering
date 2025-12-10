@@ -41,13 +41,20 @@ const createInquiry = async (req, res) => {
         // 3. CLIENT CREATION/LOOKUP
         let readableClientId;
         let clientDocId;
-        let clientQuery;
 
-        if (!clientQuery.empty) {
-            const clientDoc = clientQuery.docs[0];
+        // --- FIX: Actually Query the Database First ---
+        const clientQuerySnapshot = await db.collection("clients")
+            .where("profile.email", "==", clientEmail)
+            .limit(1)
+            .get();
+
+        if (!clientQuerySnapshot.empty) {
+            // EXISTING CLIENT FOUND
+            const clientDoc = clientQuerySnapshot.docs[0];
             clientDocId = clientDoc.id;
             readableClientId = clientDoc.data().clientId;
         } else {
+            // NEW CLIENT LOGIC
             const clientSnapshot = await db.collection("clients").orderBy("clientId", "desc").limit(1).get();
             let newClientNum = 1;
             if (!clientSnapshot.empty) {
@@ -63,6 +70,8 @@ const createInquiry = async (req, res) => {
             readableClientId = `CL-${newClientNum.toString().padStart(3, "0")}`;
             const newClientRef = db.collection("clients").doc();
             clientDocId = newClientRef.id;
+            
+            // Add new client to batch
             batch.set(newClientRef, {
                 clientId: readableClientId,
                 profile: { name: data.name, email: clientEmail, contactNumber: data.phone || "" },

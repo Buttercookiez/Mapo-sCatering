@@ -270,6 +270,37 @@ const StockMovementModal = ({ isOpen, onClose, onSave, item, theme, darkMode }) 
   );
 };
 
+// --- MODAL: DELETE CONFIRMATION ---
+const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, itemName, theme }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="absolute inset-0" onClick={onClose}></div>
+      <div className={`w-full max-w-sm ${theme.cardBg} rounded-sm shadow-2xl border ${theme.border} relative z-50 animate-in fade-in zoom-in duration-200 flex flex-col overflow-hidden`}>
+        <div className="p-8 text-center">
+          <div className="mx-auto w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+            <Trash2 size={24} className="text-red-500" />
+          </div>
+          <h3 className={`font-serif text-2xl ${theme.text} mb-2`}>Delete Asset?</h3>
+          <p className={`text-xs ${theme.subText} leading-relaxed`}>
+            Are you sure you want to delete <span className={`font-bold ${theme.text}`}>{itemName}</span>?
+            <br />This action cannot be undone.
+          </p>
+        </div>
+        <div className={`flex border-t ${theme.border}`}>
+          <button onClick={onClose} className={`flex-1 py-4 text-[10px] uppercase tracking-widest font-medium ${theme.text} hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors`}>
+            Cancel
+          </button>
+          <button onClick={onConfirm} className="flex-1 py-4 text-[10px] uppercase tracking-widest font-medium text-white bg-red-500 hover:bg-red-600 transition-colors">
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- MAIN PAGE ---
 const Inventory = () => {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
@@ -289,6 +320,10 @@ const Inventory = () => {
   const [editingItem, setEditingItem] = useState(null); 
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [stockItem, setStockItem] = useState(null);
+
+  // --- DELETE MODAL STATE ---
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
 
   const { inventoryData, logsData, loading, addItem, updateItem, deleteItem, moveStock } = useInventory();
   const safeInventory = inventoryData || [];
@@ -325,6 +360,20 @@ const Inventory = () => {
   const handleOpenEdit = (item) => { setEditingItem(item); setIsItemModalOpen(true); };
   const handleOpenStock = (item) => { setStockItem(item); setIsStockModalOpen(true); };
   
+  // --- DELETE HANDLERS ---
+  const handleOpenDelete = (item) => {
+    setItemToDelete(item);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (itemToDelete) {
+      await deleteItem(itemToDelete.id);
+      setIsDeleteModalOpen(false);
+      setItemToDelete(null);
+    }
+  };
+
   const handleSaveItem = async (itemData, id) => {
     if (id) await updateItem(id, itemData);
     else await addItem({ ...itemData, sku: `SKU-${Math.floor(1000 + Math.random() * 9000)}` });
@@ -346,10 +395,6 @@ const Inventory = () => {
 
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text} selection:bg-[#C9A25D] selection:text-white`}>
-      {/* 
-        FIX: Removed local font @import and definitions. 
-        Only keeping custom scrollbar and input tweaks to prevent font stacking/bolding issues.
-      */}
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
@@ -357,16 +402,9 @@ const Inventory = () => {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #57534e; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #C9A25D; }
         .custom-scrollbar { scrollbar-width: thin; scrollbar-color: #57534e transparent; }
-        
-        /* REMOVE SPINNERS */
         input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button { 
-          -webkit-appearance: none; 
-          margin: 0; 
-        }
-        input[type=number] {
-          -moz-appearance: textfield;
-        }
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
       `}</style>
 
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={setActiveTab} theme={theme} />
@@ -412,7 +450,6 @@ const Inventory = () => {
                           
                           {/* FILTER BUTTON & DROPDOWN */}
                           <div className="relative" ref={dropdownRef}>
-                              {/* Trigger Button: Boxed, Uppercase */}
                               <button 
                                 onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)} 
                                 className={`flex items-center gap-2 px-6 py-3 border text-[10px] uppercase tracking-[0.25em] transition-all bg-transparent ${
@@ -424,7 +461,6 @@ const Inventory = () => {
                                   <Filter size={14} strokeWidth={1.5} /> FILTER
                               </button>
                               
-                              {/* Dropdown Menu: Styled like the Modal Inputs */}
                               {isFilterDropdownOpen && (
                                   <div 
                                     className={`absolute top-full right-0 mt-2 w-56 max-h-60 overflow-y-auto shadow-2xl rounded-sm z-50 transition-all duration-300 ease-out origin-top no-scrollbar`}
@@ -464,7 +500,7 @@ const Inventory = () => {
                       <div className="col-span-2 text-right">Actions</div>
                   </div>
                   
-                  {/* ASSET LIST - Using direct borders instead of divide-y for dark mode line fix */}
+                  {/* ASSET LIST */}
                   <div className={`flex-1 overflow-y-auto custom-scrollbar`}>
                       {loading ? ( <div className="h-full flex flex-col items-center justify-center text-stone-400"><Loader2 size={32} className="animate-spin mb-4 text-[#C9A25D]" /><p className="text-xs uppercase">Loading Assets...</p></div> ) 
                       : filteredItems.length === 0 ? ( <div className="h-full flex flex-col items-center justify-center text-center"><Package size={40} className="mx-auto text-stone-300 mb-4" /><p className="text-stone-400 italic">No items found.</p></div> ) 
@@ -489,7 +525,8 @@ const Inventory = () => {
                               <div className="col-span-2 flex justify-end items-center gap-1">
                                   <button onClick={() => handleOpenStock(item)} className={`p-1.5 rounded-sm hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors ${theme.subText}`} title="Move Stock"><ArrowRightLeft size={14} /></button>
                                   <button onClick={() => handleOpenEdit(item)} className={`p-1.5 rounded-sm hover:bg-[#C9A25D] hover:text-white transition-colors ${theme.subText}`} title="Edit"><Pencil size={14} /></button>
-                                  <button onClick={() => deleteItem(item.id)} className={`p-1.5 rounded-sm hover:bg-red-500 hover:text-white transition-colors ${theme.subText}`} title="Delete"><Trash2 size={14} /></button>
+                                  {/* UPDATE: Trash Button triggers Modal now */}
+                                  <button onClick={() => handleOpenDelete(item)} className={`p-1.5 rounded-sm hover:bg-red-500 hover:text-white transition-colors ${theme.subText}`} title="Delete"><Trash2 size={14} /></button>
                               </div>
                           </div>
                           );
@@ -526,6 +563,8 @@ const Inventory = () => {
 
       <ItemModal isOpen={isItemModalOpen} onClose={() => setIsItemModalOpen(false)} onSave={handleSaveItem} theme={theme} categories={categories} initialData={editingItem} darkMode={darkMode} />
       <StockMovementModal isOpen={isStockModalOpen} onClose={() => setIsStockModalOpen(false)} onSave={handleStockUpdate} item={stockItem} theme={theme} darkMode={darkMode} />
+      {/* NEW: Delete Confirmation Modal */}
+      <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleConfirmDelete} itemName={itemToDelete?.name} theme={theme} />
     </div>
   );
 };
