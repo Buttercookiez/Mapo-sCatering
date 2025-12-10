@@ -364,21 +364,21 @@ const Financials = () => {
                     </div>
                     
                     <div className="flex flex-col items-end gap-3">
-                        {/* Date Navigation */}
+                        {/* Date Navigation - FIXED: Clean, no dark gray bg */}
                         <div className="flex items-center gap-2">
-                            <button onClick={handlePrev} className="p-1 text-stone-400 hover:text-white transition-colors bg-stone-800/50 rounded hover:bg-stone-700">
+                            <button onClick={handlePrev} className="p-1.5 rounded-full text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors">
                                 <ChevronLeft size={14}/>
                             </button>
-                            <div className="px-3 text-[10px] font-bold uppercase min-w-[80px] text-center text-stone-300 tracking-wider">
+                            <div className="px-3 text-[10px] font-bold uppercase min-w-[80px] text-center text-stone-500 dark:text-stone-300 tracking-wider">
                                 {getDisplayDate()}
                             </div>
-                            <button onClick={handleNext} className="p-1 text-stone-400 hover:text-white transition-colors bg-stone-800/50 rounded hover:bg-stone-700">
+                            <button onClick={handleNext} className="p-1.5 rounded-full text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors">
                                 <ChevronRight size={14}/>
                             </button>
                         </div>
 
-                        {/* Filter Tabs */}
-                        <div className={`flex bg-stone-200 dark:bg-stone-800 p-1 rounded-sm`}>
+                        {/* Filter Tabs - FIXED: Lighter grey/white with border */}
+                        <div className={`flex bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-1 rounded-sm`}>
                             {['Day', 'Week', 'Month'].map((filter) => (
                                 <button
                                     key={filter}
@@ -386,7 +386,7 @@ const Financials = () => {
                                     className={`px-4 py-1.5 text-[10px] uppercase tracking-widest font-bold rounded-sm transition-all ${
                                         forecastFilter === filter 
                                         ? 'bg-white dark:bg-[#1c1c1c] text-[#C9A25D] shadow-sm' 
-                                        : 'text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
+                                        : 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'
                                     }`}
                                 >
                                     {filter}
@@ -518,7 +518,8 @@ const Financials = () => {
 
           {/* --- TRANSACTION LEDGER --- */}
           <FadeIn delay={600}>
-            <div className={`border ${theme.border} ${theme.cardBg} rounded-sm min-h-[400px]`}>
+            {/* FIXED: Added 'overflow-x-auto' and 'flex flex-col' to container */}
+            <div className={`border ${theme.border} ${theme.cardBg} rounded-sm min-h-[400px] flex flex-col`}>
               <div className="p-6 md:p-8 flex justify-between items-center border-b border-stone-100 dark:border-stone-800">
                 <div>
                    <h3 className="font-serif text-2xl italic">Operational Ledger</h3>
@@ -526,47 +527,53 @@ const Financials = () => {
                 </div>
               </div>
 
-              {/* Table Header */}
-              <div className={`grid grid-cols-12 gap-4 px-8 py-4 border-b ${theme.border} text-[10px] uppercase tracking-[0.2em] font-medium text-stone-400 select-none`}>
-                <div className="col-span-3">Client & Event</div>
-                <div className="col-span-1">Date</div>
-                <div className="col-span-2 text-right">Revenue</div>
-                <div className="col-span-1.5 text-right">Expense</div>
-                <div className="col-span-1.5 text-right">Net</div>
-                <div className="col-span-1.5 text-right">Margin</div>
-                <div className="col-span-1.5 text-center">Balance</div>
-              </div>
+              {/* FIXED: Scroll Wrapper + Min-Width Container */}
+              <div className="overflow-x-auto custom-scrollbar">
+                  <div className="min-w-[1000px]"> 
+                      
+                      {/* Table Header */}
+                      <div className={`grid grid-cols-12 gap-4 px-8 py-4 border-b ${theme.border} text-[10px] uppercase tracking-[0.2em] font-medium text-stone-400 select-none`}>
+                        <div className="col-span-3">Client & Event</div>
+                        <div className="col-span-1">Date</div>
+                        <div className="col-span-2 text-right">Revenue</div>
+                        <div className="col-span-1.5 text-right">Expense</div>
+                        <div className="col-span-1.5 text-right">Net</div>
+                        <div className="col-span-1.5 text-right">Margin</div>
+                        <div className="col-span-1.5 text-center">Balance</div>
+                      </div>
 
-              {/* Table Body */}
-              <div className={`divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
-                {bookingsLoading ? (
-                    <div className="p-10 flex justify-center text-[#C9A25D]">Loading Data...</div>
-                ) : analytics.records.map((rec) => (
-                    <div key={rec.id} className={`grid grid-cols-12 gap-4 px-8 py-5 items-center group ${theme.hoverBg} transition-colors duration-300`}>
-                      <div className="col-span-3">
-                        <span className={`font-serif text-md block leading-tight ${theme.text}`}>{rec.client}</span>
-                        <span className={`text-[10px] ${theme.subText} block mt-1 uppercase tracking-wider`}>{rec.event}</span>
+                      {/* Table Body */}
+                      <div className={`divide-y ${darkMode ? 'divide-stone-800' : 'divide-stone-100'}`}>
+                        {bookingsLoading ? (
+                            <div className="p-10 flex justify-center text-[#C9A25D]">Loading Data...</div>
+                        ) : analytics.records.map((rec) => (
+                            <div key={rec.id} className={`grid grid-cols-12 gap-4 px-8 py-5 items-center group ${theme.hoverBg} transition-colors duration-300`}>
+                              <div className="col-span-3 pr-2">
+                                <span title={rec.client} className={`font-serif text-md block leading-tight ${theme.text} truncate`}>{rec.client}</span>
+                                <span title={rec.event} className={`text-[10px] ${theme.subText} block mt-1 uppercase tracking-wider truncate`}>{rec.event}</span>
+                              </div>
+                              <div className={`col-span-1 text-xs ${theme.subText} truncate`}>{rec.date}</div>
+                              <div className={`col-span-2 text-right text-sm font-medium ${theme.text}`}>₱{rec.contractPrice.toLocaleString()}</div>
+                              <div className={`col-span-1.5 text-right text-sm text-rose-400`}>{rec.hasOpsData ? `(₱${rec.opsCost.toLocaleString()})` : '-'}</div>
+                              <div className={`col-span-1.5 text-right font-serif text-md text-emerald-500`}>{rec.hasOpsData ? `₱${rec.netProfit.toLocaleString()}` : '-'}</div>
+                              <div className={`col-span-1.5 text-right`}>
+                                 {rec.margin !== null ? (
+                                     <span className={`text-[10px] px-2 py-1 rounded border ${Number(rec.margin) > 40 ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500' : 'border-amber-500/20 bg-amber-500/10 text-amber-500'}`}>
+                                         {rec.margin}%
+                                     </span>
+                                 ) : (<span className="text-[10px] text-stone-400">-</span>)}
+                              </div>
+                              <div className="col-span-1.5 flex justify-center">
+                                 {rec.balance === 0 ? (
+                                     <div className="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center" title="Fully Paid"><DollarSign size={12} /></div>
+                                 ) : (
+                                     <span className="text-[9px] uppercase font-bold text-amber-500 tracking-widest border border-amber-500/30 px-2 py-1 rounded" title={`Due: ₱${rec.balance.toLocaleString()}`}>Due</span>
+                                 )}
+                              </div>
+                            </div>
+                          ))}
                       </div>
-                      <div className={`col-span-1 text-xs ${theme.subText} truncate`}>{rec.date}</div>
-                      <div className={`col-span-2 text-right text-sm font-medium ${theme.text}`}>₱{rec.contractPrice.toLocaleString()}</div>
-                      <div className={`col-span-1.5 text-right text-sm text-rose-400`}>{rec.hasOpsData ? `(₱${rec.opsCost.toLocaleString()})` : '-'}</div>
-                      <div className={`col-span-1.5 text-right font-serif text-md text-emerald-500`}>{rec.hasOpsData ? `₱${rec.netProfit.toLocaleString()}` : '-'}</div>
-                      <div className={`col-span-1.5 text-right`}>
-                         {rec.margin !== null ? (
-                             <span className={`text-[10px] px-2 py-1 rounded border ${Number(rec.margin) > 40 ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500' : 'border-amber-500/20 bg-amber-500/10 text-amber-500'}`}>
-                                 {rec.margin}%
-                             </span>
-                         ) : (<span className="text-[10px] text-stone-400">-</span>)}
-                      </div>
-                      <div className="col-span-1.5 flex justify-center">
-                         {rec.balance === 0 ? (
-                             <div className="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center" title="Fully Paid"><DollarSign size={12} /></div>
-                         ) : (
-                             <span className="text-[9px] uppercase font-bold text-amber-500 tracking-widest border border-amber-500/30 px-2 py-1 rounded" title={`Due: ₱${rec.balance.toLocaleString()}`}>Due</span>
-                         )}
-                      </div>
-                    </div>
-                  ))}
+                  </div>
               </div>
             </div>
           </FadeIn>
