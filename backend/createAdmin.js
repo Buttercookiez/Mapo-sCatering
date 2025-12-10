@@ -3,8 +3,8 @@ const { db } = require("./firestore/firebase"); // Adjust path if your firebase.
 const bcrypt = require("bcryptjs");
 
 const createAdmin = async () => {
-  const email = "cemima@albuero.com";
-  const password = "jemimaxalbuero"; // This is your raw password
+  const email = "";
+  const password = ""; // This is your raw password
 
   try {
     // 1. Check if admin already exists
