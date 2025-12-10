@@ -1,3 +1,4 @@
+// src/pages/Finance/Financials.jsx
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   DollarSign, TrendingUp, Download, 
@@ -348,19 +349,17 @@ const Financials = () => {
                             </button>
                         </div>
 
-                        {/* Filter Switcher - High Contrast (White Active on Dark) */}
-                        <div className="flex gap-1 bg-transparent">
+                        {/* UPDATED: Tab Filter Style from PackageEditor */}
+                        <div className={`flex bg-stone-200 dark:bg-stone-800 p-1 rounded-sm`}>
                             {['Day', 'Week', 'Month'].map((filter) => (
                                 <button
                                     key={filter}
                                     onClick={() => setForecastFilter(filter)}
-                                    className={`
-                                        px-4 py-1.5 text-[10px] uppercase tracking-widest rounded transition-all duration-300 font-bold border
-                                        ${forecastFilter === filter 
-                                            ? 'bg-white text-[#C9A25D] border-white' // Matches screenshot: White box, gold text
-                                            : 'bg-transparent text-stone-500 border-transparent hover:text-stone-300'
-                                        }
-                                    `}
+                                    className={`px-4 py-1.5 text-[10px] uppercase tracking-widest font-bold rounded-sm transition-all ${
+                                        forecastFilter === filter 
+                                        ? 'bg-white dark:bg-[#1c1c1c] text-[#C9A25D] shadow-sm' 
+                                        : 'text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
+                                    }`}
                                 >
                                     {filter}
                                 </button>
