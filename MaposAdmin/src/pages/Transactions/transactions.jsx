@@ -1,6 +1,6 @@
-// src/pages/Transactions/Transactions.jsx
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import { useLocation } from "react-router-dom"; // <--- ADDED IMPORT
 import {
   Filter,
   Download,
@@ -23,7 +23,7 @@ import DashboardNavbar from "../../components/layout/Navbar";
 
 // --- UI COMPONENTS ---
 
-// Updated FadeIn to accept className for layout control
+// FadeIn Component
 const FadeIn = ({ children, delay = 0, className = "" }) => {
   const [isVisible, setIsVisible] = useState(false);
   const ref = useRef(null);
@@ -55,7 +55,7 @@ const FadeIn = ({ children, delay = 0, className = "" }) => {
   );
 };
 
-// 1. CUSTOM MODAL COMPONENT
+// Confirmation Modal Component
 const ConfirmationModal = ({
   isOpen,
   onClose,
@@ -108,7 +108,7 @@ const ConfirmationModal = ({
   );
 };
 
-// 2. TOAST NOTIFICATION COMPONENT
+// Toast Notification Component
 const ToastNotification = ({ show, message, type, onClose }) => {
   useEffect(() => {
     if (show) {
@@ -173,6 +173,8 @@ const Transactions = () => {
     type: "success",
   });
 
+  const location = useLocation(); // <--- INITIALIZE LOCATION HOOK
+
   // Theme Management
   useEffect(() => {
     if (darkMode) {
@@ -217,7 +219,26 @@ const Transactions = () => {
     return () => unsubscribe();
   }, []);
 
-  // --- 2. ACTION HANDLERS ---
+  // --- 2. HANDLE NOTIFICATION REDIRECT (NEW) ---
+  useEffect(() => {
+    // Only run if we have transactions loaded and there is a state from navigation
+    if (!isLoading && transactions.length > 0 && location.state?.verifyId) {
+      const targetId = location.state.verifyId;
+      
+      // Check if transaction exists in current list
+      const exists = transactions.find(t => t.id === targetId);
+      
+      // If it exists and is Pending, open modal immediately
+      if (exists && exists.status === 'Pending') {
+        setModalState({ isOpen: true, targetId: targetId });
+        
+        // Clean up history so it doesn't reopen on refresh
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [location.state, isLoading, transactions]);
+
+  // --- 3. ACTION HANDLERS ---
 
   // Step A: Trigger the Modal
   const requestVerification = (id, e) => {
@@ -257,7 +278,7 @@ const Transactions = () => {
     }
   };
 
-  // --- 3. FILTER LOGIC ---
+  // --- 4. FILTER LOGIC ---
   const filteredTransactions = transactions.filter(
     (t) =>
       t.refNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -322,7 +343,6 @@ const Transactions = () => {
               </div>
 
               {/* TABLE BODY (Scrollable) */}
-              {/* NOTE: 'no-scrollbar' class is used here to hide the visual scrollbar while keeping scroll functionality */}
               <div
                 className={`flex-1 overflow-y-auto no-scrollbar divide-y ${
                   darkMode ? "divide-stone-800" : "divide-stone-100"

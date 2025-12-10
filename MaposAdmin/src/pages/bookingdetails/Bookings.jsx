@@ -1,5 +1,5 @@
-// src/pages/Bookings/Bookings.jsx
 import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom"; // <--- ADDED IMPORT
 import Sidebar from "../../components/layout/Sidebar";
 import DashboardNavbar from "../../components/layout/Navbar";
 import BookingList from "./BookingList";
@@ -29,6 +29,8 @@ const Bookings = () => {
 
   // --- USE THE HOOK (Replaces manual API useEffect) ---
   const { bookings, isLoading, addBooking } = useBookings();
+  
+  const location = useLocation(); // <--- INITIALIZE LOCATION HOOK
 
   // --- HANDLERS ---
   
@@ -42,6 +44,25 @@ const Bookings = () => {
       localStorage.setItem("theme", "light");
     }
   }, [darkMode]);
+
+  // --- NEW: HANDLE NOTIFICATION REDIRECT ---
+  useEffect(() => {
+    // Wait for bookings to load and check for navigation state
+    if (!isLoading && bookings.length > 0 && location.state?.openBookingId) {
+        const targetId = location.state.openBookingId;
+        
+        // Find the booking (DB uses 'id' as the document ID)
+        const foundBooking = bookings.find(b => b.id === targetId);
+
+        if (foundBooking) {
+            setSelectedBooking(foundBooking);
+            setCurrentView("details");
+            
+            // Clear history state to prevent loop on refresh
+            window.history.replaceState({}, document.title);
+        }
+    }
+  }, [location.state, isLoading, bookings]);
 
   // View safety check
   useEffect(() => {
@@ -75,8 +96,7 @@ const Bookings = () => {
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text} selection:bg-[#C9A25D] selection:text-white`}>
       {/* 
-        FIX: Removed local @import of fonts to prevent double-loading/bolding.
-        Only keeping the scrollbar utility here.
+        Scrollbar utility
       */}
       <style>
         {`
