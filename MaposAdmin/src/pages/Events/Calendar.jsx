@@ -17,8 +17,7 @@ const FadeIn = ({ children }) => (
   <div className="animate-in fade-in duration-500 fill-mode-forwards">{children}</div>
 );
 
-// --- 1. VIEW EVENT MODAL (UPDATED) ---
-// Added 'darkMode' to props here vvv
+// --- 1. VIEW EVENT MODAL ---
 const ViewEventModal = ({ isOpen, onClose, eventId, theme, darkMode }) => {
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -337,8 +336,15 @@ const CalendarPage = () => {
 
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${theme.bg} ${theme.text}`}>
+      
+      {/* --- UPDATED STYLE BLOCK WITH NO-SCROLLBAR CLASS --- */}
       <style>{`
         .bg-stripes-dark { background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, #262626 10px, #262626 20px); }
+        
+        /* ADDED: Hide Scrollbars for 'no-scrollbar' class */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #57534e; border-radius: 2px; }
@@ -429,7 +435,7 @@ const CalendarPage = () => {
                       </button>
                     </div>
 
-                    {/* EVENT LIST */}
+                    {/* EVENT LIST - Uses 'no-scrollbar' class */}
                     <div className="flex-1 overflow-y-auto space-y-4 no-scrollbar">
                       {getEventsForDay(selectedDate).length > 0 ? (
                         getEventsForDay(selectedDate).map((event) => {
@@ -481,7 +487,7 @@ const CalendarPage = () => {
           onClose={() => setViewModalOpen(false)} 
           eventId={selectedEventId} 
           theme={theme}
-          darkMode={darkMode} // <--- Added this prop
+          darkMode={darkMode}
        />
     </div>
   );
