@@ -574,13 +574,13 @@ const verifyProposal = async (req, res) => {
 };
 
 
-// --- 8. CONFIRM SELECTION (UPDATED) ---
+// --- 8. CONFIRM SELECTION (UPDATED WITH CLIENT SYNC) ---
 const confirmSelection = async (req, res) => {
     try {
         const { 
             token, 
             selectedPackage, 
-            selectedAddOns, // <--- Receive Add-ons
+            selectedAddOns, 
             paymentDetails, 
             clientNotes 
         } = req.body;
@@ -599,15 +599,14 @@ const confirmSelection = async (req, res) => {
             const bookingDoc = bookingSnap.docs[0];
             const currentData = bookingDoc.data();
             
-            // Format Notes: Append new client notes to existing notes without overwriting
+            // Format Notes
             let updatedNotes = currentData.notes || "";
             if (clientNotes) {
                 const timeStamp = new Date().toLocaleDateString();
                 updatedNotes += `\n\n[Client Note - ${timeStamp}]: ${clientNotes}`;
             }
 
-            // Calculate New Total Cost (Package Price + Add-ons)
-            // Ensure inputs are numbers
+            // Calculate New Total Cost
             const pkgPrice = Number(selectedPackage.pricePerHead) * Number(currentData.eventDetails.pax || 0);
             const addOnsTotal = Array.isArray(selectedAddOns) 
                 ? selectedAddOns.reduce((sum, item) => sum + (Number(item.price) || 0), 0)
@@ -618,19 +617,31 @@ const confirmSelection = async (req, res) => {
             batch.update(bookingDoc.ref, {
                 "bookingStatus": "Verifying", 
                 "notes": updatedNotes,
-                
-                // Update Package Name
                 "eventDetails.package": selectedPackage.name,
-                
-                // --- SAVE ADD-ONS HERE ---
                 "eventDetails.addOns": selectedAddOns || [], 
-
-                // Update Billing
                 "billing.totalCost": newTotalCost,
-                "billing.remainingBalance": newTotalCost - (currentData.billing.amountPaid || 0), // Adjust logic if they just paid
-
+                "billing.remainingBalance": newTotalCost - (currentData.billing.amountPaid || 0),
                 updatedAt: new Date().toISOString()
             });
+
+            // ============================================================
+            // START: UPDATE CLIENT COLLECTION LOGIC
+            // ============================================================
+            // If the client exists (referenced by clientRefId), update their 
+            // master record with the Name and Phone from THIS booking.
+            if (currentData.clientRefId) {
+                const clientRef = db.collection("clients").doc(currentData.clientRefId);
+                
+                // We use batch.update to ensure this happens atomically with the booking update
+                batch.update(clientRef, {
+                    "profile.name": currentData.profile.name, // Update Name
+                    "profile.contactNumber": currentData.profile.contactNumber, // Update Phone
+                    "updatedAt": new Date().toISOString()
+                });
+            }
+            // ============================================================
+            // END: UPDATE CLIENT COLLECTION LOGIC
+            // ============================================================
         }
 
         // 2. Create Payment Record
@@ -645,11 +656,11 @@ const confirmSelection = async (req, res) => {
             accountNumber: paymentDetails?.accountNumber,
             referenceNumber: paymentDetails?.refNumber,
             status: "Pending",
-            notes: clientNotes || "", // Save notes in payment record too for easy reference
+            notes: clientNotes || "", 
             submittedAt: new Date().toISOString()
         });
 
-        // 3. Mark Proposal as Accepted (Optional but good for tracking)
+        // 3. Mark Proposal as Accepted
         batch.update(proposalDoc.ref, {
             status: "Accepted",
             selectedPackageName: selectedPackage.name,
