@@ -20,12 +20,16 @@ const createInquiry = async (req, res) => {
         const data = req.body;
         const batch = db.batch();
 
-        // Generate Readable ID
-        const bookingSnapshot = await db.collection("bookings")
-            .orderBy("bookingId", "desc")
-            .limit(1)
-            .get();
+        // 1. WALK-IN EMAIL LOGIC
+        let clientEmail = data.email;
+        const isWalkIn = !data.email; 
+        if (isWalkIn) {
+            const cleanPhone = data.phone.replace(/[^0-9]/g, '');
+            clientEmail = `no-email-${cleanPhone}@mapos-system.local`;
+        }
 
+        // 2. GENERATE ID
+        const bookingSnapshot = await db.collection("bookings").orderBy("bookingId", "desc").limit(1).get();
         let newBookingNum = 1;
         if (!bookingSnapshot.empty) {
             const lastDoc = bookingSnapshot.docs[0].data();
@@ -39,25 +43,23 @@ const createInquiry = async (req, res) => {
         }
         const readableBookingId = `BK-${newBookingNum.toString().padStart(3, "0")}`;
 
-        // Client Logic
+        // 3. CLIENT CREATION/LOOKUP
         let readableClientId;
         let clientDocId;
+        let clientQuery;
 
-        const clientQuery = await db.collection("clients")
-            .where("profile.email", "==", data.email)
-            .limit(1)
-            .get();
+        if (!isWalkIn) {
+             clientQuery = await db.collection("clients").where("profile.email", "==", clientEmail).limit(1).get();
+        } else {
+             clientQuery = await db.collection("clients").where("profile.contactNumber", "==", data.phone).limit(1).get();
+        }
 
         if (!clientQuery.empty) {
             const clientDoc = clientQuery.docs[0];
             clientDocId = clientDoc.id;
             readableClientId = clientDoc.data().clientId;
         } else {
-            const clientSnapshot = await db.collection("clients")
-                .orderBy("clientId", "desc")
-                .limit(1)
-                .get();
-
+            const clientSnapshot = await db.collection("clients").orderBy("clientId", "desc").limit(1).get();
             let newClientNum = 1;
             if (!clientSnapshot.empty) {
                 const lastClient = clientSnapshot.docs[0].data();
@@ -69,34 +71,39 @@ const createInquiry = async (req, res) => {
                     }
                 }
             }
-
             readableClientId = `CL-${newClientNum.toString().padStart(3, "0")}`;
             const newClientRef = db.collection("clients").doc();
             clientDocId = newClientRef.id;
-
             batch.set(newClientRef, {
                 clientId: readableClientId,
-                profile: {
-                    name: data.name,
-                    email: data.email,
-                    contactNumber: data.phone || ""
-                },
+                profile: { name: data.name, email: clientEmail, contactNumber: data.phone || "" },
+                isWalkIn: isWalkIn,
                 createdAt: new Date().toISOString()
             });
         }
 
-        // Create Booking
+        // 4. CREATE BOOKING
+        const isPaid = data.paymentStatus === 'Paid';
+        const resFee = data.reservationFee || 5000;
+        const amountPaid = isPaid ? resFee : 0;
+        const totalCost = data.totalCost || 0;
+        const balance = totalCost - amountPaid;
+
         const bookingRef = db.collection("bookings").doc();
         const bookingData = {
             bookingId: readableBookingId,
             clientRefId: clientDocId,
             clientId: readableClientId,
-            bookingStatus: "Pending",
+            
+            // --- STATUS LOGIC ---
+            bookingStatus: data.bookingStatus || "Pending", 
+            
             profile: {
                 name: data.name,
-                email: data.email,
+                email: clientEmail,
                 contactNumber: data.phone || ""
             },
+            isWalkIn: isWalkIn, 
             eventDetails: {
                 date: data.date,
                 startTime: data.startTime,
@@ -108,21 +115,42 @@ const createInquiry = async (req, res) => {
                 serviceStyle: data.serviceStyle,
                 eventType: data.eventType,
                 package: null,
-                addOns: {}
+                
+                // --- SAVE ADD-ONS ---
+                addOns: data.addOns || [] 
             },
             billing: {
-                totalCost: 0,
-                fiftyPercentPaymentStatus: "Unpaid",
+                totalCost: totalCost,
+                amountPaid: amountPaid, 
+                remainingBalance: balance,
+                paymentStatus: data.paymentStatus || "Unpaid", 
                 fullPaymentStatus: "Unpaid",
-                amountPaid: 0,
-                remainingBalance: 0,    
-                paymentStatus: "Unpaid"
+                fiftyPercentPaymentStatus: "Unpaid"
             },
-            notes: "",
+            notes: data.notes || "",
             createdAt: new Date().toISOString()
         };
 
         batch.set(bookingRef, bookingData);
+        
+        // --- CREATE PAYMENT RECORD (If Reserved/Paid) ---
+        if (isPaid) {
+            const paymentRef = db.collection("payments").doc();
+            batch.set(paymentRef, {
+                paymentId: paymentRef.id,
+                bookingId: readableBookingId,
+                clientName: data.name,
+                clientEmail: clientEmail, // Will sort by bookingId mostly anyway
+                amount: resFee,
+                date: new Date().toLocaleDateString(),
+                status: "Verified", // Walk-ins are verified immediately
+                method: "Cash/Walk-in",
+                accountName: "Walk-in Payment",
+                refNumber: "WALKIN-" + Date.now().toString().slice(-6), // Auto-gen ref number
+                submittedAt: new Date().toISOString()
+            });
+        }
+
         await batch.commit();
 
         res.status(200).json({

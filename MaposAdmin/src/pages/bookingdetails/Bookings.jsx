@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 import Sidebar from "../../components/layout/Sidebar";
 import DashboardNavbar from "../../components/layout/Navbar";
 import BookingList from "./BookingList";
-import NewBookingModal from "./NewBookingModal";
 import BookingDetails from "./bookingdetails/Bookingdetails";
 
 // --- IMPORT THE HOOK ---
@@ -127,13 +126,6 @@ const Bookings = () => {
           />
         )}
       </main>
-
-      <NewBookingModal
-        isOpen={isNewBookingOpen}
-        onClose={() => setIsNewBookingOpen(false)}
-        onSave={handleSaveBooking}
-        theme={theme}
-      />
     </div>
   );
 };

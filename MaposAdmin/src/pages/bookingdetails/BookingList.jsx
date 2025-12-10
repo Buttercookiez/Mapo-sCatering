@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { 
   Filter, 
-  Plus, 
   ChevronRight, 
   ChevronDown,
   Loader2, 
@@ -19,7 +18,7 @@ const BookingList = ({
   bookings,
   isLoading,
   onSelectBooking,
-  onOpenNewBooking,
+  // onOpenNewBooking, // Prop no longer needed here if button is gone
   theme,
   darkMode,
 }) => {
@@ -69,7 +68,6 @@ const BookingList = ({
       <div className="flex-none">
         <BookingHeader 
             theme={theme} 
-            onOpenNewBooking={onOpenNewBooking}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             statusFilter={statusFilter}
@@ -107,7 +105,7 @@ const BookingList = ({
                             <Inbox size={24} className="text-stone-400" />
                         </div>
                         <h3 className={`font-serif text-xl ${theme.text}`}>No bookings found</h3>
-                        <p className={`text-xs mt-2 ${theme.subText}`}>Create a new booking to get started.</p>
+                        <p className={`text-xs mt-2 ${theme.subText}`}>Wait for new inquiries to arrive.</p>
                     </div>
                 ) : filteredBookings.length === 0 ? (
                     // Empty State: No results from search/filter
@@ -195,7 +193,7 @@ const StatusFilterDropdown = ({ currentFilter, onSelect, theme, darkMode }) => {
       ? "All Statuses" 
       : STATUS_CONFIG[currentFilter]?.label || "Unknown";
   
-    // Dropdown Background Logic (Hardcoded specifically to ensure opacity/color is correct on top of card)
+    // Dropdown Background Logic
     const dropdownBg = darkMode ? "bg-[#1c1c1c]" : "bg-white";
     const hoverBg = darkMode ? "hover:bg-stone-800" : "hover:bg-stone-50";
   
@@ -250,7 +248,6 @@ const StatusFilterDropdown = ({ currentFilter, onSelect, theme, darkMode }) => {
 // --- HEADER COMPONENT ---
 const BookingHeader = ({ 
   theme, 
-  onOpenNewBooking, 
   searchQuery, 
   setSearchQuery, 
   statusFilter, 
@@ -295,14 +292,6 @@ const BookingHeader = ({
         theme={theme}
         darkMode={darkMode}
       />
-
-      {/* New Booking Button */}
-      <button
-        onClick={onOpenNewBooking}
-        className="flex items-center justify-center gap-2 bg-[#1c1c1c] text-white px-6 py-2.5 text-[10px] uppercase tracking-widest hover:bg-[#C9A25D] transition-colors rounded-sm shadow-md min-w-[140px]"
-      >
-        <Plus size={14} /> New Booking
-      </button>
     </div>
   </div>
 );
