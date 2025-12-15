@@ -37,11 +37,6 @@ export const STATUS_CONFIG = {
     color: 'text-yellow-600 bg-yellow-50 border-yellow-200 dark:text-yellow-400 dark:bg-yellow-500/10 dark:border-yellow-500/20',
     icon: <AlertCircle size={10} />
   },
-  PENDING_REVIEW: { 
-    label: 'Pending',
-    color: 'text-yellow-600 bg-yellow-50 border-yellow-200 dark:text-yellow-400 dark:bg-yellow-500/10 dark:border-yellow-500/20',
-    icon: <AlertCircle size={10} />
-  },
   
   // Admin Decisions (Negative)
   REJECTED: {

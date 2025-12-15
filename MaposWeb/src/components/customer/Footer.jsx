@@ -1,6 +1,6 @@
 // src/components/customer/Footer.jsx
 import React from 'react';
-import { Instagram, Facebook, Mail } from 'lucide-react';
+import { Facebook, Mail } from 'lucide-react';
 
 const Footer = ({ darkMode }) => {
   return (
@@ -17,9 +17,6 @@ const Footer = ({ darkMode }) => {
           
           <div className="flex flex-col items-center md:items-end gap-4">
             <div className="flex gap-4 text-white">
-              <a href="#" className="hover:text-[#C9A25D] transition-colors">
-                <Instagram className="w-5 h-5" />
-              </a>
               <a href="https://www.facebook.com/maposcatering" className="hover:text-[#C9A25D] transition-colors">
                 <Facebook className="w-5 h-5" />
               </a>
