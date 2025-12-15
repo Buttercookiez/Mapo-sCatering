@@ -42,7 +42,11 @@ const Navbar = ({ darkMode, setDarkMode, isScrolled }) => {
       : (isScrolled && !darkMode ? 'text-stone-900' : 'text-white'),
     
     // Menu Overlay Colors
-    overlayBg: darkMode ? 'bg-[#1a1a1a]' : 'bg-[#F2F0EB]',
+    // UPDATED: Mobile uses "Repo" colors (#0c0c0c / #FAFAFA), Desktop (md:) uses your original colors.
+    overlayBg: darkMode 
+      ? 'bg-[#0c0c0c] md:bg-[#1a1a1a]' 
+      : 'bg-[#FAFAFA] md:bg-[#F2F0EB]',
+    
     overlayText: darkMode ? 'text-stone-200' : 'text-stone-800',
   };
 
@@ -113,7 +117,8 @@ const Navbar = ({ darkMode, setDarkMode, isScrolled }) => {
 
       {/* --- Menu Overlay (Animation based on Reference Code) --- */}
       <div 
-        className={`fixed inset-0 h-screen w-screen ${theme.overlayBg} flex flex-col items-center justify-center z-40`}
+        // UPDATED: Changed h-screen to h-[100dvh] for better mobile background coverage
+        className={`fixed inset-0 h-[100dvh] w-screen ${theme.overlayBg} flex flex-col items-center justify-center z-40`}
         style={{
           // Logic: "ellipse(150% 150% at 50% 50%)" is OPEN (Fullscreen)
           // Logic: "ellipse(150% 100% at 50% -100%)" is CLOSED (Hidden Top)
