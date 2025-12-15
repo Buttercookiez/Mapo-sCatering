@@ -52,11 +52,13 @@ const Navbar = ({ darkMode, setDarkMode, isScrolled }) => {
     <>
       {/* --- Navbar Container --- */}
       <nav
-        className={`fixed top-0 left-0 w-full z-50 py-6 transition-all duration-[1000ms] ease-[cubic-bezier(0.76,0,0.24,1)] ${
+        // UPDATED: Changed py-6 to py-4 md:py-6 (Smaller height on mobile)
+        className={`fixed top-0 left-0 w-full z-50 py-4 md:py-6 transition-all duration-[1000ms] ease-[cubic-bezier(0.76,0,0.24,1)] ${
           isVisible ? 'translate-y-0' : '-translate-y-full'
-        } ${theme.navBackground}`} // Apply dynamic background here
+        } ${theme.navBackground}`}
       >
-        <div className="w-full px-8 md:px-20 flex justify-between items-center">
+        {/* UPDATED: Changed px-8 to px-6 md:px-20 (Slightly less padding on sides for mobile) */}
+        <div className="w-full px-6 md:px-20 flex justify-between items-center">
           
           {/* --- Logo --- */}
           <Link 
@@ -67,13 +69,15 @@ const Navbar = ({ darkMode, setDarkMode, isScrolled }) => {
               setMenuOpen(false);
             }} 
           >
-            <h1 className="text-2xl md:text-3xl font-serif font-light tracking-widest uppercase cursor-pointer select-none">
+            {/* UPDATED: Changed text-2xl to text-xl md:text-3xl (Smaller logo text on mobile) */}
+            <h1 className="text-xl md:text-3xl font-serif font-light tracking-widest uppercase cursor-pointer select-none">
               Mapo's
             </h1>
           </Link>
 
           {/* --- Right: Controls --- */}
-          <div className={`flex items-center gap-6 z-50 transition-colors duration-500 ${theme.text}`}>
+          {/* UPDATED: Changed gap-6 to gap-4 md:gap-6 (Closer together on mobile) */}
+          <div className={`flex items-center gap-4 md:gap-6 z-50 transition-colors duration-500 ${theme.text}`}>
             
             {/* 1. Theme Toggle */}
             <button 
