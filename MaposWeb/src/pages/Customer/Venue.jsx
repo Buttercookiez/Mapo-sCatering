@@ -453,13 +453,15 @@ const Venue = () => {
                       </div>
                     </div>
 
-                    <button 
-                      onClick={() => navigate('/booking')}
+                <a 
+                      href="https://www.facebook.com/maposcatering"
+                      target="_blank" 
+                      rel="noopener noreferrer"
                       className={`group flex items-center gap-3 text-xs tracking-[0.25em] uppercase font-bold ${theme.text} hover:text-[#C9A25D] transition-colors`}
                     >
                       Book This Space
                       <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform duration-300" />
-                    </button>
+                    </a>
                   </FadeIn>
                 </div>
 
@@ -517,12 +519,18 @@ const Venue = () => {
               <p className={`${theme.subText} mb-10 max-w-lg mx-auto font-light text-lg`}>
                 Schedule a private tour with our venue coordinator to visualize your event in our spaces.
               </p>
-              <button 
-                onClick={() => navigate('/booking')}
-                className={`px-12 py-4 ${darkMode ? 'bg-white text-stone-900 hover:bg-[#C9A25D] hover:text-white' : 'bg-stone-900 text-white hover:bg-[#C9A25D]'} text-xs tracking-[0.25em] uppercase font-bold shadow-xl transition-all duration-300`}
+             <a 
+                href="https://www.facebook.com/maposcatering"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-block px-12 py-4 ${
+                  darkMode 
+                    ? 'bg-stone-50 text-stone-900 hover:bg-[#C9A25D] hover:text-white' 
+                    : 'bg-stone-900 text-white hover:bg-[#C9A25D] hover:text-white'
+                } text-xs tracking-[0.25em] uppercase font-bold shadow-xl transition-all duration-300`}
               >
                 Schedule a Tour
-              </button>
+              </a>
             </FadeIn>
           </div>
         </section>

@@ -8,15 +8,21 @@ const Navbar = ({ darkMode, setDarkMode, isScrolled }) => {
   const [isVisible, setIsVisible] = useState(false);
   const location = useLocation();
 
+  // Updated navLinks to include external link flag
   const navLinks = [
-    { name: 'Home', path: '/' },
-    { name: 'About', path: '/about' },
-    { name: 'Venue', path: '/venue' },
-    { name: 'Booking', path: '/booking' },
+    { name: 'Home', path: '/', isExternal: false },
+    { name: 'About', path: '/about', isExternal: false },
+    { name: 'Venue', path: '/venue', isExternal: false },
+    { 
+      name: 'Booking', 
+      path: 'https://www.facebook.com/maposcatering', 
+      isExternal: true 
+    },
   ];
 
   const handleNavClick = () => {
-    window.scrollTo(0, 0);
+    // Only scroll to top if it's an internal link (optional, but good practice)
+    if (!menuOpen) window.scrollTo(0, 0);
     setMenuOpen(false);
   };
 
@@ -54,7 +60,10 @@ const Navbar = ({ darkMode, setDarkMode, isScrolled }) => {
           <Link 
             to="/" 
             className={`relative z-50 transition-colors duration-500 ${theme.text}`}
-            onClick={handleNavClick} 
+            onClick={() => {
+              window.scrollTo(0, 0);
+              setMenuOpen(false);
+            }} 
           >
             <h1 className="text-2xl md:text-3xl font-serif font-light tracking-widest uppercase cursor-pointer select-none">
               Mapo's
@@ -115,22 +124,44 @@ const Navbar = ({ darkMode, setDarkMode, isScrolled }) => {
         }}
       >
         <div className="flex flex-col items-center gap-6">
-          {navLinks.map((item, i) => (
-            <div key={item.name} className="overflow-hidden">
-                <Link 
-                  to={item.path} 
-                  className={`block text-5xl md:text-7xl font-serif italic ${theme.overlayText} hover:text-[#C9A25D] transition-transform duration-[800ms] ease-[cubic-bezier(0.76,0,0.24,1)]`}
-                  style={{ 
-                    // Staggered slide up/down inside the overlay
-                    transform: menuOpen ? 'translateY(0)' : 'translateY(100%)',
-                    transitionDelay: `${100 + (i * 50)}ms`
-                  }} 
-                  onClick={handleNavClick} 
-                >
-                  {item.name}
-                </Link>
-            </div>
-          ))}
+          {navLinks.map((item, i) => {
+            const commonClasses = `block text-5xl md:text-7xl font-serif italic ${theme.overlayText} hover:text-[#C9A25D] transition-transform duration-[800ms] ease-[cubic-bezier(0.76,0,0.24,1)]`;
+            const commonStyles = {
+               transform: menuOpen ? 'translateY(0)' : 'translateY(100%)',
+               transitionDelay: `${100 + (i * 50)}ms`
+            };
+
+            return (
+              <div key={item.name} className="overflow-hidden">
+                {item.isExternal ? (
+                  /* External Link (Booking) */
+                  <a 
+                    href={item.path}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={commonClasses}
+                    style={commonStyles}
+                    onClick={handleNavClick}
+                  >
+                    {item.name}
+                  </a>
+                ) : (
+                  /* Internal Router Link */
+                  <Link 
+                    to={item.path} 
+                    className={commonClasses}
+                    style={commonStyles}
+                    onClick={() => {
+                      window.scrollTo(0, 0);
+                      handleNavClick();
+                    }} 
+                  >
+                    {item.name}
+                  </Link>
+                )}
+              </div>
+            );
+          })}
         </div>
         
         <div className={`absolute bottom-10 text-[10px] uppercase tracking-widest opacity-50 ${theme.overlayText} transition-opacity duration-700 delay-500 ${menuOpen ? 'opacity-50' : 'opacity-0'}`}>

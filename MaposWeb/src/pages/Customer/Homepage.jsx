@@ -278,7 +278,7 @@ const Homepage = () => {
               </div>
             </h1>
 
-            <FadeIn delay={2000}>
+          <FadeIn delay={2000}>
               <div className="max-w-md mx-auto">
                 <p className="text-white/90 text-sm md:text-base font-light leading-relaxed tracking-wide mb-10 max-w-4xl mx-auto">
                   Delicious moments, unforgettable memories.
@@ -286,12 +286,19 @@ const Homepage = () => {
                   We cater to your cravings, big or small.
                 </p>
 
-                <button
-                  onClick={() => navigate('/booking')}
-                  className="px-10 py-4 bg-white text-stone-900 text-xs tracking-[0.25em] uppercase hover:bg-[#C9A25D] hover:text-white transition-all duration-500 shadow-xl font-bold"
+                {/* 
+                   UPDATED BUTTON 
+                   1. Changed 'bg-white' to 'bg-stone-50' to bypass your App.css !important rule.
+                   2. Exact padding (px-12 py-4) to match the Venue 'Schedule a Tour' button.
+                */}
+                <a
+                  href="https://www.facebook.com/maposcatering"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block px-12 py-4 bg-stone-50 text-stone-900 hover:bg-[#C9A25D] hover:text-white text-xs tracking-[0.25em] uppercase font-bold shadow-xl transition-all duration-300"
                 >
                   Inquire Now
-                </button>
+                </a>
               </div>
             </FadeIn>
           </div>

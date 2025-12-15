@@ -417,13 +417,15 @@ const AboutUs = () => {
                 <p className={`${theme.subText} font-light mb-8 text-lg`}>
                   A kitchen is only as good as its hands. Our hierarchy ensures that every aspect of your meal from the main course to the dessert is handled by a specialist.
                 </p>
-                <button 
-                  onClick={() => navigate('/booking')} 
-                  className={`group flex items-center gap-2 text-xs tracking-[0.2em] uppercase border-b border-[#C9A25D] pb-1 ${theme.text} hover:text-[#C9A25D] transition-colors font-bold`}
+                <a 
+                  href="https://www.facebook.com/maposcatering"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`group inline-flex items-center gap-2 text-xs tracking-[0.2em] uppercase border-b border-[#C9A25D] pb-2 ${theme.text} hover:text-[#C9A25D] transition-colors font-bold`}
                 >
                   Book a Tasting
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                </button>
+                </a>
               </FadeIn>
             </div>
 
