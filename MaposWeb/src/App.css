@@ -95,3 +95,8 @@ input, select, textarea, button {
     transform: rotate(360deg);
   }
 }
+
+/* --- REMOVE MOBILE BLUE TAP HIGHLIGHT --- */
+* {
+  -webkit-tap-highlight-color: transparent;
+}

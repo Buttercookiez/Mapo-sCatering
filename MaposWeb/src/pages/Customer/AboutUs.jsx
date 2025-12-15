@@ -31,7 +31,7 @@ const StaggeredText = ({ text, className = "", delay = 0 }) => {
   return (
     <span ref={ref} className={`inline-block ${className} leading-tight`}>
       {words.map((word, i) => (
-        <span key={i} className="inline-block overflow-hidden align-bottom mr-[0.35em]">
+        <span key={i} className="inline-block overflow-hidden align-bottom mr-[0.25em] last:mr-0">
           <span
             className={`inline-block transition-transform duration-[1000ms] ease-[cubic-bezier(0.76,0,0.24,1)] will-change-transform ${
               isVisible ? 'translate-y-0' : 'translate-y-[110%]'
@@ -190,7 +190,6 @@ const AboutUs = () => {
     if (Math.abs(deltaY) > 50) { /* Mobile logic */ }
   };
 
-
   // --- Theme Objects ---
   const theme = {
     bg: darkMode ? 'bg-[#0c0c0c]' : 'bg-[#FAFAFA]',
@@ -259,16 +258,17 @@ const AboutUs = () => {
             <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80"></div>
           </div>
 
-          <div className="relative z-10 text-center px-4 md:px-6 max-w-5xl mx-auto flex flex-col items-center justify-center h-full pb-16 md:pb-0">
+          <div className="relative z-10 w-full px-4 md:px-6 max-w-5xl mx-auto flex flex-col items-center justify-center h-full pb-16 md:pb-0">
             <FadeIn delay={1000}>
+              {/* REMOVED pr-12 here which was causing the shift */}
               <div className="flex justify-center w-full">
-                <span className="text-[#C9A25D] text-sm md:text-base tracking-[0.3em] uppercase font-medium mb-4 md:mb-6 text-center pr-12">
+                <span className="text-[#C9A25D] text-sm md:text-base tracking-[0.3em] uppercase font-medium mb-4 md:mb-6 text-center">
                   Established 2004
                 </span>
               </div>
             </FadeIn>
             
-            <h1 className="font-serif text-6xl sm:text-7xl md:text-8xl lg:text-9xl text-white leading-[0.9] mb-6 md:mb-8 font-thin drop-shadow-2xl flex flex-col items-center">
+            <h1 className="font-serif text-6xl sm:text-7xl md:text-8xl lg:text-9xl text-white leading-[0.9] mb-6 md:mb-8 font-thin drop-shadow-2xl flex flex-col items-center justify-center text-center w-full">
               <div className="block overflow-hidden">
                   <StaggeredText text="Heart &" delay={1400} />
               </div>
@@ -413,7 +413,6 @@ const AboutUs = () => {
                     <StaggeredText text="Masters" />
                   </span>
                 </h2>
-                {/* REMOVED DASHES IN THIS PARAGRAPH AS REQUESTED */}
                 <p className={`${theme.subText} font-light mb-8 text-lg`}>
                   A kitchen is only as good as its hands. Our hierarchy ensures that every aspect of your meal from the main course to the dessert is handled by a specialist.
                 </p>

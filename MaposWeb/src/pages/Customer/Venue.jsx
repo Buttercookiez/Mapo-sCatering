@@ -401,7 +401,7 @@ const Venue = () => {
                       {venue.description}
                     </p>
 
-                     {/* SOCIAL ICONS */}
+                     {/* SOCIAL ICONS (UPDATED: REMOVED "hidden md:block" so words show on mobile) */}
                     <div className="flex gap-4 mb-8">
                       {venue.socials && (
                         <>
@@ -415,7 +415,7 @@ const Venue = () => {
                               <div className={`p-2 rounded-full border ${theme.border} group-hover/social:border-[#C9A25D]`}>
                                 <Facebook className="w-4 h-4" />
                               </div>
-                              <span className="hidden md:block">Facebook</span>
+                              <span className="block">Facebook</span>
                             </a>
                           )}
                           {venue.socials.instagram && venue.socials.instagram !== "#" && (
@@ -428,7 +428,7 @@ const Venue = () => {
                               <div className={`p-2 rounded-full border ${theme.border} group-hover/social:border-[#C9A25D]`}>
                                 <Instagram className="w-4 h-4" />
                               </div>
-                              <span className="hidden md:block">Instagram</span>
+                              <span className="block">Instagram</span>
                             </a>
                           )}
                         </>

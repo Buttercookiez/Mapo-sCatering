@@ -8,7 +8,6 @@ const Navbar = ({ darkMode, setDarkMode, isScrolled }) => {
   const [isVisible, setIsVisible] = useState(false);
   const location = useLocation();
 
-  // Updated navLinks to include external link flag
   const navLinks = [
     { name: 'Home', path: '/', isExternal: false },
     { name: 'About', path: '/about', isExternal: false },
@@ -21,12 +20,11 @@ const Navbar = ({ darkMode, setDarkMode, isScrolled }) => {
   ];
 
   const handleNavClick = () => {
-    // Only scroll to top if it's an internal link (optional, but good practice)
     if (!menuOpen) window.scrollTo(0, 0);
     setMenuOpen(false);
   };
 
-  // Entry Animation: Slides down after the preloader finishes
+  // Entry Animation
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsVisible(true);
@@ -36,17 +34,17 @@ const Navbar = ({ darkMode, setDarkMode, isScrolled }) => {
 
   // Theme Logic
   const theme = {
-    // Dynamic text color based on menu state or scroll
+    // UPDATED: When menu is open, make the top bar transparent so it blends with the overlay
+    navBackground: menuOpen 
+      ? 'bg-transparent' 
+      : (isScrolled ? (darkMode ? 'bg-[#0c0c0c]/90' : 'bg-stone-50/90') : 'bg-transparent'),
+
+    // Text color logic
     text: menuOpen 
       ? (darkMode ? 'text-stone-200' : 'text-stone-800') 
       : (isScrolled && !darkMode ? 'text-stone-900' : 'text-white'),
     
-    // Menu Overlay Colors
-    // UPDATED: Mobile uses "Repo" colors (#0c0c0c / #FAFAFA), Desktop (md:) uses your original colors.
-    overlayBg: darkMode 
-      ? 'bg-[#0c0c0c] md:bg-[#1a1a1a]' 
-      : 'bg-[#FAFAFA] md:bg-[#F2F0EB]',
-    
+    // Overlay Text Color
     overlayText: darkMode ? 'text-stone-200' : 'text-stone-800',
   };
 
@@ -54,9 +52,9 @@ const Navbar = ({ darkMode, setDarkMode, isScrolled }) => {
     <>
       {/* --- Navbar Container --- */}
       <nav
-        className={`fixed top-0 left-0 w-full z-50 py-6 transition-transform duration-[1000ms] ease-[cubic-bezier(0.76,0,0.24,1)] ${
+        className={`fixed top-0 left-0 w-full z-50 py-6 transition-all duration-[1000ms] ease-[cubic-bezier(0.76,0,0.24,1)] ${
           isVisible ? 'translate-y-0' : '-translate-y-full'
-        }`}
+        } ${theme.navBackground}`} // Apply dynamic background here
       >
         <div className="w-full px-8 md:px-20 flex justify-between items-center">
           
@@ -85,7 +83,7 @@ const Navbar = ({ darkMode, setDarkMode, isScrolled }) => {
               {darkMode ? <Sun className="w-5 h-5" strokeWidth={1.5} /> : <Moon className="w-5 h-5" strokeWidth={1.5} />}
             </button>
 
-            {/* 2. Hamburger (Fixed Uniformity) */}
+            {/* 2. Hamburger */}
             <button 
               onClick={() => setMenuOpen(!menuOpen)} 
               className="group w-10 h-10 flex flex-col justify-center items-center gap-[6px] hover:opacity-60 transition-opacity duration-300"
@@ -115,13 +113,14 @@ const Navbar = ({ darkMode, setDarkMode, isScrolled }) => {
         </div>
       </nav>
 
-      {/* --- Menu Overlay (Animation based on Reference Code) --- */}
+      {/* --- Menu Overlay --- */}
       <div 
-        // UPDATED: Changed h-screen to h-[100dvh] for better mobile background coverage
-        className={`fixed inset-0 h-[100dvh] w-screen ${theme.overlayBg} flex flex-col items-center justify-center z-40`}
+        className="fixed inset-0 h-[100dvh] w-screen flex flex-col items-center justify-center z-40"
         style={{
-          // Logic: "ellipse(150% 150% at 50% 50%)" is OPEN (Fullscreen)
-          // Logic: "ellipse(150% 100% at 50% -100%)" is CLOSED (Hidden Top)
+          // FORCE BACKGROUND COLOR HERE TO BYPASS APP.CSS
+          backgroundColor: darkMode ? '#0c0c0c' : '#FAFAFA', 
+          
+          // Animation Logic
           clipPath: menuOpen 
             ? 'ellipse(150% 150% at 50% 50%)' 
             : 'ellipse(150% 100% at 50% -100%)',
@@ -139,7 +138,7 @@ const Navbar = ({ darkMode, setDarkMode, isScrolled }) => {
             return (
               <div key={item.name} className="overflow-hidden">
                 {item.isExternal ? (
-                  /* External Link (Booking) */
+                  /* External Link */
                   <a 
                     href={item.path}
                     target="_blank"
@@ -151,7 +150,7 @@ const Navbar = ({ darkMode, setDarkMode, isScrolled }) => {
                     {item.name}
                   </a>
                 ) : (
-                  /* Internal Router Link */
+                  /* Internal Link */
                   <Link 
                     to={item.path} 
                     className={commonClasses}
